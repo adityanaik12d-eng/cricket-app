@@ -1,0 +1,21 @@
+{
+  "name": "@cricket-app/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "start": "node --experimental-strip-types src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cricket-app/core": "*",
+    "fastify": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "typescript": "5.6.2",
+    "vitest": "2.1.1"
+  }
+}

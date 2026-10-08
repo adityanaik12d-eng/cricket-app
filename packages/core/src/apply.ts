@@ -9,6 +9,7 @@ import type {
   MatchState,
 } from './types.js'
 import { currentInnings, emptyInnings, emptyState } from './state.js'
+import { EngineError } from './errors.js'
 import { isLegalDelivery, validateDelivery } from './validate.js'
 import { oversToBalls } from './overs.js'
 
@@ -201,7 +202,7 @@ export function applyEvent(config: MatchConfig, state: MatchState, event: MatchE
   if (event.type === 'BALL') {
     const validation = validateDelivery(config, state, event)
     if (!validation.ok) {
-      throw new Error(validation.error.message)
+      throw new EngineError(validation.error.code, validation.error.message)
     }
   }
 

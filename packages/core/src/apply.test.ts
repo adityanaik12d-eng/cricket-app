@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyEvents, applyEvent } from './apply.js'
+import { EngineError } from './errors.js'
 import { withDefaults } from './config.js'
 import { emptyInnings, emptyState } from './state.js'
 import type { MatchConfig, MatchState, BallEvent, TossEvent } from './types.js'
@@ -430,5 +431,39 @@ describe('apply: ball scoring', () => {
   it('counts sixes', () => {
     const state = applyEvent(baseConfig, started(), ball({ runs: 6 }))
     expect(state.innings[0].batters['a1']).toMatchObject({ runs: 6, sixes: 1 })
+  })
+})
+
+describe('apply: error reporting', () => {
+  it('throws EngineError carrying the validation code for an illegal delivery', () => {
+    const started2 = started()
+    const afterFirst = applyEvent(baseConfig, started2, ball({ runs: 0 }))
+    let caught: unknown
+    try {
+      applyEvent(baseConfig, afterFirst, ball({ batterId: 'a3' }))
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(EngineError)
+    expect((caught as EngineError).code).toBe('POSITION')
+  })
+
+  it('throws EngineError for an unknown innings target on PENALTY', () => {
+    let caught: unknown
+    try {
+      applyEvent(baseConfig, started(), {
+        id: 'p1',
+        matchId: 'm1',
+        seq: 2,
+        ts: '2026-10-08T10:02:00.000Z',
+        type: 'PENALTY',
+        runs: 5,
+        teamId: 'Z',
+      })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toBe('No innings for penalised team')
   })
 })
