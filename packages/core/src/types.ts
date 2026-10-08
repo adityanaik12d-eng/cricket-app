@@ -149,3 +149,39 @@ export interface MatchState {
   lastSeq: number
   eventCount: number
 }
+
+export interface ThisOverBall {
+  label: string
+  text: string
+  wicket: boolean
+  runs: number
+}
+
+export interface OverRateIndicator {
+  ballsRemaining: number
+  minutesRemaining: number
+  projectedOvers: number
+  over: boolean
+}
+
+export interface LiveScore {
+  status: MatchStatus
+  inningsIndex: number
+  battingTeamId: string | null
+  bowlingTeamId: string | null
+  runs: number
+  wickets: number
+  oversText: string
+  oversDecimal: number
+  runRate: number
+  target: number | null
+  requiredRunRate: number | null
+  freeHit: boolean
+  declared: boolean
+  powerplay: boolean
+  ballsRemaining: number
+  thisOver: ThisOverBall[]
+  striker: BatterLine | null
+  nonStriker: BatterLine | null
+  bowler: BowlerLine | null
+}
