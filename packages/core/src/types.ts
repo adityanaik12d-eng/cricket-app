@@ -164,6 +164,54 @@ export interface OverRateIndicator {
   over: boolean
 }
 
+export interface BattingCardLine {
+  position: number
+  playerId: string
+  runs: number
+  balls: number
+  fours: number
+  sixes: number
+  out: boolean
+  dismissal: Dismissal | null
+  isStriker: boolean
+  isNonStriker: boolean
+}
+
+export interface BowlingCardLine {
+  playerId: string
+  balls: number
+  oversText: string
+  runs: number
+  wickets: number
+  wides: number
+  noBalls: number
+  economy: number
+  isCurrentBowler: boolean
+}
+
+export interface InningsCard {
+  index: number
+  battingTeamId: string
+  bowlingTeamId: string
+  runs: number
+  wickets: number
+  legalBalls: number
+  oversText: string
+  extras: number
+  runRate: number
+  batting: BattingCardLine[]
+  bowling: BowlingCardLine[]
+  yetToBat: string[]
+  declared: boolean
+  closed: boolean
+}
+
+export interface Scorecard {
+  status: MatchStatus
+  innings: InningsCard[]
+  result: MatchResult | null
+}
+
 export interface LiveScore {
   status: MatchStatus
   inningsIndex: number
