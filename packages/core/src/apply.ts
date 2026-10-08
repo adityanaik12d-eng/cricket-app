@@ -1,6 +1,15 @@
-import type { BallEvent, BatterLine, BowlerLine, InningsState, MatchConfig, MatchEvent, MatchState } from './types.js'
+import type {
+  BallEvent,
+  BatterLine,
+  BowlerLine,
+  InningsState,
+  MatchConfig,
+  MatchEvent,
+  MatchState,
+} from './types.js'
 import { currentInnings, emptyInnings, emptyState } from './state.js'
 import { isLegalDelivery, validateDelivery } from './validate.js'
+import { oversToBalls } from './overs.js'
 
 function ensureBatter(inn: InningsState, playerId: string): BatterLine {
   let line = inn.batters[playerId]
@@ -23,8 +32,50 @@ function ensureBowler(inn: InningsState, playerId: string): BowlerLine {
   return line
 }
 
-function applyBall(config: MatchConfig, inn: InningsState, event: BallEvent): void {
-  // Positions: the first delivery establishes the pair and bowler.
+function findNextBatter(config: MatchConfig, inn: InningsState): string | null {
+  const key = inn.battingTeamId === config.teamAId ? 'A' : 'B'
+  const played = new Set(inn.battingOrder)
+  for (const p of config.lineups[key]) {
+    if (!played.has(p)) return p
+  }
+  return null
+}
+
+function swapStrike(inn: InningsState): void {
+  const tmp = inn.strikerId
+  inn.strikerId = inn.nonStrikerId
+  inn.nonStrikerId = tmp
+}
+
+function applyWicket(config: MatchConfig, next: MatchState, inn: InningsState, event: BallEvent): void {
+  inn.wickets += 1
+  const outId = event.dismissedPlayerId ?? event.batterId
+  const outLine = ensureBatter(inn, outId)
+  outLine.out = true
+  outLine.dismissal = event.dismissal
+  outLine.outOnSeq = event.seq
+
+  const bowlerCredit =
+    event.dismissal !== null && event.dismissal !== 'RUN_OUT' && event.dismissal !== 'OBSTRUCTING'
+  if (bowlerCredit) {
+    ensureBowler(inn, event.bowlerId).wickets += 1
+  }
+
+  const incoming = findNextBatter(config, inn)
+  if (incoming) {
+    ensureBatter(inn, incoming)
+    if (outId === inn.strikerId) {
+      inn.strikerId = incoming
+    } else if (outId === inn.nonStrikerId) {
+      inn.nonStrikerId = incoming
+    } else {
+      inn.strikerId = incoming
+    }
+  }
+}
+
+function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, event: BallEvent): void {
+  // Positions: the first delivery of an innings establishes the pair and bowler.
   if (!inn.strikerId) {
     inn.strikerId = event.batterId
     inn.nonStrikerId = event.nonStrikerId
@@ -64,19 +115,84 @@ function applyBall(config: MatchConfig, inn: InningsState, event: BallEvent): vo
   if (event.extras === 'WIDE') bowler.wides += 1
   if (event.extras === 'NO_BALL') bowler.noBalls += 1
 
+  if (event.wicket) {
+    applyWicket(config, next, inn, event)
+  }
+
+  // Scoring from an innings break resumes play.
+  if (next.status === 'INNINGS_BREAK') {
+    next.status = 'IN_PROGRESS'
+  }
+
   // Strike rotation: odd runs run, then end of over.
   if (event.runs % 2 === 1) {
-    const tmp = inn.strikerId
-    inn.strikerId = inn.nonStrikerId
-    inn.nonStrikerId = tmp
+    swapStrike(inn)
   }
   if (legal && inn.legalBalls % config.ballsPerOver === 0) {
-    const tmp = inn.strikerId
-    inn.strikerId = inn.nonStrikerId
-    inn.nonStrikerId = tmp
+    swapStrike(inn)
     inn.lastOverBowlerId = event.bowlerId
     inn.currentBowlerId = null
   }
+}
+
+function chaseTarget(state: MatchState, inn: InningsState): number | null {
+  if (inn.index !== state.config.inningsCount - 1) return null
+  const first = state.innings[0]
+  if (!first || first === inn) return null
+  return first.runs + 1
+}
+
+/** Close the current innings if it is finished, and settle or advance the match. */
+function maybeEndInnings(config: MatchConfig, next: MatchState): void {
+  const inn = currentInnings(next)
+  if (!inn || inn.closed) return
+
+  const totalBalls = oversToBalls(config.oversPerInnings, config.ballsPerOver)
+  const target = chaseTarget(next, inn)
+  const chased = target !== null && inn.runs >= target
+  const allOut = inn.wickets >= config.maxWickets
+  const oversDone = inn.legalBalls >= totalBalls
+  if (!chased && !allOut && !oversDone && !inn.declared) return
+
+  inn.closed = true
+
+  if (chased) {
+    next.overrideResult = {
+      kind: 'WINNER',
+      teamId: inn.battingTeamId,
+      by: 'WICKETS',
+      amount: config.maxWickets - inn.wickets,
+    }
+    next.status = 'COMPLETED'
+    return
+  }
+
+  const isFinalInnings = inn.index >= config.inningsCount - 1
+  if (isFinalInnings) {
+    const first = next.innings[0]
+    if (first && first !== inn && next.innings.length >= 2) {
+      const diff = inn.runs - first.runs
+      if (diff > 0) {
+        next.overrideResult = { kind: 'WINNER', teamId: inn.battingTeamId, by: 'WICKETS', amount: config.maxWickets - inn.wickets }
+        next.status = 'COMPLETED'
+      } else if (diff < 0) {
+        next.overrideResult = { kind: 'WINNER', teamId: first.battingTeamId, by: 'RUNS', amount: -diff }
+        next.status = 'COMPLETED'
+      } else {
+        next.overrideResult = { kind: 'TIE' }
+        next.status = 'TIED'
+      }
+    } else {
+      next.status = 'COMPLETED'
+    }
+    return
+  }
+
+  const nx = emptyInnings(inn.index + 1, config, next.toss)
+  nx.battingTeamId = inn.bowlingTeamId
+  nx.bowlingTeamId = inn.battingTeamId
+  next.innings.push(nx)
+  next.status = 'INNINGS_BREAK'
 }
 
 export function applyEvent(config: MatchConfig, state: MatchState, event: MatchEvent): MatchState {
@@ -104,7 +220,42 @@ export function applyEvent(config: MatchConfig, state: MatchState, event: MatchE
   if (event.type === 'BALL') {
     const inn = currentInnings(next)
     if (!inn) throw new Error('No innings')
-    applyBall(config, inn, event)
+    applyBall(config, next, inn, event)
+    maybeEndInnings(config, next)
+    return next
+  }
+
+  if (event.type === 'DECLARE') {
+    const inn = currentInnings(next)
+    if (!inn) throw new Error('No innings')
+    inn.declared = true
+    maybeEndInnings(config, next)
+    return next
+  }
+
+  if (event.type === 'PENALTY') {
+    let target: InningsState | null = null
+    for (let i = next.innings.length - 1; i >= 0; i--) {
+      const candidate = next.innings[i]
+      if (candidate && candidate.battingTeamId === event.teamId) {
+        target = candidate
+        break
+      }
+    }
+    if (!target) throw new Error('No innings for penalised team')
+    target.runs += event.runs
+    target.extras += event.runs
+    maybeEndInnings(config, next)
+    return next
+  }
+
+  if (event.type === 'END_MATCH') {
+    next.overrideResult =
+      event.outcome.kind === 'TIE'
+        ? { kind: 'TIE' }
+        : { kind: 'ABANDONED', reason: event.outcome.reason }
+    next.status = event.outcome.kind === 'TIE' ? 'TIED' : 'ABANDONED'
+    for (const inn of next.innings) inn.closed = true
     return next
   }
 

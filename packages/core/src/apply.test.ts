@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyEvents, applyEvent } from './apply.js'
 import { withDefaults } from './config.js'
+import { emptyInnings, emptyState } from './state.js'
 import type { MatchConfig, MatchState, BallEvent, TossEvent } from './types.js'
 
 const baseConfig: MatchConfig = withDefaults({
@@ -91,7 +92,7 @@ function ballAt(state: MatchState, partial: Partial<BallEvent> = {}): BallEvent 
 function deliver(state: MatchState, count: number): MatchState {
   let s = state
   for (let i = 0; i < count; i++) {
-    s = applyEvent(baseConfig, s, ballAt(s))
+    s = applyEvent(s.config, s, ballAt(s))
   }
   return s
 }
@@ -167,6 +168,166 @@ describe('apply: strike rotation and overs', () => {
     expect(() => applyEvent(baseConfig, state, ballAt(state, { batterId: 'a2' }))).toThrow(
       /strike/i,
     )
+  })
+})
+
+function mkConfig(partial: Partial<MatchConfig>): MatchConfig {
+  return withDefaults({
+    matchId: 'm1',
+    teamAId: 'A',
+    teamBId: 'B',
+    lineups: {
+      A: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11'],
+      B: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11'],
+    },
+    ...partial,
+  })
+}
+
+/** Second innings of a 2-innings match: A made 10, B chasing. */
+function chaseState(runs: number, wickets: number): MatchState {
+  const cfg = baseConfig
+  const state = emptyState(cfg)
+  state.status = 'IN_PROGRESS'
+  const inn0 = emptyInnings(0, cfg, null)
+  inn0.runs = 10
+  inn0.wickets = 10
+  inn0.closed = true
+  const inn1 = emptyInnings(1, cfg, null)
+  inn1.runs = runs
+  inn1.wickets = wickets
+  inn1.strikerId = 'b1'
+  inn1.nonStrikerId = 'b2'
+  inn1.battingOrder = ['b1', 'b2']
+  inn1.batters = {
+    b1: { playerId: 'b1', runs: 5, balls: 8, fours: 1, sixes: 0, out: false, dismissal: null, outOnSeq: null },
+    b2: { playerId: 'b2', runs: 4, balls: 6, fours: 0, sixes: 0, out: false, dismissal: null, outOnSeq: null },
+  }
+  inn1.currentBowlerId = 'a1'
+  inn1.bowlers = {
+    a1: { playerId: 'a1', balls: 12, runs: 8, wickets: wickets, wides: 0, noBalls: 0 },
+  }
+  state.innings = [inn0, inn1]
+  return state
+}
+
+function chaseBall(partial: Partial<BallEvent> = {}): BallEvent {
+  return ball({
+    batterId: 'b1',
+    nonStrikerId: 'b2',
+    bowlerId: 'a1',
+    ...partial,
+  })
+}
+
+describe('apply: wickets and innings transitions', () => {
+  it('records a wicket, brings in the next batter, credits the bowler', () => {
+    const state = applyEvent(
+      baseConfig,
+      started(),
+      ballAt(started(), { wicket: true, dismissal: 'BOWLED', dismissedPlayerId: 'a1' }),
+    )
+    const inn = state.innings[0]
+    expect(inn.wickets).toBe(1)
+    expect(inn.batters['a1']).toMatchObject({ out: true, dismissal: 'BOWLED', outOnSeq: 2 })
+    expect(inn.bowlers['b1'].wickets).toBe(1)
+    expect(inn.battingOrder).toEqual(['a1', 'a2', 'a3'])
+    expect(inn.strikerId).toBe('a3')
+    expect(inn.nonStrikerId).toBe('a2')
+  })
+
+  it('does not credit the bowler for a run out', () => {
+    const state = applyEvent(
+      baseConfig,
+      started(),
+      ballAt(started(), { wicket: true, dismissal: 'RUN_OUT', dismissedPlayerId: 'a1' }),
+    )
+    expect(state.innings[0].wickets).toBe(1)
+    expect(state.innings[0].bowlers['b1'].wickets).toBe(0)
+    expect(state.innings[0].batters['a1'].out).toBe(true)
+  })
+
+  it('closes the innings when all wickets fall and starts the next', () => {
+    const cfg = mkConfig({ maxWickets: 1 })
+    resetSeq()
+    let state = applyEvents(cfg, [toss])
+    state = applyEvent(
+      cfg,
+      state,
+      ballAt(state, { wicket: true, dismissal: 'BOWLED', dismissedPlayerId: 'a1' }),
+    )
+    expect(state.innings[0].closed).toBe(true)
+    expect(state.innings).toHaveLength(2)
+    expect(state.status).toBe('INNINGS_BREAK')
+    expect(state.innings[1].battingTeamId).toBe('B')
+    expect(state.innings[1].bowlingTeamId).toBe('A')
+  })
+
+  it('closes the innings when overs are exhausted', () => {
+    const cfg = mkConfig({ oversPerInnings: 1 })
+    resetSeq()
+    let state = applyEvents(cfg, [toss])
+    state = deliver(state, 6)
+    expect(state.innings[0].closed).toBe(true)
+    expect(state.innings).toHaveLength(2)
+    expect(state.status).toBe('INNINGS_BREAK')
+  })
+
+  it('ends the match when the chase succeeds', () => {
+    const state = applyEvent(baseConfig, chaseState(10, 8), chaseBall({ runs: 1 }))
+    expect(state.innings[1].closed).toBe(true)
+    expect(state.status).toBe('COMPLETED')
+    expect(state.overrideResult).toEqual({ kind: 'WINNER', teamId: 'B', by: 'WICKETS', amount: 2 })
+  })
+
+  it('awards the match to the bowling side when the chase falls short', () => {
+    const state = applyEvent(baseConfig, chaseState(5, 9), chaseBall({ wicket: true, dismissal: 'BOWLED', dismissedPlayerId: 'b1' }))
+    expect(state.innings[1].closed).toBe(true)
+    expect(state.status).toBe('COMPLETED')
+    expect(state.overrideResult).toEqual({ kind: 'WINNER', teamId: 'A', by: 'RUNS', amount: 5 })
+  })
+
+  it('declares the innings', () => {
+    let state = applyEvent(baseConfig, started(), ballAt(started()))
+    state = applyEvent(baseConfig, state, {
+      id: 'e3',
+      matchId: 'm1',
+      seq: 3,
+      ts: '2026-10-08T10:05:00.000Z',
+      type: 'DECLARE',
+    })
+    expect(state.innings[0].declared).toBe(true)
+    expect(state.innings[0].closed).toBe(true)
+    expect(state.status).toBe('INNINGS_BREAK')
+    expect(state.innings).toHaveLength(2)
+  })
+
+  it('adds penalty runs to the penalised team total', () => {
+    let state = applyEvent(baseConfig, started(), ballAt(started(), { runs: 4 }))
+    state = applyEvent(baseConfig, state, {
+      id: 'e3',
+      matchId: 'm1',
+      seq: 3,
+      ts: '2026-10-08T10:05:00.000Z',
+      type: 'PENALTY',
+      runs: 5,
+      teamId: 'A',
+    })
+    expect(state.innings[0].runs).toBe(9) // 4 off the bat + 5 penalty? see below
+  })
+
+  it('ends the match on END_MATCH', () => {
+    let state = applyEvent(baseConfig, started(), ballAt(started()))
+    state = applyEvent(baseConfig, state, {
+      id: 'e3',
+      matchId: 'm1',
+      seq: 3,
+      ts: '2026-10-08T10:05:00.000Z',
+      type: 'END_MATCH',
+      outcome: { kind: 'ABANDONED', reason: 'Rain' },
+    })
+    expect(state.status).toBe('ABANDONED')
+    expect(state.overrideResult).toEqual({ kind: 'ABANDONED', reason: 'Rain' })
   })
 })
 
