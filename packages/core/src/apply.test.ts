@@ -68,6 +68,108 @@ describe('apply', () => {
   })
 })
 
+function autoBowler(inn: { currentBowlerId: string | null; lastOverBowlerId: string | null }): string {
+  if (inn.currentBowlerId) return inn.currentBowlerId
+  for (const b of ['b1', 'b2', 'b3']) {
+    if (b !== inn.lastOverBowlerId) return b
+  }
+  return 'b1'
+}
+
+function ballAt(state: MatchState, partial: Partial<BallEvent> = {}): BallEvent {
+  const inn = state.innings[state.innings.length - 1]
+  return ball({
+    over: inn ? Math.floor(inn.legalBalls / 6) : 0,
+    ball: inn ? inn.legalBalls % 6 : 0,
+    batterId: inn?.strikerId ?? 'a1',
+    nonStrikerId: inn?.nonStrikerId ?? 'a2',
+    bowlerId: inn ? autoBowler(inn) : 'b1',
+    ...partial,
+  })
+}
+
+function deliver(state: MatchState, count: number): MatchState {
+  let s = state
+  for (let i = 0; i < count; i++) {
+    s = applyEvent(baseConfig, s, ballAt(s))
+  }
+  return s
+}
+
+describe('apply: strike rotation and overs', () => {
+  it('rotates strike on odd runs', () => {
+    const s1 = applyEvent(baseConfig, started(), ballAt(started(), { runs: 1 }))
+    expect(s1.innings[0].strikerId).toBe('a2')
+    expect(s1.innings[0].nonStrikerId).toBe('a1')
+    const s2 = applyEvent(baseConfig, s1, ballAt(s1, { runs: 1 }))
+    expect(s2.innings[0].strikerId).toBe('a1')
+  })
+
+  it('keeps strike on even runs', () => {
+    const s1 = applyEvent(baseConfig, started(), ballAt(started(), { runs: 2 }))
+    expect(s1.innings[0].strikerId).toBe('a1')
+  })
+
+  it('rotates strike at the end of an over and resets the bowler slot', () => {
+    const state = deliver(started(), 6)
+    const inn = state.innings[0]
+    expect(inn.legalBalls).toBe(6)
+    expect(inn.strikerId).toBe('a2')
+    expect(inn.nonStrikerId).toBe('a1')
+    expect(inn.lastOverBowlerId).toBe('b1')
+    expect(inn.currentBowlerId).toBeNull()
+  })
+
+  it('rejects the bowler who bowled the previous over', () => {
+    let state = deliver(started(), 6)
+    expect(() => applyEvent(baseConfig, state, ballAt(state, { bowlerId: 'b1' }))).toThrow(
+      /consecutive/i,
+    )
+  })
+
+  it('accepts a new bowler at the start of the next over', () => {
+    let state = deliver(started(), 6)
+    state = applyEvent(baseConfig, state, ballAt(state, { bowlerId: 'b2' }))
+    expect(state.innings[0].currentBowlerId).toBe('b2')
+  })
+
+  it('rejects a bowler over their quota', () => {
+    const cfg = withDefaults({
+      matchId: 'm1',
+      teamAId: 'A',
+      teamBId: 'B',
+      maxOversPerBowler: 1,
+      lineups: {
+        A: ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11'],
+        B: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'b9', 'b10', 'b11'],
+      },
+    })
+    resetSeq()
+    let state = applyEvents(cfg, [toss])
+    for (let i = 0; i < 12; i++) {
+      state = applyEvent(cfg, state, ballAt(state))
+    }
+    // over 0: b1 (6 balls), over 1: b2 (6 balls)
+    expect(state.innings[0].bowlers['b1'].balls).toBe(6)
+    expect(() => applyEvent(cfg, state, ballAt(state, { bowlerId: 'b1' }))).toThrow(
+      /quota/i,
+    )
+  })
+
+  it('rejects a bowler who is batting', () => {
+    expect(() => applyEvent(baseConfig, started(), ballAt(started(), { bowlerId: 'a1' }))).toThrow(
+      /batting/i,
+    )
+  })
+
+  it('rejects a ball whose batter is not on strike', () => {
+    let state = applyEvent(baseConfig, started(), ballAt(started()))
+    expect(() => applyEvent(baseConfig, state, ballAt(state, { batterId: 'a2' }))).toThrow(
+      /strike/i,
+    )
+  })
+})
+
 describe('apply: ball scoring', () => {
   it('scores bat runs on a legal delivery', () => {
     const state = applyEvent(baseConfig, started(), ball({ runs: 4 }))

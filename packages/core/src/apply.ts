@@ -63,6 +63,20 @@ function applyBall(config: MatchConfig, inn: InningsState, event: BallEvent): vo
   }
   if (event.extras === 'WIDE') bowler.wides += 1
   if (event.extras === 'NO_BALL') bowler.noBalls += 1
+
+  // Strike rotation: odd runs run, then end of over.
+  if (event.runs % 2 === 1) {
+    const tmp = inn.strikerId
+    inn.strikerId = inn.nonStrikerId
+    inn.nonStrikerId = tmp
+  }
+  if (legal && inn.legalBalls % config.ballsPerOver === 0) {
+    const tmp = inn.strikerId
+    inn.strikerId = inn.nonStrikerId
+    inn.nonStrikerId = tmp
+    inn.lastOverBowlerId = event.bowlerId
+    inn.currentBowlerId = null
+  }
 }
 
 export function applyEvent(config: MatchConfig, state: MatchState, event: MatchEvent): MatchState {
