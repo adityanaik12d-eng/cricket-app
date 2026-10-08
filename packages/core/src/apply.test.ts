@@ -331,6 +331,48 @@ describe('apply: wickets and innings transitions', () => {
   })
 })
 
+describe('apply: corrections', () => {
+  it('replays a corrected ball in place of the original', () => {
+    resetSeq()
+    const original = ball({ runs: 4 })
+    const state = applyEvents(baseConfig, [
+      toss,
+      original,
+      {
+        id: 'c1',
+        matchId: 'm1',
+        seq: 3,
+        ts: '2026-10-08T10:03:00.000Z',
+        type: 'CORRECTION',
+        supersedes: original.id,
+        reason: 'tapped 4 instead of 6',
+        replacement: {
+          kind: 'BALL',
+          ball: {
+            over: 0,
+            ball: 1,
+            runs: 6,
+            extras: 'NONE',
+            wicket: false,
+            dismissal: null,
+            dismissedPlayerId: null,
+            batterId: 'a1',
+            nonStrikerId: 'a2',
+            bowlerId: 'b1',
+            fieldingCaptainId: 'b11',
+          },
+        },
+      },
+    ])
+    // Only the corrected value counts — not both.
+    expect(state.innings[0].runs).toBe(6)
+    expect(state.innings[0].batters['a1'].runs).toBe(6)
+    expect(state.innings[0].batters['a1'].sixes).toBe(1)
+    expect(state.innings[0].legalBalls).toBe(1)
+    expect(state.eventCount).toBe(3)
+  })
+})
+
 describe('apply: ball scoring', () => {
   it('scores bat runs on a legal delivery', () => {
     const state = applyEvent(baseConfig, started(), ball({ runs: 4 }))

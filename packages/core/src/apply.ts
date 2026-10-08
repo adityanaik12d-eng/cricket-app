@@ -2,6 +2,7 @@ import type {
   BallEvent,
   BatterLine,
   BowlerLine,
+  CorrectionEvent,
   InningsState,
   MatchConfig,
   MatchEvent,
@@ -263,9 +264,43 @@ export function applyEvent(config: MatchConfig, state: MatchState, event: MatchE
 }
 
 export function applyEvents(config: MatchConfig, events: MatchEvent[]): MatchState {
+  // Pre-pass: corrections replace the event they supersede at replay time.
+  const corrections = new Map<string, CorrectionEvent>()
+  for (const e of events) {
+    if (e.type === 'CORRECTION') corrections.set(e.supersedes, e)
+  }
+
   let state = emptyState(config)
   for (const e of events) {
-    state = applyEvent(config, state, e)
+    if (e.type === 'CORRECTION') {
+      const record: MatchState = JSON.parse(JSON.stringify(state))
+      record.lastSeq = e.seq
+      record.eventCount = record.eventCount + 1
+      state = record
+      continue
+    }
+    const correction = corrections.get(e.id)
+    let effective: MatchEvent = e
+    if (correction && e.type === 'BALL' && correction.replacement.kind === 'BALL') {
+      effective = {
+        ...correction.replacement.ball,
+        id: e.id,
+        matchId: e.matchId,
+        seq: e.seq,
+        ts: e.ts,
+        type: 'BALL',
+      }
+    } else if (correction && e.type === 'PENALTY' && correction.replacement.kind === 'PENALTY') {
+      effective = {
+        ...correction.replacement.penalty,
+        id: e.id,
+        matchId: e.matchId,
+        seq: e.seq,
+        ts: e.ts,
+        type: 'PENALTY',
+      }
+    }
+    state = applyEvent(config, state, effective)
   }
   return state
 }

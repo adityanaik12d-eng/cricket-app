@@ -2,13 +2,13 @@
 
 Goal: ship a working app (core engine → API → web UI). Dark, phone+tablet friendly. No check-ins, keep moving.
 
-## Phase 1: Core engine (packages/core)
-- [x] Types, errors, overs, config, state, validate (skeletal), apply (basic), projections (live/scorecard/result) — 25/25 tests green
-- [ ] apply: full ball scoring (runs, extras, batter/bowler lines, strike rotation)
-- [ ] apply: wickets + next batter + bowler credit
-- [ ] apply: over completion, bowler validations (quota, consecutive, is-batter)
-- [ ] apply: innings close/transition, results (wickets/runs/tie), declare/penalty/end-match
-- [ ] apply: corrections (superseded events) + idempotency
+## Phase 1: Core engine (packages/core) — COMPLETE (49/49 tests)
+- [x] Types, errors, overs, config, state, validate, apply, projections (live/scorecard/result)
+- [x] Full ball scoring: runs, extras (wide/no-ball/bye/leg-bye), batter/bowler lines, strike rotation
+- [x] Wickets, next batter, bowler credit (not for run out)
+- [x] Over completion, bowler validations (quota, consecutive, is-batter, striker match)
+- [x] Innings close/transition, results (wickets/runs/tie), declare, penalty, end-match
+- [x] Corrections (superseded events replayed with replacement)
 - [ ] commentary projection (nice-to-have)
 
 ## Phase 2: Server (server/) — Fastify
