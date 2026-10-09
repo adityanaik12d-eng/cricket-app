@@ -1,15 +1,36 @@
 import { useEffect, useState } from 'react'
 import { api, ApiRequestError } from './api'
 import { ScoringScreen } from './ScoringScreen'
+import { SigninScreen } from './SigninScreen'
+import { ProfileScreen } from './ProfileScreen'
+import { getToken } from './token'
 import type { CreateMatchBody } from './api'
 
-type Route = { name: 'setup' } | { name: 'match'; matchId: string }
+type Route =
+  | { name: 'setup' }
+  | { name: 'match'; matchId: string }
+  | { name: 'signin' }
+  | { name: 'profile' }
 
 function parseHash(): Route {
   const hash = window.location.hash
   const match = /^#\/match\/(.+)$/.exec(hash)
   if (match && match[1]) return { name: 'match', matchId: match[1] }
+  if (hash === '#/signin') return { name: 'signin' }
+  if (hash === '#/profile') return { name: 'profile' }
   return { name: 'setup' }
+}
+
+function AuthLink() {
+  return getToken() ? (
+    <a className="btn ghost" href="#/profile">
+      Profile
+    </a>
+  ) : (
+    <a className="btn ghost" href="#/signin">
+      Sign in
+    </a>
+  )
 }
 
 function slug(text: string): string {
@@ -44,6 +65,26 @@ export function App() {
 
   if (route.name === 'match') {
     return <ScoringScreen matchId={route.matchId} onLeave={() => { window.location.hash = '' }} />
+  }
+  if (route.name === 'signin') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+        </header>
+        <SigninScreen onDone={() => { window.location.hash = '#/profile' }} />
+      </div>
+    )
+  }
+  if (route.name === 'profile') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+        </header>
+        <ProfileScreen onSignedOut={() => { window.location.hash = '#/' }} />
+      </div>
+    )
   }
   return <SetupFlow />
 }
@@ -99,6 +140,7 @@ function SetupFlow() {
       <div className="shell">
         <header className="topbar">
           <h1>Cricket Scorer</h1>
+          <AuthLink />
         </header>
         <main className="card setup-card">
           <h2>Toss</h2>
@@ -133,6 +175,7 @@ function SetupFlow() {
     <div className="shell">
       <header className="topbar">
         <h1>Cricket Scorer</h1>
+        <AuthLink />
       </header>
       <main className="card setup-card">
         <h2>New match</h2>
