@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_MATCH_CONFIG, validateMatchConfig, withDefaults } from './config.js'
+import type { MatchConfigInput } from './config.js'
 import type { MatchConfig } from './types.js'
 
 const base: MatchConfig = {
@@ -44,6 +45,21 @@ describe('withDefaults', () => {
       lineups: base.lineups,
     })
     expect(result).toEqual(base)
+  })
+
+  it('withDefaults preserves playerRefs', () => {
+    const playerRefs = { 'p-1': { name: 'Virat', mobile: '9876543210', verified: true } }
+    const cfg = withDefaults({
+      matchId: 'm1',
+      teamAId: 'A',
+      teamBId: 'B',
+      lineups: {
+        A: Array.from({ length: 11 }, (_, i) => `a${i + 1}`),
+        B: Array.from({ length: 11 }, (_, i) => `b${i + 1}`),
+      },
+      playerRefs,
+    } satisfies MatchConfigInput)
+    expect(cfg.playerRefs).toEqual(playerRefs)
   })
 })
 

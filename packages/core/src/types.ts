@@ -22,6 +22,12 @@ export type TeamKey = 'A' | 'B'
 
 export type Lineups = Record<TeamKey, string[]>
 
+export interface PlayerRef {
+  name: string
+  mobile?: string
+  verified?: boolean
+}
+
 export interface MatchConfig {
   matchId: string
   teamAId: string
@@ -36,6 +42,7 @@ export interface MatchConfig {
   wideExtra: number
   noBallExtra: number
   minutesPerOver: number
+  playerRefs?: Record<string, PlayerRef>
 }
 
 interface EventBase {
@@ -58,6 +65,7 @@ export interface BallEvent extends EventBase {
   nonStrikerId: string | null
   bowlerId: string
   fieldingCaptainId: string
+  fielderId?: string
 }
 
 export interface TossEvent extends EventBase {

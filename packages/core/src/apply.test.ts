@@ -467,3 +467,16 @@ describe('apply: error reporting', () => {
     expect((caught as Error).message).toBe('No innings for penalised team')
   })
 })
+
+it('fielderId on a ball event does not change scoring', () => {
+  const before = started()
+  const plain = ballAt(before, {})
+  const plainState = applyEvent(before.config, before, plain)
+
+  const other = started()
+  const withFielder = ballAt(other, { fielderId: 'b2' })
+  const fielderState = applyEvent(other.config, other, withFielder)
+
+  expect(withFielder.fielderId).toBe('b2')
+  expect(fielderState).toEqual(plainState)
+})
