@@ -62,7 +62,11 @@ function validateProfile(p: { name?: unknown; role?: unknown; batting_hand?: unk
 }
 
 export class PlayerRepo {
-  constructor(private readonly db: DatabaseSync) {}
+  private readonly db: DatabaseSync
+
+  constructor(db: DatabaseSync) {
+    this.db = db
+  }
 
   create(input: CreatePlayerInput): Player {
     if (typeof input.mobile !== 'string' || !/^\d{10}$/.test(input.mobile)) {

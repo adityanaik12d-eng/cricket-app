@@ -4,9 +4,24 @@ import { EngineError, projectLiveScore, projectResult, projectScorecard } from '
 import type { LiveScore } from '@cricket-app/core'
 import { ApiError, MatchStore } from './store.ts'
 import { openDb } from './db.ts'
+import { OtpService, registerAuthRoutes } from './auth.ts'
 
-export async function buildApp(store: MatchStore = new MatchStore(openDb(':memory:'))): Promise<FastifyInstance> {
+export interface AppDeps {
+  db?: ReturnType<typeof openDb>
+  otp?: OtpService
+  secret?: string
+}
+
+export async function buildApp(
+  store: MatchStore = new MatchStore(openDb(':memory:')),
+  deps: AppDeps = {},
+): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
+
+  const db = deps.db ?? openDb(':memory:')
+  const otp = deps.otp ?? new OtpService(db)
+  const secret = deps.secret ?? process.env.JWT_SECRET ?? 'dev-secret-change-me'
+  registerAuthRoutes(app, { db, otp, secret })
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof ApiError) {
