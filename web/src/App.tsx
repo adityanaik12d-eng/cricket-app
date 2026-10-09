@@ -149,18 +149,31 @@ function SetupFlow() {
   useEffect(() => {
     if (numA.length >= 4) {
       const v = numA
+      setSearchingA(true)
       const t = setTimeout(() => {
-        setSearchingA(true)
         api.searchPlayers(v)
-          .then((r) => setResultsA(r.players))
-          .catch(() => setResultsA([]))
-          .finally(() => setSearchingA(false))
+          .then((r) => {
+            if (v === numA) {
+              setResultsA(r.players)
+            }
+          })
+          .catch(() => {
+            if (v === numA) {
+              setResultsA([])
+            }
+          })
+          .finally(() => {
+            if (v === numA) {
+              setSearchingA(false)
+            }
+          })
       }, 200)
       return () => clearTimeout(t)
     } else {
       setResultsA([])
       setShowCreateA(false)
       setNewNameA('')
+      setSearchingA(false)
     }
     return undefined
   }, [numA])
@@ -168,18 +181,31 @@ function SetupFlow() {
   useEffect(() => {
     if (numB.length >= 4) {
       const v = numB
+      setSearchingB(true)
       const t = setTimeout(() => {
-        setSearchingB(true)
         api.searchPlayers(v)
-          .then((r) => setResultsB(r.players))
-          .catch(() => setResultsB([]))
-          .finally(() => setSearchingB(false))
+          .then((r) => {
+            if (v === numB) {
+              setResultsB(r.players)
+            }
+          })
+          .catch(() => {
+            if (v === numB) {
+              setResultsB([])
+            }
+          })
+          .finally(() => {
+            if (v === numB) {
+              setSearchingB(false)
+            }
+          })
       }, 200)
       return () => clearTimeout(t)
     } else {
       setResultsB([])
       setShowCreateB(false)
       setNewNameB('')
+      setSearchingB(false)
     }
     return undefined
   }, [numB])
@@ -203,6 +229,7 @@ function SetupFlow() {
     setLineupA((prev) => [...prev, e])
     setNumA('')
     setResultsA([])
+    setShowCreateA(false)
   }
 
   function addDirectoryB(p: Player): void {
@@ -210,6 +237,7 @@ function SetupFlow() {
     setLineupB((prev) => [...prev, e])
     setNumB('')
     setResultsB([])
+    setShowCreateB(false)
   }
 
   function removeA(id: string): void {
