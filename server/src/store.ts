@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
+import type { DatabaseSync } from 'node:sqlite'
 import { applyEvents, projectLiveScore, validateMatchConfig, withDefaults } from '@cricket-app/core'
 import type { LiveScore, MatchConfig, MatchConfigInput, MatchEvent, MatchState } from '@cricket-app/core'
 
@@ -37,6 +38,37 @@ const EVENT_TYPES = new Set(['BALL', 'TOSS', 'DECLARE', 'PENALTY', 'END_MATCH', 
 
 export class MatchStore extends EventEmitter {
   private readonly matches = new Map<string, MatchRecord>()
+  private readonly db: DatabaseSync
+
+  constructor(db: DatabaseSync) {
+    super()
+    this.db = db
+    this.load()
+  }
+
+  private load(): void {
+    const rows = this.db.prepare('SELECT id, config_json FROM matches').all() as {
+      id: string
+      config_json: string
+    }[]
+    for (const row of rows) {
+      const config = JSON.parse(row.config_json) as MatchConfig
+      const eventRows = this.db
+        .prepare('SELECT payload_json FROM match_events WHERE match_id = ? ORDER BY seq')
+        .all(row.id) as { payload_json: string }[]
+      const events = eventRows.map((r) => JSON.parse(r.payload_json) as MatchEvent)
+      this.matches.set(row.id, {
+        matchId: row.id,
+        config,
+        events,
+        state: applyEvents(config, events),
+      })
+    }
+  }
+
+  all(): MatchRecord[] {
+    return [...this.matches.values()]
+  }
 
   create(input: unknown): MatchRecord {
     const config = buildConfig(input)
@@ -51,6 +83,9 @@ export class MatchStore extends EventEmitter {
       state: applyEvents(config, []),
     }
     this.matches.set(record.matchId, record)
+    this.db
+      .prepare('INSERT INTO matches (id, config_json, created_at) VALUES (?, ?, ?)')
+      .run(record.matchId, JSON.stringify(config), new Date().toISOString())
     return record
   }
 
@@ -84,6 +119,9 @@ export class MatchStore extends EventEmitter {
     const state = applyEvents(record.config, events)
     record.events = events
     record.state = state
+    this.db
+      .prepare('INSERT INTO match_events (match_id, seq, payload_json, ts) VALUES (?, ?, ?, ?)')
+      .run(matchId, event.seq, JSON.stringify(event), event.ts)
     const live = projectLiveScore(state)
     this.emit('update', matchId, { state, live } satisfies MatchUpdate)
     return { event, state, live }

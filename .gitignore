@@ -4,5 +4,7 @@ dist/
 coverage/
 *.log
 .vite/
+cricket.db
+*.db
 
 .superpowers/

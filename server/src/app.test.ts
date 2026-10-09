@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import { buildApp } from './app.ts'
+import { openDb } from './db.ts'
 import { MatchStore } from './store.ts'
 
 const lineups = {
@@ -40,7 +41,7 @@ describe('server API', () => {
   let store: MatchStore
 
   beforeEach(async () => {
-    store = new MatchStore()
+    store = new MatchStore(openDb(':memory:'))
     app = await buildApp(store)
   })
 

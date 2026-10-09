@@ -3,8 +3,9 @@ import type { FastifyInstance } from 'fastify'
 import { EngineError, projectLiveScore, projectResult, projectScorecard } from '@cricket-app/core'
 import type { LiveScore } from '@cricket-app/core'
 import { ApiError, MatchStore } from './store.ts'
+import { openDb } from './db.ts'
 
-export async function buildApp(store: MatchStore = new MatchStore()): Promise<FastifyInstance> {
+export async function buildApp(store: MatchStore = new MatchStore(openDb(':memory:'))): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
 
   app.setErrorHandler((err, _req, reply) => {
