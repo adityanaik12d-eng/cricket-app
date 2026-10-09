@@ -708,7 +708,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { buildApp } from './app.ts'
 import { openDb } from './db.ts'
 import { OtpService, signToken, verifyToken } from './auth.ts'
-import { MatchStore } from './store.ts'
+import { ApiError, MatchStore } from './store.ts'
 import { PlayerRepo } from './players.ts'
 
 describe('auth', () => {
@@ -874,14 +874,23 @@ describe('auth', () => {
     const token = signToken('p-1', 'test-secret', new Date('2026-10-08T10:00:00Z').getTime())
     expect(verifyToken(token, 'test-secret', new Date('2026-10-08T10:00:00Z').getTime())).toBe('p-1')
 
+    const rejects = (fn: () => unknown): void => {
+      try {
+        fn()
+        throw new Error('expected verifyToken to throw')
+      } catch (err) {
+        expect(err).toBeInstanceOf(ApiError)
+        expect((err as ApiError).statusCode).toBe(401)
+        expect((err as ApiError).code).toBe('UNAUTHENTICATED')
+      }
+    }
+
     const tampered = `${token.slice(0, -1)}x`
-    expect(() => verifyToken(tampered, 'test-secret')).toThrow('UNAUTHENTICATED')
-    expect(() => verifyToken(token, 'other-secret')).toThrow('UNAUTHENTICATED')
+    rejects(() => verifyToken(tampered, 'test-secret'))
+    rejects(() => verifyToken(token, 'other-secret'))
 
     const expired = signToken('p-1', 'test-secret', new Date('2026-10-08T10:00:00Z').getTime())
-    expect(() => verifyToken(expired, 'test-secret', new Date('2026-11-08T10:00:01Z').getTime())).toThrow(
-      'UNAUTHENTICATED',
-    )
+    rejects(() => verifyToken(expired, 'test-secret', new Date('2026-11-08T10:00:01Z').getTime()))
   })
 })
 ```
