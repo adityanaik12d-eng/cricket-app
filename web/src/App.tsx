@@ -4,7 +4,8 @@ import { ScoringScreen } from './ScoringScreen'
 import { SigninScreen } from './SigninScreen'
 import { ProfileScreen } from './ProfileScreen'
 import { getToken } from './token'
-import type { CreateMatchBody } from './api'
+import type { CreateMatchBody, Player } from './api'
+import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry } from './lineup'
 
 type Route =
   | { name: 'setup' }
@@ -43,9 +44,7 @@ function slug(text: string): string {
   )
 }
 
-function makeLineup(teamId: string, count: number): string[] {
-  return Array.from({ length: count }, (_, i) => `${teamId}-${i + 1}`)
-}
+
 
 interface TossDraft {
   matchId: string
@@ -98,17 +97,177 @@ function SetupFlow() {
   const [busy, setBusy] = useState(false)
   const [toss, setToss] = useState<TossDraft | null>(null)
 
+  const [lineupA, setLineupA] = useState<LineupEntry[]>([])
+  const [lineupB, setLineupB] = useState<LineupEntry[]>([])
+
+  const [modeA, setModeA] = useState<'name' | 'number'>('name')
+  const [modeB, setModeB] = useState<'name' | 'number'>('name')
+  const [nameA, setNameA] = useState('')
+  const [nameB, setNameB] = useState('')
+  const [numA, setNumA] = useState('')
+  const [numB, setNumB] = useState('')
+  const [resultsA, setResultsA] = useState<Player[]>([])
+  const [resultsB, setResultsB] = useState<Player[]>([])
+  const [searchingA, setSearchingA] = useState(false)
+  const [searchingB, setSearchingB] = useState(false)
+  const [showCreateA, setShowCreateA] = useState(false)
+  const [showCreateB, setShowCreateB] = useState(false)
+  const [newNameA, setNewNameA] = useState('')
+  const [newNameB, setNewNameB] = useState('')
+  const [creatingA, setCreatingA] = useState(false)
+  const [creatingB, setCreatingB] = useState(false)
+
+  function takenIdsA(): string[] {
+    return lineupA.map((e) => e.id)
+  }
+  function takenIdsB(): string[] {
+    return lineupB.map((e) => e.id)
+  }
+
+  function quickFillA(): void {
+    const taken = takenIdsA()
+    const next: LineupEntry[] = []
+    for (let i = 0; i < players; i++) {
+      next.push(newLocalEntry('Player ' + (i + 1), taken.concat(next.map((e) => e.id))))
+    }
+    setLineupA(next)
+    setResultsA([])
+    setShowCreateA(false)
+  }
+
+  function quickFillB(): void {
+    const taken = takenIdsB()
+    const next: LineupEntry[] = []
+    for (let i = 0; i < players; i++) {
+      next.push(newLocalEntry('Player ' + (i + 1), taken.concat(next.map((e) => e.id))))
+    }
+    setLineupB(next)
+    setResultsB([])
+    setShowCreateB(false)
+  }
+
+  useEffect(() => {
+    if (numA.length >= 4) {
+      const v = numA
+      const t = setTimeout(() => {
+        setSearchingA(true)
+        api.searchPlayers(v)
+          .then((r) => setResultsA(r.players))
+          .catch(() => setResultsA([]))
+          .finally(() => setSearchingA(false))
+      }, 200)
+      return () => clearTimeout(t)
+    } else {
+      setResultsA([])
+      setShowCreateA(false)
+      setNewNameA('')
+    }
+    return undefined
+  }, [numA])
+
+  useEffect(() => {
+    if (numB.length >= 4) {
+      const v = numB
+      const t = setTimeout(() => {
+        setSearchingB(true)
+        api.searchPlayers(v)
+          .then((r) => setResultsB(r.players))
+          .catch(() => setResultsB([]))
+          .finally(() => setSearchingB(false))
+      }, 200)
+      return () => clearTimeout(t)
+    } else {
+      setResultsB([])
+      setShowCreateB(false)
+      setNewNameB('')
+    }
+    return undefined
+  }, [numB])
+
+  function addByNameA(): void {
+    if (!nameA.trim()) return
+    const e = newLocalEntry(nameA, takenIdsA())
+    setLineupA((prev) => [...prev, e])
+    setNameA('')
+  }
+
+  function addByNameB(): void {
+    if (!nameB.trim()) return
+    const e = newLocalEntry(nameB, takenIdsB())
+    setLineupB((prev) => [...prev, e])
+    setNameB('')
+  }
+
+  function addDirectoryA(p: Player): void {
+    const e = directoryEntry(p)
+    setLineupA((prev) => [...prev, e])
+    setNumA('')
+    setResultsA([])
+  }
+
+  function addDirectoryB(p: Player): void {
+    const e = directoryEntry(p)
+    setLineupB((prev) => [...prev, e])
+    setNumB('')
+    setResultsB([])
+  }
+
+  function removeA(id: string): void {
+    setLineupA((prev) => prev.filter((x) => x.id !== id))
+  }
+
+  function removeB(id: string): void {
+    setLineupB((prev) => prev.filter((x) => x.id !== id))
+  }
+
+  async function createNewA(): Promise<void> {
+    if (!numA || !newNameA.trim()) return
+    setCreatingA(true)
+    try {
+      const res = await api.createPlayer(numA, newNameA)
+      addDirectoryA(res.player)
+      setShowCreateA(false)
+      setNewNameA('')
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not create player')
+    } finally {
+      setCreatingA(false)
+    }
+  }
+
+  async function createNewB(): Promise<void> {
+    if (!numB || !newNameB.trim()) return
+    setCreatingB(true)
+    try {
+      const res = await api.createPlayer(numB, newNameB)
+      addDirectoryB(res.player)
+      setShowCreateB(false)
+      setNewNameB('')
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not create player')
+    } finally {
+      setCreatingB(false)
+    }
+  }
+
   async function createMatch(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setError(null)
+    if (lineupA.length < 11 || lineupB.length < 11) {
+      setError('Each side must have at least 11 players')
+      return
+    }
     setBusy(true)
     try {
       const teamAId = slug(teamA) || 'team-a'
       const teamBId = slug(teamB) || 'team-b'
+      const a = buildLineupRefs(lineupA)
+      const b = buildLineupRefs(lineupB)
       const body: CreateMatchBody = {
         teamAId,
         teamBId,
-        lineups: { A: makeLineup(teamAId, players), B: makeLineup(teamBId, players) },
+        lineups: { A: a.ids, B: b.ids },
+        playerRefs: { ...a.refs, ...b.refs },
         oversPerInnings: overs,
         powerplayOvers: Math.min(6, overs),
       }
@@ -210,11 +369,191 @@ function SetupFlow() {
               />
             </label>
           </div>
+
+          <div className="lineup-section">
+            <div className="lineup-head">
+              <h3>Team A Lineup ({lineupA.length})</h3>
+              <button className="btn ghost" type="button" onClick={quickFillA}>
+                Quick fill
+              </button>
+            </div>
+            <div className="chip-row">
+              {lineupA.map((e) => (
+                <span key={e.id} className="chip">
+                  {e.name}
+                  <button className="chip-x" type="button" onClick={() => removeA(e.id)} aria-label="remove">
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              <button
+                className={modeA === 'name' ? 'tab active' : 'tab'}
+                type="button"
+                onClick={() => setModeA('name')}
+              >
+                By name
+              </button>
+              <button
+                className={modeA === 'number' ? 'tab active' : 'tab'}
+                type="button"
+                onClick={() => setModeA('number')}
+              >
+                By number
+              </button>
+            </div>
+            {modeA === 'name' ? (
+              <div className="add-row">
+                <input value={nameA} onChange={(e) => setNameA(e.target.value)} placeholder="Player name" />
+                <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>
+                  Add
+                </button>
+              </div>
+            ) : (
+              <div className="add-col">
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={numA}
+                  onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Mobile number (min 4 digits)"
+                />
+                {searchingA && <p className="muted">Searching...</p>}
+                {resultsA.length > 0 && (
+                  <div className="suggestions">
+                    {resultsA.map((p) => (
+                      <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryA(p)}>
+                        {p.name} · {p.role} · {p.mobile}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {numA.length >= 4 && !searchingA && resultsA.length === 0 && (
+                  <div className="create-new">
+                    <p className="muted">No results for '{numA}'</p>
+                    <button className="btn ghost" type="button" onClick={() => setShowCreateA((v) => !v)}>
+                      Add '{numA}' as new player
+                    </button>
+                    {showCreateA && (
+                      <div className="add-row">
+                        <input
+                          value={newNameA}
+                          onChange={(e) => setNewNameA(e.target.value)}
+                          placeholder="Player name"
+                        />
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => void createNewA()}
+                          disabled={creatingA || !newNameA.trim()}
+                        >
+                          {creatingA ? 'Creating...' : 'Create'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="lineup-section">
+            <div className="lineup-head">
+              <h3>Team B Lineup ({lineupB.length})</h3>
+              <button className="btn ghost" type="button" onClick={quickFillB}>
+                Quick fill
+              </button>
+            </div>
+            <div className="chip-row">
+              {lineupB.map((e) => (
+                <span key={e.id} className="chip">
+                  {e.name}
+                  <button className="chip-x" type="button" onClick={() => removeB(e.id)} aria-label="remove">
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="mode-toggle">
+              <button
+                className={modeB === 'name' ? 'tab active' : 'tab'}
+                type="button"
+                onClick={() => setModeB('name')}
+              >
+                By name
+              </button>
+              <button
+                className={modeB === 'number' ? 'tab active' : 'tab'}
+                type="button"
+                onClick={() => setModeB('number')}
+              >
+                By number
+              </button>
+            </div>
+            {modeB === 'name' ? (
+              <div className="add-row">
+                <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="Player name" />
+                <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>
+                  Add
+                </button>
+              </div>
+            ) : (
+              <div className="add-col">
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={numB}
+                  onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Mobile number (min 4 digits)"
+                />
+                {searchingB && <p className="muted">Searching...</p>}
+                {resultsB.length > 0 && (
+                  <div className="suggestions">
+                    {resultsB.map((p) => (
+                      <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryB(p)}>
+                        {p.name} · {p.role} · {p.mobile}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {numB.length >= 4 && !searchingB && resultsB.length === 0 && (
+                  <div className="create-new">
+                    <p className="muted">No results for '{numB}'</p>
+                    <button className="btn ghost" type="button" onClick={() => setShowCreateB((v) => !v)}>
+                      Add '{numB}' as new player
+                    </button>
+                    {showCreateB && (
+                      <div className="add-row">
+                        <input
+                          value={newNameB}
+                          onChange={(e) => setNewNameB(e.target.value)}
+                          placeholder="Player name"
+                        />
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => void createNewB()}
+                          disabled={creatingB || !newNameB.trim()}
+                        >
+                          {creatingB ? 'Creating...' : 'Create'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {error && <p className="error">{error}</p>}
+
           <button className="btn accent wide" type="submit" disabled={busy}>
             {busy ? 'Creating…' : 'Create match'}
           </button>
         </form>
-        {error && <p className="error">{error}</p>}
       </main>
     </div>
   )

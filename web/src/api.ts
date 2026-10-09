@@ -23,6 +23,7 @@ export interface CreateMatchBody {
   teamAId: string
   teamBId: string
   lineups: { A: string[]; B: string[] }
+  playerRefs: Record<string, { name: string; mobile?: string; verified: boolean }>
   oversPerInnings: number
   powerplayOvers: number
 }

@@ -472,6 +472,64 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.lineup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.lineup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lineup-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+}
+
+.add-row input {
+  flex: 1;
+}
+
+.add-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestion {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  min-height: 44px;
+}
+
+.create-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .form-stack {
   display: flex;
   flex-direction: column;
@@ -501,7 +559,20 @@ button:disabled {
   font-size: 0.95rem;
   font-weight: 600;
   min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-x {
+  background: transparent;
+  border: none;
+  color: var(--text);
   cursor: pointer;
+  padding: 0 4px;
+  min-height: auto;
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .chip.active {
