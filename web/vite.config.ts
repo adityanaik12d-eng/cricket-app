@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/matches': { target: 'http://localhost:3000', changeOrigin: true },
+      '/auth': { target: 'http://localhost:3000', changeOrigin: true },
+      '/me': { target: 'http://localhost:3000', changeOrigin: true },
+      '/players': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
   test: {

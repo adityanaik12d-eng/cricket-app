@@ -1,4 +1,5 @@
 import type { LiveScore, MatchResult, MatchState, Scorecard } from '@cricket-app/core'
+import { getToken } from './token'
 
 export class ApiRequestError extends Error {
   readonly code: string
@@ -26,10 +27,49 @@ export interface CreateMatchBody {
   powerplayOvers: number
 }
 
+export interface Player {
+  id: string
+  mobile: string
+  name: string
+  role: 'BATSMAN' | 'BOWLER' | 'KEEPER' | 'ALL_ROUNDER'
+  batting_hand: 'RHB' | 'LHB'
+  bowling_style: string | null
+  location: string | null
+  created_at: string
+}
+
+export interface CareerStats {
+  matches: number
+  runs: number
+  balls: number
+  fours: number
+  sixes: number
+  highest: number
+  notOuts: number
+  wickets: number
+  oversBowled: string
+  runsConceded: number
+  bestBowling: string
+  catches: number
+  stumpings: number
+  runOuts: number
+  batting: { innings: number; outCount: number; average: number; strikeRate: number }
+  bowling: { innings: number; economy: number; average: number }
+  fielding: { dismissals: number }
+}
+
+export interface AuthResponse {
+  token: string
+  player: Player
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  const token = getToken()
+  if (token && !path.startsWith('/auth/')) headers.authorization = `Bearer ${token}`
   const res = await fetch(path, {
-    headers: { 'content-type': 'application/json' },
     ...init,
+    headers: { ...headers, ...((init?.headers as Record<string, string> | undefined) ?? {}) },
   })
   const body: unknown = await res.json().catch(() => null)
   if (!res.ok) {
@@ -51,5 +91,29 @@ export const api = {
     payload: unknown,
   ): Promise<{ seq: number; state: MatchState; live: LiveScore }> {
     return request(`/matches/${matchId}/events`, { method: 'POST', body: JSON.stringify(payload) })
+  },
+  requestOtp(mobile: string): Promise<{ ok: true; devOtp?: string }> {
+    return request('/auth/otp', { method: 'POST', body: JSON.stringify({ mobile }) })
+  },
+  verifyOtp(mobile: string, otp: string): Promise<AuthResponse> {
+    return request('/auth/verify', { method: 'POST', body: JSON.stringify({ mobile, otp }) })
+  },
+  register(mobile: string, otp: string, name: string): Promise<AuthResponse> {
+    return request('/auth/register', { method: 'POST', body: JSON.stringify({ mobile, otp, name }) })
+  },
+  getMe(): Promise<{ player: Player }> {
+    return request('/me')
+  },
+  patchMe(patch: Record<string, unknown>): Promise<{ player: Player }> {
+    return request('/me', { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  searchPlayers(q: string): Promise<{ players: Player[] }> {
+    return request(`/players?q=${encodeURIComponent(q)}`)
+  },
+  createPlayer(mobile: string, name: string): Promise<{ player: Player }> {
+    return request('/players', { method: 'POST', body: JSON.stringify({ mobile, name }) })
+  },
+  getPlayerStats(id: string): Promise<CareerStats> {
+    return request(`/players/${id}/stats`)
   },
 }
