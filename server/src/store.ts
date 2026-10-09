@@ -82,10 +82,17 @@ export class MatchStore extends EventEmitter {
       events: [],
       state: applyEvents(config, []),
     }
+    try {
+      this.db
+        .prepare('INSERT INTO matches (id, config_json, created_at) VALUES (?, ?, ?)')
+        .run(record.matchId, JSON.stringify(config), new Date().toISOString())
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
+        throw new ApiError(409, 'DUPLICATE_MATCH', `Match ${record.matchId} already exists`)
+      }
+      throw err
+    }
     this.matches.set(record.matchId, record)
-    this.db
-      .prepare('INSERT INTO matches (id, config_json, created_at) VALUES (?, ?, ?)')
-      .run(record.matchId, JSON.stringify(config), new Date().toISOString())
     return record
   }
 

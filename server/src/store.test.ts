@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { openDb } from './db.ts'
-import { MatchStore } from './store.ts'
+import { ApiError, MatchStore } from './store.ts'
 
 const config = {
   teamAId: 'teamA',
@@ -64,6 +64,26 @@ describe('MatchStore persistence', () => {
     const all = store.all()
     expect(all).toHaveLength(2)
     expect(all.find((r) => r.matchId === r1.matchId)?.events).toHaveLength(1)
+  })
+
+  it('rejects a duplicate matchId with 409 and keeps the original config', () => {
+    const db = openDb(':memory:')
+    const store = new MatchStore(db)
+    store.create({ ...config, matchId: 'dup-1' })
+
+    let caught: unknown
+    try {
+      store.create({ ...config, matchId: 'dup-1', teamAId: 'x1', teamBId: 'x2' })
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as ApiError).statusCode).toBe(409)
+    expect((caught as ApiError).code).toBe('DUPLICATE_MATCH')
+    expect(store.get('dup-1')?.config.teamAId).toBe('teamA')
+
+    const restarted = new MatchStore(db)
+    expect(restarted.get('dup-1')?.config.teamAId).toBe('teamA')
   })
 
   it('unknown match is still 404 after restart', () => {
