@@ -92,6 +92,7 @@ describe('PlayerRepo', () => {
       styleErr = err
     }
     expect((styleErr as ApiError).statusCode).toBe(400)
+    expect((styleErr as ApiError).code).toBe('INVALID_PROFILE')
 
     // null is allowed (clears the field)
     expect(repo.update(p.id, { location: null }).location).toBeNull()

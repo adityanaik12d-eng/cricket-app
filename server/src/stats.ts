@@ -1,4 +1,4 @@
-import { effectiveEvents, formatOvers, projectScorecard, round2 } from '@cricket-app/core'
+import { effectiveEvents, projectScorecard, round2 } from '@cricket-app/core'
 import type { MatchEvent } from '@cricket-app/core'
 import type { MatchRecord } from './store.ts'
 
@@ -54,14 +54,12 @@ function isFielderCredit(ev: MatchEvent, playerId: string): 'CAUGHT' | 'STUMPED'
 
 export function computeCareerStats(records: MatchRecord[], playerId: string): CareerStats {
   const stats = emptyStats()
-  let bowledBalls = 0
   let bowledOvers = 0
-  let ballsPerOver = 6
+  let displayBpo = 6
   let best: { wickets: number; runs: number } | null = null
 
   for (const record of records) {
     const bpo = record.config.ballsPerOver || 6
-    ballsPerOver = bpo
     const inLineup =
       record.config.lineups.A.includes(playerId) || record.config.lineups.B.includes(playerId)
     if (!inLineup) continue
@@ -85,7 +83,7 @@ export function computeCareerStats(records: MatchRecord[], playerId: string): Ca
         stats.bowling.innings += 1
         stats.wickets += bowl.wickets
         stats.runsConceded += bowl.runs
-        bowledBalls += bowl.balls
+        displayBpo = bpo
         // Accumulate overs using THIS match's ballsPerOver so economy stays
         // correct when a career spans matches with different over lengths.
         bowledOvers += bowl.balls / bpo
@@ -103,11 +101,14 @@ export function computeCareerStats(records: MatchRecord[], playerId: string): Ca
     }
   }
 
-  // formatOvers trims a whole-over count to '0'/'2'; career stats always show
-  // the ball component ('0.0', '2.0') to match the API shape.
-  if (bowledBalls > 0) {
-    const overs = formatOvers(bowledBalls, ballsPerOver)
-    stats.oversBowled = overs.includes('.') ? overs : `${overs}.0`
+  // Derive overs from the SAME accumulator as economy so the two can never
+  // disagree when a career spans matches with different over lengths. With a
+  // uniform ballsPerOver this equals formatOvers(totalBalls, bpo); career stats
+  // always show the ball component ('0.0', '2.0') to match the API shape.
+  if (bowledOvers > 0) {
+    const whole = Math.floor(bowledOvers)
+    const ballsPart = Math.round((bowledOvers - whole) * displayBpo)
+    stats.oversBowled = ballsPart >= displayBpo ? `${whole + 1}.0` : `${whole}.${ballsPart}`
   } else {
     stats.oversBowled = '0.0'
   }

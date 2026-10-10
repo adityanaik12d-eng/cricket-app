@@ -166,4 +166,19 @@ describe('computeCareerStats', () => {
     expect(b1.oversBowled).toBe('1.0')
     expect(b1.bowling.economy).toBe(12)
   })
+
+  it('keeps oversBowled consistent with economy across matches with different ballsPerOver', () => {
+    const m1 = store.create(config) // default 6 balls/over
+    store.append(m1.matchId, { type: 'TOSS', winnerTeamId: 'teamA', winnerDecision: 'BAT' })
+    for (let i = 0; i < 6; i++) store.append(m1.matchId, ball(0, i, 2)) // 6 balls, 12 runs = 1.0 over
+
+    const m2 = store.create({ ...config, ballsPerOver: 3 })
+    store.append(m2.matchId, { type: 'TOSS', winnerTeamId: 'teamA', winnerDecision: 'BAT' })
+    for (let i = 0; i < 3; i++) store.append(m2.matchId, ball(0, i, 2)) // 3 balls, 6 runs = 1.0 over
+
+    const b1 = computeCareerStats(store.all(), 'b1')
+    // 18 runs across 2.0 overs -> economy 9; oversBowled must agree (not '3.0').
+    expect(b1.oversBowled).toBe('2.0')
+    expect(b1.bowling.economy).toBe(9)
+  })
 })
