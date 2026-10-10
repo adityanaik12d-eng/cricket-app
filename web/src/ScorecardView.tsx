@@ -1,11 +1,17 @@
-import type { Scorecard } from '@cricket-app/core'
-import { formatWin } from './scoring'
+import type { LiveScore, MatchResult, Scorecard, MatchState } from '@cricket-app/core'
+import { formatWin, playerName } from './scoring'
 
 interface Props {
-  scorecard: Scorecard
+  bundle: {
+    state: MatchState
+    scorecard: Scorecard
+    live?: LiveScore
+    result?: MatchResult | null
+  }
 }
 
-export function ScorecardView({ scorecard }: Props) {
+export function ScorecardView({ bundle }: Props) {
+  const { state, scorecard } = bundle
   if (scorecard.innings.length === 0) {
     return (
       <section className="card">
@@ -47,7 +53,7 @@ export function ScorecardView({ scorecard }: Props) {
               {inn.batting.map((b) => (
                 <tr key={b.playerId}>
                   <td>
-                    {b.playerId}
+                    {playerName(state.config, b.playerId)}
                     {b.isStriker ? ' *' : b.isNonStriker ? ' †' : ''}
                   </td>
                   <td className="num">{b.runs}</td>
@@ -84,7 +90,7 @@ export function ScorecardView({ scorecard }: Props) {
               {inn.bowling.map((b) => (
                 <tr key={b.playerId}>
                   <td>
-                    {b.playerId}
+                    {playerName(state.config, b.playerId)}
                     {b.isCurrentBowler ? ' •' : ''}
                   </td>
                   <td className="num">{b.oversText}</td>

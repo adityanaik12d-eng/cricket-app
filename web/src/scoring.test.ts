@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { LiveScore, MatchResult } from '@cricket-app/core'
-import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, resolvePositions } from './scoring'
+import type { LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
+import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, resolvePositions } from './scoring'
 
 const positions = { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' }
 
@@ -162,5 +162,80 @@ describe('formatBowlerFigures', () => {
     expect(formatBowlerFigures(6, 12, 2)).toBe('1.0-12-2')
     expect(formatBowlerFigures(7, 12, 2)).toBe('1.1-12-2')
     expect(formatBowlerFigures(0, 0, 0)).toBe('0.0-0-0')
+  })
+})
+
+const cfgWithRefs = {
+  matchId: 'dummy-match-id',
+  teamAId: 'teamA',
+  teamBId: 'teamB',
+  lineups: { A: [], B: [] },
+  oversPerInnings: 20,
+  inningsCount: 2,
+  ballsPerOver: 6,
+  maxOversPerBowler: 4,
+  maxWickets: 10,
+  powerplayOvers: 6,
+  wideExtra: 1,
+  noBallExtra: 1,
+  minutesPerOver: 5,
+  playerRefs: {
+    'p-1': { name: 'Virat K', mobile: '9876543210', verified: true },
+    'india-3': { name: 'Rohit', verified: false },
+  },
+} as MatchConfig
+
+describe('playerName', () => {
+  it('resolves directory and local names', () => {
+    expect(playerName(cfgWithRefs, 'p-1')).toBe('Virat K')
+    expect(playerName(cfgWithRefs, 'india-3')).toBe('Rohit')
+  })
+
+  it('falls back to the raw id for old matches and unknown players', () => {
+    const empty = {
+  matchId: 'dummy-match-id',
+  teamAId: 'teamA',
+  teamBId: 'teamB',
+  lineups: { A: [], B: [] },
+  oversPerInnings: 20,
+  inningsCount: 2,
+  ballsPerOver: 6,
+  maxOversPerBowler: 4,
+  maxWickets: 10,
+  powerplayOvers: 6,
+  wideExtra: 1,
+  noBallExtra: 1,
+  minutesPerOver: 5,
+  playerRefs: {},
+} as MatchConfig
+    expect(playerName(empty, 'india-1')).toBe('india-1')
+    expect(playerName(cfgWithRefs, 'zzz')).toBe('zzz')
+  })
+})
+
+describe('buildBallPayload with fielderId', () => {
+  it('includes fielderId when a fielder is credited', () => {
+    const payload = buildBallPayload({
+      kind: 'WICKET',
+      runs: 0,
+      dismissal: 'CAUGHT',
+      positions: { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' },
+      over: 0,
+      ball: 2,
+      fielderId: 'b3',
+    })
+    expect(payload).toMatchObject({ dismissal: 'CAUGHT', fielderId: 'b3', dismissedPlayerId: 'a1' })
+  })
+
+  it('omits fielderId when not credited', () => {
+    const payload = buildBallPayload({
+      kind: 'WICKET',
+      runs: 0,
+      dismissal: 'BOWLED',
+      positions: { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' },
+      over: 0,
+      ball: 2,
+    })
+    expect('fielderId' in payload).toBe(false)
   })
 })

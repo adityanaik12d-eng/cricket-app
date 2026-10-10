@@ -1,4 +1,4 @@
-import type { Dismissal, Extra, LiveScore, MatchResult } from '@cricket-app/core'
+import type { Dismissal, Extra, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
 
 export interface PadPositions {
   strikerId: string
@@ -21,6 +21,7 @@ export interface BallPayloadBody {
   nonStrikerId: string | null
   bowlerId: string
   fieldingCaptainId: string
+  fielderId?: string
 }
 
 export interface BuildBallInput {
@@ -30,6 +31,12 @@ export interface BuildBallInput {
   positions: PadPositions
   over: number
   ball: number
+  fielderId?: string
+}
+
+/** Resolves a player id to a display name, falling back to the raw id for old matches. */
+export function playerName(config: MatchConfig, id: string): string {
+  return config.playerRefs?.[id]?.name ?? id
 }
 
 /** "20" -> {20,0}; "4.5" -> {4,5} (matches the engine's oversText format). */
@@ -76,6 +83,7 @@ export function buildBallPayload(input: BuildBallInput): BallPayloadBody {
     nonStrikerId: positions.nonStrikerId,
     bowlerId: positions.bowlerId,
     fieldingCaptainId: positions.bowlerId,
+    ...(input.fielderId ? { fielderId: input.fielderId } : {}),
   }
 }
 

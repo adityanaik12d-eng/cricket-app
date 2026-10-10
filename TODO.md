@@ -21,11 +21,11 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Runs standalone: `node --experimental-strip-types src/index.ts` (imports use .ts extensions)
 
 ## Phase 3: Web (web/) - NEXT, React + Vite PWA, dark, responsive
-- [ ] Scaffold + dark theme tokens
-- [ ] Match setup screen
-- [ ] Scoring pad (ball input)
-- [ ] Live scoreboard + scorecard view
-- [ ] SSE live updates (Vite proxy to :3000)
+- [x] Scaffold + dark theme tokens
+- [x] Match setup screen
+- [x] Scoring pad (ball input)
+- [x] Live scoreboard + scorecard view
+- [x] SSE live updates (Vite proxy to :3000)
 
 ## Notes
 - Core test cmd: `cd packages/core; node ..\..\node_modules\vitest\vitest.mjs run`

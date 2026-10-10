@@ -3,7 +3,7 @@ import type { Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { ScorecardView } from './ScorecardView'
-import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, resolvePositions } from './scoring'
+import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, resolvePositions } from './scoring'
 import type { BallKind } from './scoring'
 
 const DISMISSALS: Dismissal[] = [
@@ -15,6 +15,8 @@ const DISMISSALS: Dismissal[] = [
   'HIT_WICKET',
   'OBSTRUCTING',
 ]
+
+const FIELDERS_REQUIRED = new Set<Dismissal>(['CAUGHT', 'STUMPED', 'RUN_OUT', 'OBSTRUCTING'])
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK'])
 
@@ -30,6 +32,8 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
   const [nonStrikerPick, setNonStrikerPick] = useState('')
   const [bowlerPick, setBowlerPick] = useState('')
   const [wicketMode, setWicketMode] = useState(false)
+  const [selectedDismissal, setSelectedDismissal] = useState<Dismissal | null>(null)
+  const [fielderPick, setFielderPick] = useState('')
   const [padError, setPadError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -44,6 +48,8 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
     setStrikerPick('')
     setNonStrikerPick('')
     setBowlerPick('')
+    setSelectedDismissal(null)
+    setFielderPick('')
   }
 
   const teamIds = useMemo(() => {
@@ -81,7 +87,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
     positions.bowlerId !== '' &&
     !busy
 
-  async function submitBall(kind: BallKind, runs: number, dismissal?: Dismissal): Promise<void> {
+  async function submitBall(kind: BallKind, runs: number, dismissal?: Dismissal, fielderId?: string): Promise<void> {
     if (!live) return
     setPadError(null)
     setBusy(true)
@@ -91,18 +97,32 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
         kind,
         runs,
         ...(dismissal ? { dismissal } : {}),
+        ...(fielderId ? { fielderId } : {}),
         positions,
         over,
         ball,
       })
       await api.postEvent(matchId, payload)
       setWicketMode(false)
+      setSelectedDismissal(null)
+      setFielderPick('')
     } catch (e) {
       if (e instanceof ApiRequestError) setPadError(e.message)
       else setPadError(e instanceof Error ? e.message : 'Failed to record ball')
     } finally {
       setBusy(false)
     }
+  }
+
+  function selectDismissal(d: Dismissal): void {
+    setSelectedDismissal(d)
+    setFielderPick(d === 'STUMPED' || d === 'OBSTRUCTING' ? (teamIds.bowling[0] ?? '') : '')
+  }
+
+  function cancelWicket(): void {
+    setWicketMode(false)
+    setSelectedDismissal(null)
+    setFielderPick('')
   }
 
   const resultText =
@@ -173,21 +193,21 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
             <div className="players">
               <div className="player">
                 <span className="muted">Strike</span>
-                <strong>{live.striker?.playerId ?? '—'}</strong>
+                <strong>{live.striker ? playerName(state.config, live.striker.playerId) : '—'}</strong>
                 <span>
                   {live.striker ? `${live.striker.runs} (${live.striker.balls})` : ''}
                 </span>
               </div>
               <div className="player">
                 <span className="muted">Non-strike</span>
-                <strong>{live.nonStriker?.playerId ?? '—'}</strong>
+                <strong>{live.nonStriker ? playerName(state.config, live.nonStriker.playerId) : '—'}</strong>
                 <span>
                   {live.nonStriker ? `${live.nonStriker.runs} (${live.nonStriker.balls})` : ''}
                 </span>
               </div>
               <div className="player">
                 <span className="muted">Bowler</span>
-                <strong>{(live.bowler?.playerId ?? bowlerPick) || '—'}</strong>
+                <strong>{playerName(state.config, live.bowler?.playerId ?? bowlerPick) || '—'}</strong>
                 <span>
                   {live.bowler
                     ? formatBowlerFigures(live.bowler.balls, live.bowler.runs, live.bowler.wickets)
@@ -210,7 +230,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                       .filter((p) => p !== nonStrikerPick)
                       .map((p) => (
                         <option key={p} value={p}>
-                          {p}
+                          {playerName(state.config, p)}
                         </option>
                       ))}
                   </select>
@@ -223,7 +243,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                       .filter((p) => p !== strikerPick)
                       .map((p) => (
                         <option key={p} value={p}>
-                          {p}
+                          {playerName(state.config, p)}
                         </option>
                       ))}
                   </select>
@@ -244,7 +264,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                   <option value="">Select…</option>
                   {teamIds.bowling.map((p) => (
                     <option key={p} value={p}>
-                      {p}
+                      {playerName(state.config, p)}
                     </option>
                   ))}
                 </select>
@@ -289,22 +309,55 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
               </>
             ) : (
               <>
-                <p className="muted">How was the batter out?</p>
-                <div className="pad-grid dismissals">
-                  {DISMISSALS.map((d) => (
+                {selectedDismissal ? (
+                  <>
+                    <p className="muted">Selected: {selectedDismissal.replace('_', ' ')}</p>
+                    {FIELDERS_REQUIRED.has(selectedDismissal) && (
+                      <>
+                        <p className="muted">Fielder</p>
+                        <select
+                          value={fielderPick}
+                          onChange={(e) => setFielderPick(e.target.value)}
+                        >
+                          <option value="">Select fielder</option>
+                          {teamIds.bowling.map((p) => (
+                            <option key={p} value={p}>
+                              {playerName(state.config, p)}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                     <button
-                      key={d}
                       className="btn pad-btn"
-                      disabled={busy}
-                      onClick={() => void submitBall('WICKET', 0, d)}
+                      onClick={() => submitBall('WICKET', 0, selectedDismissal, fielderPick)}
+                      disabled={FIELDERS_REQUIRED.has(selectedDismissal) && !fielderPick}
                     >
-                      {d.replace('_', ' ')}
+                      Submit
                     </button>
-                  ))}
-                </div>
-                <button className="btn ghost" onClick={() => setWicketMode(false)}>
-                  Cancel
-                </button>
+                    <button className="btn ghost" onClick={() => setWicketMode(false)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="pad-grid dismissals">
+                      {DISMISSALS.map((d) => (
+                        <button
+                          key={d}
+                          className="btn pad-btn"
+                          disabled={busy}
+                          onClick={() => void selectDismissal(d)}
+                        >
+                          {d.replace('_', ' ')}
+                        </button>
+                      ))}
+                    </div>
+                    <button className="btn ghost" onClick={() => setWicketMode(false)}>
+                      Cancel
+                    </button>
+                  </>
+                )}
               </>
             )}
 
@@ -312,7 +365,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
           </section>
         </>
       ) : (
-        <ScorecardView scorecard={bundle.scorecard} />
+        <ScorecardView bundle={bundle} />
       )}
     </div>
   )
