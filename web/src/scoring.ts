@@ -39,6 +39,13 @@ export function playerName(config: MatchConfig, id: string): string {
   return config.playerRefs?.[id]?.name ?? id
 }
 
+const FIELDERS_REQUIRED: ReadonlySet<Dismissal> = new Set(['CAUGHT', 'STUMPED', 'RUN_OUT', 'OBSTRUCTING'])
+
+/** Dismissals credited to a fielder; the scorer must pick who. The rest are bowler/umpire decisions. */
+export function requiresFielder(dismissal: Dismissal): boolean {
+  return FIELDERS_REQUIRED.has(dismissal)
+}
+
 /** "20" -> {20,0}; "4.5" -> {4,5} (matches the engine's oversText format). */
 export function parseOvers(oversText: string): { over: number; ball: number } {
   const dot = oversText.indexOf('.')

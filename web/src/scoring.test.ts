@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
-import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, resolvePositions } from './scoring'
+import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 
 const positions = { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' }
 
@@ -237,5 +237,20 @@ describe('buildBallPayload with fielderId', () => {
       ball: 2,
     })
     expect('fielderId' in payload).toBe(false)
+  })
+})
+
+describe('requiresFielder', () => {
+  it('is true for dismissals credited to a fielder', () => {
+    expect(requiresFielder('CAUGHT')).toBe(true)
+    expect(requiresFielder('RUN_OUT')).toBe(true)
+    expect(requiresFielder('STUMPED')).toBe(true)
+    expect(requiresFielder('OBSTRUCTING')).toBe(true)
+  })
+
+  it('is false for bowler and umpire dismissals', () => {
+    expect(requiresFielder('BOWLED')).toBe(false)
+    expect(requiresFielder('LBW')).toBe(false)
+    expect(requiresFielder('HIT_WICKET')).toBe(false)
   })
 })

@@ -3,7 +3,7 @@ import type { Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { ScorecardView } from './ScorecardView'
-import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, resolvePositions } from './scoring'
+import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind } from './scoring'
 
 const DISMISSALS: Dismissal[] = [
@@ -15,8 +15,6 @@ const DISMISSALS: Dismissal[] = [
   'HIT_WICKET',
   'OBSTRUCTING',
 ]
-
-const FIELDERS_REQUIRED = new Set<Dismissal>(['CAUGHT', 'STUMPED', 'RUN_OUT', 'OBSTRUCTING'])
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK'])
 
@@ -123,6 +121,12 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
     setWicketMode(false)
     setSelectedDismissal(null)
     setFielderPick('')
+  }
+
+  function startWicket(): void {
+    setSelectedDismissal(null)
+    setFielderPick('')
+    setWicketMode(true)
   }
 
   const resultText =
@@ -301,7 +305,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                   <button
                     className="btn pad-btn danger"
                     disabled={!padEnabled}
-                    onClick={() => setWicketMode(true)}
+                    onClick={startWicket}
                   >
                     W
                   </button>
@@ -312,11 +316,12 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                 {selectedDismissal ? (
                   <>
                     <p className="muted">Selected: {selectedDismissal.replace('_', ' ')}</p>
-                    {FIELDERS_REQUIRED.has(selectedDismissal) && (
+                    {requiresFielder(selectedDismissal) && (
                       <>
                         <p className="muted">Fielder</p>
                         <select
                           value={fielderPick}
+                          disabled={busy}
                           onChange={(e) => setFielderPick(e.target.value)}
                         >
                           <option value="">Select fielder</option>
@@ -331,11 +336,11 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                     <button
                       className="btn pad-btn"
                       onClick={() => submitBall('WICKET', 0, selectedDismissal, fielderPick)}
-                      disabled={FIELDERS_REQUIRED.has(selectedDismissal) && !fielderPick}
+                      disabled={busy || (requiresFielder(selectedDismissal) && !fielderPick)}
                     >
                       Submit
                     </button>
-                    <button className="btn ghost" onClick={() => setWicketMode(false)}>
+                    <button className="btn ghost" onClick={cancelWicket}>
                       Cancel
                     </button>
                   </>
@@ -353,7 +358,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                         </button>
                       ))}
                     </div>
-                    <button className="btn ghost" onClick={() => setWicketMode(false)}>
+                    <button className="btn ghost" onClick={cancelWicket}>
                       Cancel
                     </button>
                   </>

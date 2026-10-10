@@ -1,12 +1,10 @@
-import type { LiveScore, MatchResult, Scorecard, MatchState } from '@cricket-app/core'
+import type { Scorecard, MatchState } from '@cricket-app/core'
 import { formatWin, playerName } from './scoring'
 
 interface Props {
   bundle: {
     state: MatchState
     scorecard: Scorecard
-    live?: LiveScore
-    result?: MatchResult | null
   }
 }
 
@@ -103,7 +101,9 @@ export function ScorecardView({ bundle }: Props) {
           </table>
 
           {inn.yetToBat.length > 0 && (
-            <p className="muted yet">Yet to bat: {inn.yetToBat.join(', ')}</p>
+            <p className="muted yet">
+              Yet to bat: {inn.yetToBat.map((id) => playerName(state.config, id)).join(', ')}
+            </p>
           )}
         </section>
       ))}
