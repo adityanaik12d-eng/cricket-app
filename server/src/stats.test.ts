@@ -153,4 +153,17 @@ describe('computeCareerStats', () => {
     expect(computeCareerStats(store.all(), 'b3').catches).toBe(0)
     expect(computeCareerStats(store.all(), 'b5').catches).toBe(1)
   })
+
+  it('computes economy using the match ballsPerOver', () => {
+    const m1 = store.create({ ...config, ballsPerOver: 3 })
+    store.append(m1.matchId, { type: 'TOSS', winnerTeamId: 'teamA', winnerDecision: 'BAT' })
+    store.append(m1.matchId, ball(0, 0, 4))
+    store.append(m1.matchId, ball(0, 1, 4))
+    store.append(m1.matchId, ball(0, 2, 4))
+
+    const b1 = computeCareerStats(store.all(), 'b1')
+    // 12 runs in 3 balls = 1 over at 3 balls/over -> economy 12 (not 24).
+    expect(b1.oversBowled).toBe('1.0')
+    expect(b1.bowling.economy).toBe(12)
+  })
 })

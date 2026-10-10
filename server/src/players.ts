@@ -49,7 +49,13 @@ function rowToPlayer(row: Record<string, unknown>): Player {
   }
 }
 
-function validateProfile(p: { name?: unknown; role?: unknown; batting_hand?: unknown }): void {
+function validateProfile(p: {
+  name?: unknown
+  role?: unknown
+  batting_hand?: unknown
+  bowling_style?: unknown
+  location?: unknown
+}): void {
   if (p.name !== undefined && (typeof p.name !== 'string' || p.name.trim().length === 0)) {
     throw new ApiError(400, 'INVALID_PROFILE', 'name must be a non-empty string')
   }
@@ -58,6 +64,12 @@ function validateProfile(p: { name?: unknown; role?: unknown; batting_hand?: unk
   }
   if (p.batting_hand !== undefined && (typeof p.batting_hand !== 'string' || !HANDS.has(p.batting_hand))) {
     throw new ApiError(400, 'INVALID_PROFILE', 'batting_hand must be RHB or LHB')
+  }
+  for (const key of ['bowling_style', 'location'] as const) {
+    const value = p[key]
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      throw new ApiError(400, 'INVALID_PROFILE', `${key} must be a string or null`)
+    }
   }
 }
 

@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS otp_codes (
 
 export function openDb(path: string): DatabaseSync {
   const db = new DatabaseSync(path)
+  // node:sqlite enables foreign keys by default, but assert it explicitly so
+  // referential integrity does not silently depend on a runtime default.
+  db.exec('PRAGMA foreign_keys = ON')
   db.exec(SCHEMA)
   return db
 }

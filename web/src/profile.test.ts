@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateProfilePatch } from './profile'
+import { roleLabel, validateProfilePatch } from './profile'
 
 describe('validateProfilePatch', () => {
   it('accepts a valid patch', () => {
@@ -20,5 +20,14 @@ describe('validateProfilePatch', () => {
   it('allows empty patch and null clears', () => {
     expect(validateProfilePatch({}).ok).toBe(true)
     expect(validateProfilePatch({ bowling_style: null, location: null }).ok).toBe(true)
+  })
+})
+
+describe('roleLabel', () => {
+  it('renders readable role names', () => {
+    expect(roleLabel('BATSMAN')).toBe('Batsman')
+    expect(roleLabel('BOWLER')).toBe('Bowler')
+    expect(roleLabel('KEEPER')).toBe('Wicketkeeper')
+    expect(roleLabel('ALL_ROUNDER')).toBe('All-rounder')
   })
 })

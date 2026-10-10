@@ -122,13 +122,14 @@ export class MatchStore extends EventEmitter {
     } as MatchEvent
     const events = [...record.events, event]
     // Recompute from the full log so corrections (which replay superseded
-    // events) are handled by the engine; assign only after a clean apply.
+    // events) are handled by the engine. Persist BEFORE touching in-memory
+    // state: if the insert throws, the record must not diverge from the DB.
     const state = applyEvents(record.config, events)
-    record.events = events
-    record.state = state
     this.db
       .prepare('INSERT INTO match_events (match_id, seq, payload_json, ts) VALUES (?, ?, ?, ?)')
       .run(matchId, event.seq, JSON.stringify(event), event.ts)
+    record.events = events
+    record.state = state
     const live = projectLiveScore(state)
     this.emit('update', matchId, { state, live } satisfies MatchUpdate)
     return { event, state, live }

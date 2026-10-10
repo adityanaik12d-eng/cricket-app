@@ -264,7 +264,9 @@ export function applyEvent(config: MatchConfig, state: MatchState, event: MatchE
   return next
 }
 
-// Index corrections by the event id they supersede.
+// Index corrections by the event id they supersede. If more than one correction
+// supersedes the same event, the LAST one in the log wins (Map.set overwrites) —
+// which is the sensible reading of a later correction overriding an earlier one.
 function buildCorrections(events: MatchEvent[]): Map<string, CorrectionEvent> {
   const corrections = new Map<string, CorrectionEvent>()
   for (const e of events) {

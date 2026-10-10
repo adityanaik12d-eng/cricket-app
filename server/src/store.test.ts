@@ -92,4 +92,32 @@ describe('MatchStore persistence', () => {
     const s2 = new MatchStore(db)
     expect(() => s2.mustGet('nope')).toThrow('not found')
   })
+
+  it('enforces foreign keys: match_events cannot reference a missing match', () => {
+    const db = openDb(':memory:')
+    expect(() =>
+      db
+        .prepare('INSERT INTO match_events (match_id, seq, payload_json, ts) VALUES (?, ?, ?, ?)')
+        .run('ghost', 1, '{}', '2026-10-08T00:00:00.000Z'),
+    ).toThrow()
+  })
+
+  it('leaves in-memory state unchanged when persisting an event fails', () => {
+    const db = openDb(':memory:')
+    const store = new MatchStore(db)
+    const record = store.create(config)
+    store.append(record.matchId, toss)
+
+    const beforeCount = store.get(record.matchId)!.state.eventCount
+    const beforeLen = store.get(record.matchId)!.events.length
+
+    db.close()
+    expect(() =>
+      store.append(record.matchId, { type: 'TOSS', winnerTeamId: 'teamA', winnerDecision: 'BOWL' }),
+    ).toThrow()
+
+    const after = store.get(record.matchId)!
+    expect(after.state.eventCount).toBe(beforeCount)
+    expect(after.events.length).toBe(beforeLen)
+  })
 })

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { applyEvents, applyEvent } from './apply.js'
+import { applyEvents, applyEvent, effectiveEvents } from './apply.js'
 import { EngineError } from './errors.js'
 import { withDefaults } from './config.js'
 import { emptyInnings, emptyState } from './state.js'
-import type { MatchConfig, MatchState, BallEvent, TossEvent } from './types.js'
+import type { MatchConfig, MatchState, BallEvent, CorrectionEvent, Replacement, TossEvent } from './types.js'
 
 const baseConfig: MatchConfig = withDefaults({
   matchId: 'm1',
@@ -479,4 +479,86 @@ it('fielderId on a ball event does not change scoring', () => {
 
   expect(withFielder.fielderId).toBe('b2')
   expect(fielderState).toEqual(plainState)
+})
+
+describe('effectiveEvents (corrected view for per-delivery attribution)', () => {
+  function ev(id: string, seq: number, runs: number): BallEvent {
+    return {
+      id,
+      matchId: 'm1',
+      seq,
+      ts: '2026-10-08T10:01:00.000Z',
+      type: 'BALL',
+      over: 0,
+      ball: 0,
+      runs,
+      extras: 'NONE',
+      wicket: false,
+      dismissal: null,
+      dismissedPlayerId: null,
+      batterId: 'a1',
+      nonStrikerId: 'a2',
+      bowlerId: 'b1',
+      fieldingCaptainId: 'b11',
+    }
+  }
+  function repBall(runs: number): Replacement {
+    return {
+      kind: 'BALL',
+      ball: {
+        over: 0,
+        ball: 0,
+        runs,
+        extras: 'NONE',
+        wicket: false,
+        dismissal: null,
+        dismissedPlayerId: null,
+        batterId: 'a1',
+        nonStrikerId: 'a2',
+        bowlerId: 'b1',
+        fieldingCaptainId: 'b11',
+      },
+    }
+  }
+  function correction(id: string, seq: number, supersedes: string, replacement: Replacement): CorrectionEvent {
+    return { id, matchId: 'm1', seq, ts: '2026-10-08T10:02:00.000Z', type: 'CORRECTION', supersedes, replacement, reason: 'test' }
+  }
+
+  it('returns uncorrected events unchanged and drops CORRECTION events', () => {
+    const e2 = ev('e2', 2, 1)
+    expect(effectiveEvents([toss, e2])).toEqual([toss, e2])
+  })
+
+  it('substitutes the replacement for a superseded ball, borrowing id/seq/ts', () => {
+    const e2 = ev('e2', 2, 1)
+    const out = effectiveEvents([toss, e2, correction('c1', 3, 'e2', repBall(6))])
+    expect(out).toHaveLength(2)
+    const eff = out[1] as BallEvent
+    expect(eff.id).toBe('e2')
+    expect(eff.seq).toBe(2)
+    expect(eff.ts).toBe(e2.ts)
+    expect(eff.type).toBe('BALL')
+    expect(eff.runs).toBe(6)
+  })
+
+  it('drops an orphan correction that supersedes an absent event', () => {
+    const c = correction('c1', 2, 'ghost', repBall(6))
+    expect(effectiveEvents([toss, c])).toEqual([toss])
+  })
+
+  it('lets the last correction win when two supersede the same ball (and matches the engine)', () => {
+    const e2 = ev('e2', 2, 1)
+    const c1 = correction('c1', 3, 'e2', repBall(4))
+    const c2 = correction('c2', 4, 'e2', repBall(6))
+    const out = effectiveEvents([toss, e2, c1, c2])
+    expect((out[1] as BallEvent).runs).toBe(6)
+    expect(applyEvents(baseConfig, [toss, e2, c1, c2]).innings[0].runs).toBe(6)
+  })
+
+  it('keeps the original when the replacement is a different kind', () => {
+    const e2 = ev('e2', 2, 1)
+    const c = correction('c1', 3, 'e2', { kind: 'PENALTY', penalty: { runs: 5, teamId: 'A' } })
+    const out = effectiveEvents([toss, e2, c])
+    expect(out[1]).toEqual(e2)
+  })
 })

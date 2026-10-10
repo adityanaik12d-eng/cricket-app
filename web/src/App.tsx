@@ -5,7 +5,7 @@ import { SigninScreen } from './SigninScreen'
 import { ProfileScreen } from './ProfileScreen'
 import { getToken } from './token'
 import type { CreateMatchBody, Player } from './api'
-import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry } from './lineup'
+import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
 
 type Route =
   | { name: 'setup' }
@@ -145,6 +145,10 @@ function SetupFlow() {
     setResultsB([])
     setShowCreateB(false)
   }
+
+  useEffect(() => {
+    resetLocalIds()
+  }, [])
 
   useEffect(() => {
     if (numA.length >= 4) {

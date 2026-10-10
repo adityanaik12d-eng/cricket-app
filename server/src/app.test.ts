@@ -218,3 +218,64 @@ describe('server API', () => {
     await reader.cancel()
   })
 })
+
+describe('players routes', () => {
+  let app: FastifyInstance
+
+  beforeEach(async () => {
+    app = await buildApp(new MatchStore(openDb(':memory:')))
+  })
+
+  afterEach(async () => {
+    await app.close()
+  })
+
+  it('GET /players requires a query string', async () => {
+    const res = await app.inject({ method: 'GET', url: '/players' })
+    expect(res.statusCode).toBe(400)
+    expect((res.json() as { code: string }).code).toBe('INVALID_FORMAT')
+  })
+
+  it('GET /players searches by name prefix', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/players',
+      payload: { mobile: '9876543210', name: 'Rohit Sharma' },
+    })
+    await app.inject({
+      method: 'POST',
+      url: '/players',
+      payload: { mobile: '9876543211', name: 'Virat Kohli' },
+    })
+    const res = await app.inject({ method: 'GET', url: '/players?q=Roh' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json() as { players: { name: string }[] }
+    expect(body.players.map((p) => p.name)).toEqual(['Rohit Sharma'])
+  })
+
+  it('POST /players validates required fields then creates (201) and exposes stats', async () => {
+    const bad = await app.inject({ method: 'POST', url: '/players', payload: { name: 'No Mobile' } })
+    expect(bad.statusCode).toBe(400)
+    expect((bad.json() as { code: string }).code).toBe('INVALID_PROFILE')
+
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/players',
+      payload: { mobile: '9000000001', name: 'Suresh Raina' },
+    })
+    expect(ok.statusCode).toBe(201)
+    const created = (ok.json() as { player: { id: string; name: string } }).player
+    expect(created.id).toBeTruthy()
+    expect(created.name).toBe('Suresh Raina')
+
+    const stats = await app.inject({ method: 'GET', url: `/players/${created.id}/stats` })
+    expect(stats.statusCode).toBe(200)
+    expect((stats.json() as { matches: number }).matches).toBe(0)
+  })
+
+  it('GET /players/:id/stats 404s for unknown player', async () => {
+    const res = await app.inject({ method: 'GET', url: '/players/p-nope/stats' })
+    expect(res.statusCode).toBe(404)
+    expect((res.json() as { code: string }).code).toBe('NO_PLAYER')
+  })
+})

@@ -3,7 +3,6 @@ import type { DatabaseSync } from 'node:sqlite'
 import type { FastifyInstance } from 'fastify'
 import { ApiError } from './store.ts'
 import { PlayerRepo } from './players.ts'
-import type { Player } from './players.ts'
 
 const OTP_TTL_MS = 5 * 60 * 1000
 const MAX_ATTEMPTS = 3
@@ -102,7 +101,7 @@ export function verifyToken(token: string, secret: string, now: number = Date.no
     throw401()
   }
   if (typeof claims.sub !== 'string' || typeof claims.exp !== 'number') throw401()
-  if (now / 1000 > claims.exp) throw401()
+  if (now / 1000 >= claims.exp) throw401()
   return claims.sub
 }
 
@@ -129,7 +128,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
       throw new ApiError(400, 'INVALID_MOBILE', 'Mobile number must be exactly 10 digits')
     }
     const devOtp = deps.otp.request(mobile)
-    const provider = process.env.OTP_PROVIDER ?? 'dev'
+    const provider = process.env.OTP_PROVIDER || 'dev'
     return provider === 'dev' ? { ok: true, devOtp } : { ok: true }
   })
 

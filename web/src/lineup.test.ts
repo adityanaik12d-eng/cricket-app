@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildLineupRefs, directoryEntry, newLocalEntry } from './lineup'
+import { buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
 import type { Player } from './api'
 
 const player: Player = {
@@ -47,5 +47,16 @@ describe('lineup', () => {
     const teamB = Array.from({ length: 11 }, (_, i) => newLocalEntry('Player ' + (i + 1), []))
     const all = [...teamA, ...teamB].map((e) => e.id)
     expect(new Set(all).size).toBe(all.length)
+  })
+
+  it('resetLocalIds lets a fresh setup session reuse predictable ids', () => {
+    resetLocalIds()
+    const first = newLocalEntry('Rohit', [])
+    const second = newLocalEntry('Rohit', [])
+    expect(first.id).toBe('local-rohit')
+    expect(second.id).toBe('local-rohit-2')
+
+    resetLocalIds()
+    expect(newLocalEntry('Rohit', []).id).toBe('local-rohit')
   })
 })

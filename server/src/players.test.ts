@@ -73,4 +73,27 @@ describe('PlayerRepo', () => {
     expect(() => repo.update(p.id, { role: 'NOPE' as never })).toThrow(ApiError)
     expect(() => repo.update('p-missing', { name: 'X' })).toThrow(ApiError)
   })
+
+  it('rejects non-string location and bowling_style with 400 INVALID_PROFILE', () => {
+    const p = repo.create({ mobile: '9876543210', name: 'Ravi' })
+    let locErr: unknown
+    try {
+      repo.update(p.id, { location: 123 as never })
+    } catch (err) {
+      locErr = err
+    }
+    expect(locErr).toBeInstanceOf(ApiError)
+    expect((locErr as ApiError).code).toBe('INVALID_PROFILE')
+
+    let styleErr: unknown
+    try {
+      repo.update(p.id, { bowling_style: {} as never })
+    } catch (err) {
+      styleErr = err
+    }
+    expect((styleErr as ApiError).statusCode).toBe(400)
+
+    // null is allowed (clears the field)
+    expect(repo.update(p.id, { location: null }).location).toBeNull()
+  })
 })

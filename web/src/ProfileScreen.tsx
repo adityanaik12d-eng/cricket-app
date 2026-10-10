@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import type { CareerStats, Player } from './api'
 import { api, ApiRequestError } from './api'
 import { clearToken } from './token'
-import { validateProfilePatch } from './profile'
+import { roleLabel, validateProfilePatch } from './profile'
 import type { ProfilePatch } from './profile'
 
 const ROLES: Array<Player['role']> = ['BATSMAN', 'BOWLER', 'KEEPER', 'ALL_ROUNDER']
@@ -77,7 +77,7 @@ export function ProfileScreen({ onSignedOut }: { onSignedOut: () => void }): Rea
             className={player.role === role ? 'chip active' : 'chip'}
             onClick={() => void save({ role })}
           >
-            {role === 'KEEPER' ? 'Wicketkeeper' : role.charAt(0) + role.slice(1).toLowerCase()}
+            {roleLabel(role)}
           </button>
         ))}
       </div>

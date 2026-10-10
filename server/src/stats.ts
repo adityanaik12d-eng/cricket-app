@@ -55,11 +55,13 @@ function isFielderCredit(ev: MatchEvent, playerId: string): 'CAUGHT' | 'STUMPED'
 export function computeCareerStats(records: MatchRecord[], playerId: string): CareerStats {
   const stats = emptyStats()
   let bowledBalls = 0
+  let bowledOvers = 0
   let ballsPerOver = 6
   let best: { wickets: number; runs: number } | null = null
 
   for (const record of records) {
-    ballsPerOver = record.config.ballsPerOver || 6
+    const bpo = record.config.ballsPerOver || 6
+    ballsPerOver = bpo
     const inLineup =
       record.config.lineups.A.includes(playerId) || record.config.lineups.B.includes(playerId)
     if (!inLineup) continue
@@ -84,6 +86,9 @@ export function computeCareerStats(records: MatchRecord[], playerId: string): Ca
         stats.wickets += bowl.wickets
         stats.runsConceded += bowl.runs
         bowledBalls += bowl.balls
+        // Accumulate overs using THIS match's ballsPerOver so economy stays
+        // correct when a career spans matches with different over lengths.
+        bowledOvers += bowl.balls / bpo
         if (!best || bowl.wickets > best.wickets || (bowl.wickets === best.wickets && bowl.runs < best.runs)) {
           best = { wickets: bowl.wickets, runs: bowl.runs }
         }
@@ -100,11 +105,16 @@ export function computeCareerStats(records: MatchRecord[], playerId: string): Ca
 
   // formatOvers trims a whole-over count to '0'/'2'; career stats always show
   // the ball component ('0.0', '2.0') to match the API shape.
-  stats.oversBowled = bowledBalls > 0 ? formatOvers(bowledBalls, ballsPerOver) : '0.0'
+  if (bowledBalls > 0) {
+    const overs = formatOvers(bowledBalls, ballsPerOver)
+    stats.oversBowled = overs.includes('.') ? overs : `${overs}.0`
+  } else {
+    stats.oversBowled = '0.0'
+  }
   if (best) stats.bestBowling = `${best.wickets}/${best.runs}`
   stats.batting.average = stats.batting.outCount > 0 ? round2(stats.runs / stats.batting.outCount) : 0
   stats.batting.strikeRate = stats.balls > 0 ? round2((stats.runs * 100) / stats.balls) : 0
-  stats.bowling.economy = bowledBalls > 0 ? round2((stats.runsConceded * 6) / bowledBalls) : 0
+  stats.bowling.economy = bowledOvers > 0 ? round2(stats.runsConceded / bowledOvers) : 0
   stats.bowling.average = stats.wickets > 0 ? round2(stats.runsConceded / stats.wickets) : 0
   stats.fielding.dismissals = stats.catches + stats.stumpings + stats.runOuts
   return stats

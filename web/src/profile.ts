@@ -3,6 +3,12 @@ import type { Player } from './api'
 const ROLES = new Set(['BATSMAN', 'BOWLER', 'KEEPER', 'ALL_ROUNDER'])
 const HANDS = new Set(['RHB', 'LHB'])
 
+export function roleLabel(role: string): string {
+  if (role === 'KEEPER') return 'Wicketkeeper'
+  if (role === 'ALL_ROUNDER') return 'All-rounder'
+  return role.charAt(0) + role.slice(1).toLowerCase()
+}
+
 export type ProfilePatch = Partial<
   Pick<Player, 'name' | 'role' | 'batting_hand' | 'bowling_style' | 'location'>
 >

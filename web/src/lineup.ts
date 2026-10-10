@@ -9,6 +9,13 @@ export interface LineupEntry {
 
 const issuedLocalIds = new Set<string>()
 
+// Clear ids handed out by newLocalEntry. SetupFlow calls this on mount so a
+// fresh setup session can reuse predictable quick-fill ids; within one session
+// ids stay unique (which is what keeps team A and team B from colliding).
+export function resetLocalIds(): void {
+  issuedLocalIds.clear()
+}
+
 export function newLocalEntry(name: string, takenIds: string[]): LineupEntry {
   const trimmed = name.trim()
   if (trimmed.length === 0) throw new Error('name required')

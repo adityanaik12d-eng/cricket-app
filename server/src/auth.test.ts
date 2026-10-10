@@ -152,6 +152,24 @@ describe('auth', () => {
     expect(bad.statusCode).toBe(400)
     expect((bad.json() as { code: string }).code).toBe('INVALID_PROFILE')
 
+    const badLocation = await app.inject({
+      method: 'PATCH',
+      url: '/me',
+      headers,
+      payload: { location: 42 },
+    })
+    expect(badLocation.statusCode).toBe(400)
+    expect((badLocation.json() as { code: string }).code).toBe('INVALID_PROFILE')
+
+    const badStyle = await app.inject({
+      method: 'PATCH',
+      url: '/me',
+      headers,
+      payload: { bowling_style: { x: 1 } },
+    })
+    expect(badStyle.statusCode).toBe(400)
+    expect((badStyle.json() as { code: string }).code).toBe('INVALID_PROFILE')
+
     const ok = await app.inject({
       method: 'PATCH',
       url: '/me',
@@ -164,6 +182,26 @@ describe('auth', () => {
       batting_hand: 'LHB',
       location: 'Chandigarh',
     })
+  })
+
+  it('falls back to the dev OTP when OTP_PROVIDER is set to an empty string', async () => {
+    const prev = process.env.OTP_PROVIDER
+    process.env.OTP_PROVIDER = ''
+    try {
+      const res = await requestOtp('9876543210')
+      expect(res.statusCode).toBe(200)
+      expect((res.json() as { devOtp?: string }).devOtp).toMatch(/^\d{6}$/)
+    } finally {
+      if (prev === undefined) delete process.env.OTP_PROVIDER
+      else process.env.OTP_PROVIDER = prev
+    }
+  })
+
+  it('rejects a token at the exact expiration instant (exp is exclusive)', () => {
+    const token = signToken('p-1', 'test-secret', 0)
+    const expMs = 30 * 24 * 60 * 60 * 1000
+    expect(() => verifyToken(token, 'test-secret', expMs)).toThrow(ApiError)
+    expect(verifyToken(token, 'test-secret', expMs - 1)).toBe('p-1')
   })
 
   it('rejects tampered and expired tokens with 401', () => {
