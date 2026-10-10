@@ -41,4 +41,11 @@ describe('lineup', () => {
     expect(refs[local.id]).toEqual({ name: 'Rohit', verified: false })
     expect(refs['p-1']).toEqual({ name: 'Virat K', mobile: '9876543210', verified: true })
   })
+
+  it('generates ids that stay unique across independent lineups', () => {
+    const teamA = Array.from({ length: 11 }, (_, i) => newLocalEntry('Player ' + (i + 1), []))
+    const teamB = Array.from({ length: 11 }, (_, i) => newLocalEntry('Player ' + (i + 1), []))
+    const all = [...teamA, ...teamB].map((e) => e.id)
+    expect(new Set(all).size).toBe(all.length)
+  })
 })
