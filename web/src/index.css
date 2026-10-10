@@ -328,7 +328,7 @@ select:focus {
 }
 
 .pad-grid.extras {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
 }
 
 .pad-grid.dismissals {
@@ -341,13 +341,33 @@ select:focus {
   min-height: 56px;
 }
 
+.extras-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.extras-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.extras-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+}
+
 @media (min-width: 768px) {
   .pad-grid {
     grid-template-columns: repeat(6, 1fr);
   }
 
   .pad-grid.extras {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
   }
 
   .pad-grid.dismissals {

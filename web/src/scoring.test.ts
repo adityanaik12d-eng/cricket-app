@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
-import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 
 const positions = { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' }
 
@@ -252,5 +252,32 @@ describe('requiresFielder', () => {
     expect(requiresFielder('BOWLED')).toBe(false)
     expect(requiresFielder('LBW')).toBe(false)
     expect(requiresFielder('HIT_WICKET')).toBe(false)
+  })
+})
+
+describe('EXTRA_GROUPS', () => {
+  it('offers wide, no-ball, bye and leg-bye run variants', () => {
+    const labels = Object.fromEntries(EXTRA_GROUPS.map((g) => [g.label, g.options.map((o) => o.label)]))
+    expect(labels).toEqual({
+      Wide: ['WD+0', 'WD+1', 'WD+2', 'WD+3', 'WD+4'],
+      'No ball': ['NB+0', 'NB+1', 'NB+2', 'NB+3', 'NB+4', 'NB+6'],
+      Bye: ['B+1', 'B+2', 'B+3', 'B+4'],
+      'Leg bye': ['LB+1', 'LB+2', 'LB+3', 'LB+4'],
+    })
+  })
+
+  it('maps every option to the correct extra and run count', () => {
+    for (const group of EXTRA_GROUPS) {
+      for (const option of group.options) {
+        const payload = buildBallPayload({ kind: option.kind, runs: option.runs, positions, over: 0, ball: 0 })
+        expect(payload.extras).toBe(
+          option.kind === 'WIDE' ? 'WIDE'
+          : option.kind === 'NO_BALL' ? 'NO_BALL'
+          : option.kind === 'BYE' ? 'BYE'
+          : 'LEG_BYE',
+        )
+        expect(payload.runs).toBe(option.runs)
+      }
+    }
   })
 })

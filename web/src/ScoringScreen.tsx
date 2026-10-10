@@ -3,7 +3,7 @@ import type { Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { ScorecardView } from './ScorecardView'
-import { buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind } from './scoring'
 
 const DISMISSALS: Dismissal[] = [
@@ -289,26 +289,32 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
                     </button>
                   ))}
                 </div>
-                <div className="pad-grid extras">
-                  <button className="btn pad-btn" disabled={!padEnabled} onClick={() => void submitBall('WIDE', 0)}>
-                    WD
-                  </button>
-                  <button className="btn pad-btn" disabled={!padEnabled} onClick={() => void submitBall('NO_BALL', 0)}>
-                    NB
-                  </button>
-                  <button className="btn pad-btn" disabled={!padEnabled} onClick={() => void submitBall('BYE', 1)}>
-                    B
-                  </button>
-                  <button className="btn pad-btn" disabled={!padEnabled} onClick={() => void submitBall('LEG_BYE', 1)}>
-                    LB
-                  </button>
-                  <button
-                    className="btn pad-btn danger"
-                    disabled={!padEnabled}
-                    onClick={startWicket}
-                  >
-                    W
-                  </button>
+                <div className="extras-groups">
+                  {EXTRA_GROUPS.map((group) => (
+                    <div className="extras-group" key={group.label}>
+                      <span className="extras-label">{group.label}</span>
+                      <div className="pad-grid extras">
+                        {group.options.map((option) => (
+                          <button
+                            key={option.label}
+                            className="btn pad-btn"
+                            disabled={!padEnabled}
+                            onClick={() => void submitBall(option.kind, option.runs)}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="extras-group">
+                    <span className="extras-label">Wicket</span>
+                    <div className="pad-grid extras">
+                      <button className="btn pad-btn danger" disabled={!padEnabled} onClick={startWicket}>
+                        W
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (
