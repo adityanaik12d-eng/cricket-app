@@ -2,7 +2,7 @@
 
 Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friendly. No check-ins, keep moving.
 
-## Phase 1: Core engine (packages/core) - COMPLETE (53/53 tests)
+## Phase 1: Core engine (packages/core) - COMPLETE (58/58 tests)
 - [x] Types, errors, overs, config, state, validate, apply, projections (live/scorecard/result)
 - [x] Full ball scoring: runs, extras (wide/no-ball/bye/leg-bye), batter/bowler lines, strike rotation
 - [x] Wickets, next batter, bowler credit (not for run out)
@@ -13,7 +13,7 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] playerRefs (id -> {name, mobile, verified}) and optional fielderId on wickets
 - [ ] commentary projection (nice-to-have)
 
-## Phase 2: Server (server/) - COMPLETE (37/37 tests)
+## Phase 2: Server (server/) - COMPLETE (50/50 tests)
 - [x] MatchStore: create match, append events (full-log replay), read state
 - [x] Persistence via SQLite (node:sqlite): matches and events survive a restart
 - [x] POST /matches, GET /matches/:id, POST/GET /matches/:id/events
@@ -22,7 +22,7 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Errors: 400 {error, code} (ApiError/EngineError), 404 unknown match
 - [x] Runs standalone: `node --experimental-strip-types src/index.ts` (imports use .ts extensions)
 
-## Phase 3: Web (web/) - COMPLETE (29/29 tests, React + Vite PWA, dark, responsive)
+## Phase 3: Web (web/) - COMPLETE (34/34 tests, React + Vite PWA, dark, responsive)
 - [x] Scaffold + dark theme tokens
 - [x] Match setup screen
 - [x] Scoring pad (ball input)
@@ -37,6 +37,13 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Lineup entry by name and by number; by-name (unverified) entries never require an account
 - [x] Player display names + fielded-by picker in scoring; names (not ids) in the scorecard
 - [x] Scoring works without signing in
+
+## Phase 4.1: Deferred-minor hardening - COMPLETE
+- [x] Core: `effectiveEvents` regression tests + last-correction-wins documented
+- [x] Server: explicit `PRAGMA foreign_keys = ON`; `MatchStore.append` persists before mutating in-memory state
+- [x] Auth: reject token at exact expiry, empty `OTP_PROVIDER` falls back to dev, reject non-string profile fields
+- [x] Career stats: overs/economy honor each match's `ballsPerOver` (and stay mutually consistent)
+- [x] Route-level `/players` tests; profile "All-rounder" label; lineup local-id reset on new setup
 
 Dev OTP: in development the code is logged by the server as `OTP <code> for <mobile>`; real SMS delivery is deferred.
 
