@@ -2,7 +2,7 @@
 
 Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friendly. No check-ins, keep moving.
 
-## Phase 1: Core engine (packages/core) - COMPLETE (51/51 tests)
+## Phase 1: Core engine (packages/core) - COMPLETE (53/53 tests)
 - [x] Types, errors, overs, config, state, validate, apply, projections (live/scorecard/result)
 - [x] Full ball scoring: runs, extras (wide/no-ball/bye/leg-bye), batter/bowler lines, strike rotation
 - [x] Wickets, next batter, bowler credit (not for run out)
@@ -10,26 +10,40 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Innings close/transition, results (wickets/runs/tie), declare, penalty, end-match
 - [x] Corrections (superseded events replayed with replacement)
 - [x] EngineError carries validation code for API error responses
+- [x] playerRefs (id -> {name, mobile, verified}) and optional fielderId on wickets
 - [ ] commentary projection (nice-to-have)
 
-## Phase 2: Server (server/) - COMPLETE (11/11 tests)
-- [x] In-memory MatchStore: create match, append events (full-log replay), read state
+## Phase 2: Server (server/) - COMPLETE (37/37 tests)
+- [x] MatchStore: create match, append events (full-log replay), read state
+- [x] Persistence via SQLite (node:sqlite): matches and events survive a restart
 - [x] POST /matches, GET /matches/:id, POST/GET /matches/:id/events
 - [x] GET /matches/:id/live, /scorecard, /result (via GET /matches/:id)
 - [x] SSE stream GET /matches/:id/stream (initial + per-event live updates)
 - [x] Errors: 400 {error, code} (ApiError/EngineError), 404 unknown match
 - [x] Runs standalone: `node --experimental-strip-types src/index.ts` (imports use .ts extensions)
 
-## Phase 3: Web (web/) - NEXT, React + Vite PWA, dark, responsive
+## Phase 3: Web (web/) - COMPLETE (29/29 tests, React + Vite PWA, dark, responsive)
 - [x] Scaffold + dark theme tokens
 - [x] Match setup screen
 - [x] Scoring pad (ball input)
 - [x] Live scoreboard + scorecard view
 - [x] SSE live updates (Vite proxy to :3000)
 
+## Phase 4: Accounts, player directory & career stats - COMPLETE (e2e verified)
+- [x] Player directory + search + career stats (mobile number = unique identity)
+- [x] Roles: BATSMAN / BOWLER / KEEPER / ALL_ROUNDER
+- [x] OTP sign-in (6-digit, 5-min TTL, 3 attempts) + JWT (HS256, 30-day expiry)
+- [x] Profile: role, batting/bowling style, location, career strip + stats grid (all stats free)
+- [x] Lineup entry by name and by number; by-name (unverified) entries never require an account
+- [x] Player display names + fielded-by picker in scoring; names (not ids) in the scorecard
+- [x] Scoring works without signing in
+
+Dev OTP: in development the code is logged by the server as `OTP <code> for <mobile>`; real SMS delivery is deferred.
+
 ## Notes
 - Core test cmd: `cd packages/core; node ..\..\node_modules\vitest\vitest.mjs run`
 - Server test cmd: `cd server; node ..\node_modules\vitest\vitest.mjs run`
+- Web test cmd: `cd web; node ..\node_modules\vitest\vitest.mjs run`
 - Typecheck: `node ..\..\node_modules\typescript\bin\tsc -p tsconfig.json --noEmit`
 - PowerShell: no `&&`, no tail/grep/wc
 - Git: `git -C C:\Users\IT\cricket-app ...` (cwd resets)
