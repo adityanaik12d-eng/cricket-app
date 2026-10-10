@@ -113,4 +113,44 @@ describe('computeCareerStats', () => {
     store.append(m1.matchId, ball(0, 0, 1))
     expect(() => computeCareerStats(store.all(), 'a1')).not.toThrow()
   })
+
+  it('does not credit a fielder for a caught wicket corrected away', () => {
+    const m1 = store.create(config)
+    store.append(m1.matchId, { type: 'TOSS', winnerTeamId: 'teamA', winnerDecision: 'BAT' })
+    const caught = store.append(
+      m1.matchId,
+      ball(0, 0, 0, { wicket: true, dismissal: 'CAUGHT', dismissedPlayerId: 'a1', fielderId: 'b3' }),
+    )
+    store.append(m1.matchId, {
+      type: 'CORRECTION',
+      supersedes: caught.event.id,
+      reason: 'was actually a dot ball',
+      replacement: { kind: 'BALL', ball: ball(0, 0, 0) },
+    })
+
+    const b3 = computeCareerStats(store.all(), 'b3')
+    expect(b3.catches).toBe(0)
+    expect(b3.fielding).toEqual({ dismissals: 0 })
+  })
+
+  it('credits the replacement fielder after a correction', () => {
+    const m1 = store.create(config)
+    store.append(m1.matchId, { type: 'TOSS', winnerTeamId: 'teamA', winnerDecision: 'BAT' })
+    const caught = store.append(
+      m1.matchId,
+      ball(0, 0, 0, { wicket: true, dismissal: 'CAUGHT', dismissedPlayerId: 'a1', fielderId: 'b3' }),
+    )
+    store.append(m1.matchId, {
+      type: 'CORRECTION',
+      supersedes: caught.event.id,
+      reason: 'wrong fielder',
+      replacement: {
+        kind: 'BALL',
+        ball: ball(0, 0, 0, { wicket: true, dismissal: 'CAUGHT', dismissedPlayerId: 'a1', fielderId: 'b5' }),
+      },
+    })
+
+    expect(computeCareerStats(store.all(), 'b3').catches).toBe(0)
+    expect(computeCareerStats(store.all(), 'b5').catches).toBe(1)
+  })
 })

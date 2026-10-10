@@ -1,4 +1,4 @@
-import { formatOvers, projectScorecard, round2 } from '@cricket-app/core'
+import { effectiveEvents, formatOvers, projectScorecard, round2 } from '@cricket-app/core'
 import type { MatchEvent } from '@cricket-app/core'
 import type { MatchRecord } from './store.ts'
 
@@ -90,7 +90,7 @@ export function computeCareerStats(records: MatchRecord[], playerId: string): Ca
       }
     }
 
-    for (const ev of record.events) {
+    for (const ev of effectiveEvents(record.events)) {
       const credit = isFielderCredit(ev, playerId)
       if (credit === 'CAUGHT') stats.catches += 1
       else if (credit === 'STUMPED') stats.stumpings += 1

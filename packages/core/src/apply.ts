@@ -264,12 +264,58 @@ export function applyEvent(config: MatchConfig, state: MatchState, event: MatchE
   return next
 }
 
-export function applyEvents(config: MatchConfig, events: MatchEvent[]): MatchState {
-  // Pre-pass: corrections replace the event they supersede at replay time.
+// Index corrections by the event id they supersede.
+function buildCorrections(events: MatchEvent[]): Map<string, CorrectionEvent> {
   const corrections = new Map<string, CorrectionEvent>()
   for (const e of events) {
     if (e.type === 'CORRECTION') corrections.set(e.supersedes, e)
   }
+  return corrections
+}
+
+// The event as replayed: a correction substitutes its replacement for the event
+// it supersedes, borrowing the original's id/seq/ts.
+function resolveEffective(e: MatchEvent, corrections: Map<string, CorrectionEvent>): MatchEvent {
+  const correction = corrections.get(e.id)
+  if (correction && e.type === 'BALL' && correction.replacement.kind === 'BALL') {
+    return {
+      ...correction.replacement.ball,
+      id: e.id,
+      matchId: e.matchId,
+      seq: e.seq,
+      ts: e.ts,
+      type: 'BALL',
+    }
+  }
+  if (correction && e.type === 'PENALTY' && correction.replacement.kind === 'PENALTY') {
+    return {
+      ...correction.replacement.penalty,
+      id: e.id,
+      matchId: e.matchId,
+      seq: e.seq,
+      ts: e.ts,
+      type: 'PENALTY',
+    }
+  }
+  return e
+}
+
+// The scored events after corrections are applied: CORRECTION events are removed
+// and each event a correction supersedes is replaced. Consumers that attribute
+// effects to individual deliveries (e.g. career fielding stats) must read this
+// list, not the raw log, so corrections are honored.
+export function effectiveEvents(events: MatchEvent[]): MatchEvent[] {
+  const corrections = buildCorrections(events)
+  const out: MatchEvent[] = []
+  for (const e of events) {
+    if (e.type === 'CORRECTION') continue
+    out.push(resolveEffective(e, corrections))
+  }
+  return out
+}
+
+export function applyEvents(config: MatchConfig, events: MatchEvent[]): MatchState {
+  const corrections = buildCorrections(events)
 
   let state = emptyState(config)
   for (const e of events) {
@@ -280,28 +326,7 @@ export function applyEvents(config: MatchConfig, events: MatchEvent[]): MatchSta
       state = record
       continue
     }
-    const correction = corrections.get(e.id)
-    let effective: MatchEvent = e
-    if (correction && e.type === 'BALL' && correction.replacement.kind === 'BALL') {
-      effective = {
-        ...correction.replacement.ball,
-        id: e.id,
-        matchId: e.matchId,
-        seq: e.seq,
-        ts: e.ts,
-        type: 'BALL',
-      }
-    } else if (correction && e.type === 'PENALTY' && correction.replacement.kind === 'PENALTY') {
-      effective = {
-        ...correction.replacement.penalty,
-        id: e.id,
-        matchId: e.matchId,
-        seq: e.seq,
-        ts: e.ts,
-        type: 'PENALTY',
-      }
-    }
-    state = applyEvent(config, state, effective)
+    state = applyEvent(config, state, resolveEffective(e, corrections))
   }
   return state
 }
