@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { InningsCard, MatchConfig, MatchState, Scorecard } from '@cricket-app/core'
+import type { CommentaryLine, InningsCard, MatchConfig, MatchState, Scorecard } from '@cricket-app/core'
 import { ScorecardView } from './ScorecardView'
 
 const config = {
@@ -107,5 +107,25 @@ describe('ScorecardView', () => {
     for (const id of ['a1', 'a2', 'a3', 'b1', 'b2']) {
       expect(html).not.toContain(id)
     }
+  })
+
+  it('renders commentary newest-first when provided', () => {
+    const commentary: CommentaryLine[] = [
+      { seq: 1, kind: 'TOSS', over: null, text: 'Team Alpha won the toss and chose to bat' },
+      { seq: 2, kind: 'OVER', over: null, text: 'Over 1' },
+      { seq: 3, kind: 'BALL', over: '0.1', text: '0.1 Danish Ali to Aarav Shah, FOUR' },
+    ]
+    const html = renderToStaticMarkup(
+      createElement(ScorecardView, { bundle: { state, scorecard }, commentary }),
+    )
+    expect(html).toContain('Commentary')
+    expect(html).toContain('FOUR')
+    // newest-first: the last ball is rendered above the toss line
+    expect(html.indexOf('FOUR')).toBeLessThan(html.indexOf('won the toss'))
+  })
+
+  it('omits the commentary card when there are no lines', () => {
+    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard } }))
+    expect(html).not.toContain('Commentary')
   })
 })

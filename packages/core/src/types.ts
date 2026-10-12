@@ -241,3 +241,13 @@ export interface LiveScore {
   nonStriker: BatterLine | null
   bowler: BowlerLine | null
 }
+
+export type CommentaryKind = 'TOSS' | 'OVER' | 'BALL' | 'WICKET' | 'INNINGS' | 'END'
+
+/** One line of ball-by-ball commentary; `over` is the delivery label ("18.3") for deliveries. */
+export interface CommentaryLine {
+  seq: number
+  kind: CommentaryKind
+  over: string | null
+  text: string
+}

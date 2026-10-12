@@ -188,6 +188,21 @@ describe('server API', () => {
     expect(body.innings[0]?.batting[0]).toMatchObject({ playerId: 'a1', runs: 4 })
   })
 
+  it('GET /matches/:id/commentary returns ball-by-ball lines', async () => {
+    const { matchId } = await startMatch()
+    await app.inject({ method: 'POST', url: `/matches/${matchId}/events`, payload: ballPayload(0, 0, 4) })
+    const res = await app.inject({ method: 'GET', url: `/matches/${matchId}/commentary` })
+    expect(res.statusCode).toBe(200)
+    const body = res.json() as { commentary: { kind: string; text: string }[] }
+    expect(body.commentary[0]?.kind).toBe('TOSS')
+    expect(body.commentary.some((l) => l.kind === 'BALL' && l.text.includes('FOUR'))).toBe(true)
+  })
+
+  it('GET /matches/:id/commentary 404s for unknown match', async () => {
+    const res = await app.inject({ method: 'GET', url: '/matches/nope/commentary' })
+    expect(res.statusCode).toBe(404)
+  })
+
   it('GET /matches/:id/stream sends an initial live event and updates after each ball', async () => {
     const { matchId } = await startMatch()
     await app.listen({ port: 0, host: '127.0.0.1' })

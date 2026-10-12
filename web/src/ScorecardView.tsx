@@ -1,4 +1,4 @@
-import type { Scorecard, MatchState } from '@cricket-app/core'
+import type { CommentaryLine, Scorecard, MatchState } from '@cricket-app/core'
 import { formatWin, playerName } from './scoring'
 
 interface Props {
@@ -6,9 +6,10 @@ interface Props {
     state: MatchState
     scorecard: Scorecard
   }
+  commentary?: CommentaryLine[]
 }
 
-export function ScorecardView({ bundle }: Props) {
+export function ScorecardView({ bundle, commentary }: Props) {
   const { state, scorecard } = bundle
   if (scorecard.innings.length === 0) {
     return (
@@ -118,6 +119,22 @@ export function ScorecardView({ bundle }: Props) {
                 ? 'Match tied'
                 : `Match abandoned${scorecard.result.reason ? `: ${scorecard.result.reason}` : ''}`}
           </p>
+        </section>
+      )}
+
+      {commentary && commentary.length > 0 && (
+        <section className="card">
+          <h2>Commentary</h2>
+          <ol className="commentary-list">
+            {commentary
+              .slice()
+              .reverse()
+              .map((line) => (
+                <li key={line.seq} className={`commentary-line ${line.kind.toLowerCase()}`}>
+                  {line.text}
+                </li>
+              ))}
+          </ol>
         </section>
       )}
     </div>

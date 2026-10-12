@@ -660,3 +660,44 @@ button:disabled {
   border-radius: 6px;
   vertical-align: middle;
 }
+
+.commentary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.commentary-line {
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.commentary-line:last-child {
+  border-bottom: none;
+}
+
+.commentary-line.over {
+  background: var(--surface-2);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.commentary-line.toss,
+.commentary-line.innings,
+.commentary-line.end {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.commentary-line.wicket {
+  color: var(--danger);
+  font-weight: 600;
+}

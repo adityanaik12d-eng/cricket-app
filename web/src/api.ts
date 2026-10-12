@@ -1,4 +1,4 @@
-import type { LiveScore, MatchResult, MatchState, Scorecard } from '@cricket-app/core'
+import type { CommentaryLine, LiveScore, MatchResult, MatchState, Scorecard } from '@cricket-app/core'
 import { getToken } from './token'
 
 export class ApiRequestError extends Error {
@@ -116,5 +116,8 @@ export const api = {
   },
   getPlayerStats(id: string): Promise<CareerStats> {
     return request(`/players/${id}/stats`)
+  },
+  getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
+    return request(`/matches/${matchId}/commentary`)
   },
 }

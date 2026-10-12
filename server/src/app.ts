@@ -1,6 +1,6 @@
 import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
-import { EngineError, projectLiveScore, projectResult, projectScorecard } from '@cricket-app/core'
+import { EngineError, projectCommentary, projectLiveScore, projectResult, projectScorecard } from '@cricket-app/core'
 import type { LiveScore } from '@cricket-app/core'
 import { ApiError, MatchStore } from './store.ts'
 import { openDb } from './db.ts'
@@ -96,6 +96,12 @@ export async function buildApp(
   app.get('/matches/:id/events', async (req) => {
     const { id } = req.params as { id: string }
     return { events: store.mustGet(id).events }
+  })
+
+  app.get('/matches/:id/commentary', async (req) => {
+    const { id } = req.params as { id: string }
+    const record = store.mustGet(id)
+    return { commentary: projectCommentary(record.config, record.events) }
   })
 
   app.post('/matches/:id/events', async (req, reply) => {

@@ -2,7 +2,7 @@
 
 Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friendly. No check-ins, keep moving.
 
-## Phase 1: Core engine (packages/core) - COMPLETE (58/58 tests)
+## Phase 1: Core engine (packages/core) - COMPLETE (72/72 tests)
 - [x] Types, errors, overs, config, state, validate, apply, projections (live/scorecard/result)
 - [x] Full ball scoring: runs, extras (wide/no-ball/bye/leg-bye), batter/bowler lines, strike rotation
 - [x] Wickets, next batter, bowler credit (not for run out)
@@ -11,9 +11,9 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Corrections (superseded events replayed with replacement)
 - [x] EngineError carries validation code for API error responses
 - [x] playerRefs (id -> {name, mobile, verified}) and optional fielderId on wickets
-- [ ] commentary projection (nice-to-have)
+- [x] Commentary projection (nice-to-have) - see Phase 4.2
 
-## Phase 2: Server (server/) - COMPLETE (50/50 tests)
+## Phase 2: Server (server/) - COMPLETE (52/52 tests)
 - [x] MatchStore: create match, append events (full-log replay), read state
 - [x] Persistence via SQLite (node:sqlite): matches and events survive a restart
 - [x] POST /matches, GET /matches/:id, POST/GET /matches/:id/events
@@ -22,7 +22,7 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Errors: 400 {error, code} (ApiError/EngineError), 404 unknown match
 - [x] Runs standalone: `node --experimental-strip-types src/index.ts` (imports use .ts extensions)
 
-## Phase 3: Web (web/) - COMPLETE (34/34 tests, React + Vite PWA, dark, responsive)
+## Phase 3: Web (web/) - COMPLETE (36/36 tests, React + Vite PWA, dark, responsive)
 - [x] Scaffold + dark theme tokens
 - [x] Match setup screen
 - [x] Scoring pad (ball input)
@@ -44,6 +44,11 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Auth: reject token at exact expiry, empty `OTP_PROVIDER` falls back to dev, reject non-string profile fields
 - [x] Career stats: overs/economy honor each match's `ballsPerOver` (and stay mutually consistent)
 - [x] Route-level `/players` tests; profile "All-rounder" label; lineup local-id reset on new setup
+
+## Phase 4.2: Commentary projection - COMPLETE
+- [x] Core `projectCommentary(config, events)` projection: ball-by-ball lines with over headers, toss/innings-break/end framing; honors corrections via `effectiveEvents`; names from `playerRefs`
+- [x] Server `GET /matches/:id/commentary` returns `{ commentary }`
+- [x] Web Commentary card in the scorecard view (newest-first), fetched on the scorecard tab
 
 Dev OTP: in development the code is logged by the server as `OTP <code> for <mobile>`; real SMS delivery is deferred.
 

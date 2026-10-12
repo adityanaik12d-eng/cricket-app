@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { Dismissal, LiveScore, MatchState } from '@cricket-app/core'
+import { useEffect, useMemo, useState } from 'react'
+import type { CommentaryLine, Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { ScorecardView } from './ScorecardView'
@@ -34,6 +34,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
   const [fielderPick, setFielderPick] = useState('')
   const [padError, setPadError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [commentary, setCommentary] = useState<CommentaryLine[]>([])
 
   const state = bundle?.state ?? null
   const live = bundle?.live ?? null
@@ -57,6 +58,25 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
     const bowlingKey = battingKey === 'A' ? 'B' : 'A'
     return { batting: cfg.lineups[battingKey], bowling: cfg.lineups[bowlingKey] }
   }, [state, live?.battingTeamId])
+
+  // Commentary is only shown on the scorecard tab; fetch it on demand and
+  // refresh whenever a new event lands (eventCount changes) while it's open.
+  const eventCount = bundle?.state.eventCount ?? 0
+  useEffect(() => {
+    if (tab !== 'scorecard') return
+    let alive = true
+    api
+      .getCommentary(matchId)
+      .then((r) => {
+        if (alive) setCommentary(r.commentary)
+      })
+      .catch(() => {
+        if (alive) setCommentary([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [tab, matchId, eventCount])
 
   if (!bundle || !state || !live) {
     return (
@@ -376,7 +396,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
           </section>
         </>
       ) : (
-        <ScorecardView bundle={bundle} />
+        <ScorecardView bundle={bundle} commentary={commentary} />
       )}
     </div>
   )
