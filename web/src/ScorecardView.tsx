@@ -129,8 +129,8 @@ export function ScorecardView({ bundle, commentary }: Props) {
             {commentary
               .slice()
               .reverse()
-              .map((line) => (
-                <li key={line.seq} className={`commentary-line ${line.kind.toLowerCase()}`}>
+              .map((line, index) => (
+                <li key={`${line.kind}-${line.seq}-${index}`} className={`commentary-line ${line.kind.toLowerCase()}`}>
                   {line.text}
                 </li>
               ))}

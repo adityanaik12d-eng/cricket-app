@@ -73,6 +73,7 @@ function ballText(config: MatchConfig, e: BallEvent): string {
 export function projectCommentary(config: MatchConfig, events: MatchEvent[]): CommentaryLine[] {
   const lines: CommentaryLine[] = []
   let lastOver: number | null = null
+  let lastBall = -1
 
   for (const e of effectiveEvents(events)) {
     if (e.type === 'TOSS') {
@@ -91,7 +92,6 @@ export function projectCommentary(config: MatchConfig, events: MatchEvent[]): Co
     }
     if (e.type === 'PENALTY') {
       lines.push({ seq: e.seq, kind: 'INNINGS', over: null, text: `Penalty runs: ${e.runs} to ${e.teamId}` })
-      lastOver = null
       continue
     }
     if (e.type === 'END_MATCH') {
@@ -104,8 +104,11 @@ export function projectCommentary(config: MatchConfig, events: MatchEvent[]): Co
     }
     if (e.type !== 'BALL') continue
 
-    // Overs reset when a new innings starts: close the previous block.
-    if (lastOver !== null && e.over < lastOver) {
+    // A new innings restarts the over/ball count, so a regression in
+    // (over, ball) — including a restart at 0.0 from within the first over —
+    // opens a fresh innings. Comparing the ball within the same over avoids a
+    // false break for a wide followed by the first legal ball of the innings.
+    if (lastOver !== null && (e.over < lastOver || (e.over === lastOver && e.ball < lastBall))) {
       lines.push({ seq: e.seq, kind: 'INNINGS', over: null, text: 'Innings break' })
       lastOver = null
     }
@@ -113,6 +116,7 @@ export function projectCommentary(config: MatchConfig, events: MatchEvent[]): Co
       lines.push({ seq: e.seq, kind: 'OVER', over: null, text: `Over ${e.over + 1}` })
       lastOver = e.over
     }
+    lastBall = e.ball
     lines.push({ seq: e.seq, kind: e.wicket ? 'WICKET' : 'BALL', over: `${e.over}.${e.ball + 1}`, text: ballText(config, e) })
   }
 

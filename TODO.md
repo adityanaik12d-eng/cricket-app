@@ -2,7 +2,7 @@
 
 Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friendly. No check-ins, keep moving.
 
-## Phase 1: Core engine (packages/core) - COMPLETE (72/72 tests)
+## Phase 1: Core engine (packages/core) - COMPLETE (74/74 tests)
 - [x] Types, errors, overs, config, state, validate, apply, projections (live/scorecard/result)
 - [x] Full ball scoring: runs, extras (wide/no-ball/bye/leg-bye), batter/bowler lines, strike rotation
 - [x] Wickets, next batter, bowler credit (not for run out)
@@ -22,7 +22,7 @@ Goal: ship a working app (core engine + API + web UI). Dark, phone+tablet friend
 - [x] Errors: 400 {error, code} (ApiError/EngineError), 404 unknown match
 - [x] Runs standalone: `node --experimental-strip-types src/index.ts` (imports use .ts extensions)
 
-## Phase 3: Web (web/) - COMPLETE (36/36 tests, React + Vite PWA, dark, responsive)
+## Phase 3: Web (web/) - COMPLETE (37/37 tests, React + Vite PWA, dark, responsive)
 - [x] Scaffold + dark theme tokens
 - [x] Match setup screen
 - [x] Scoring pad (ball input)

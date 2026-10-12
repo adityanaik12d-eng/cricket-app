@@ -128,4 +128,26 @@ describe('ScorecardView', () => {
     const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard } }))
     expect(html).not.toContain('Commentary')
   })
+
+  it('renders lines sharing a sequence number without duplicate-key warnings', () => {
+    const commentary: CommentaryLine[] = [
+      { seq: 5, kind: 'OVER', over: null, text: 'Over 1' },
+      { seq: 5, kind: 'BALL', over: '0.1', text: '0.1 Danish Ali to Aarav Shah, no run' },
+      { seq: 6, kind: 'BALL', over: '0.2', text: '0.2 Danish Ali to Aarav Shah, FOUR' },
+    ]
+    const errors: string[] = []
+    const original = console.error
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map((a) => String(a)).join(' '))
+    }
+    try {
+      renderToStaticMarkup(
+        createElement(ScorecardView, { bundle: { state, scorecard }, commentary }),
+      )
+    } finally {
+      console.error = original
+    }
+    expect(errors.some((e) => e.includes('same key'))).toBe(false)
+    expect(errors.some((e) => e.includes('key'))).toBe(false)
+  })
 })

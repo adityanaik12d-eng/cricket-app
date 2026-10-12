@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { projectCommentary } from './commentary.js'
 import { withDefaults } from '../config.js'
-import type { BallEvent, CorrectionEvent, EndMatchEvent, MatchConfig, MatchEvent, TossEvent, DeclareEvent } from '../types.js'
+import type { BallEvent, CorrectionEvent, EndMatchEvent, MatchConfig, MatchEvent, PenaltyEvent, TossEvent, DeclareEvent } from '../types.js'
 
 const config: MatchConfig = withDefaults({
   matchId: 'm1',
@@ -20,8 +20,7 @@ const config: MatchConfig = withDefaults({
 })
 
 let seq = 0
-function base(type: 'BALL'): Omit<BallEvent, 'id' | 'matchId' | 'seq' | 'ts' | 'type'> {
-  void type
+function base(): Omit<BallEvent, 'id' | 'matchId' | 'seq' | 'ts' | 'type'> {
   return {
     over: 0,
     ball: 0,
@@ -44,7 +43,7 @@ function ball(p: Partial<BallEvent> = {}): BallEvent {
     seq,
     ts: '2026-10-08T10:00:00.000Z',
     type: 'BALL',
-    ...base('BALL'),
+    ...base(),
     ...p,
   }
 }
@@ -56,13 +55,17 @@ function declare(): DeclareEvent {
   seq += 1
   return { id: `e${seq}`, matchId: 'm1', seq, ts: '2026-10-08T10:30:00.000Z', type: 'DECLARE' }
 }
+function penalty(runs: number, teamId = 'B'): PenaltyEvent {
+  seq += 1
+  return { id: `e${seq}`, matchId: 'm1', seq, ts: '2026-10-08T10:20:00.000Z', type: 'PENALTY', runs, teamId }
+}
 function endMatch(outcome: EndMatchEvent['outcome']): EndMatchEvent {
   seq += 1
   return { id: `e${seq}`, matchId: 'm1', seq, ts: '2026-10-08T11:00:00.000Z', type: 'END_MATCH', outcome }
 }
 function correction(supersedes: string, ball: Partial<BallEvent>): CorrectionEvent {
   seq += 1
-  const b = base('BALL')
+  const b = base()
   return {
     id: `e${seq}`,
     matchId: 'm1',
@@ -180,6 +183,30 @@ describe('projectCommentary', () => {
     // the new innings opens a fresh "Over 1" header
     const overHeaders = lines.filter((l) => l.kind === 'OVER').map((l) => l.text)
     expect(overHeaders).toEqual(['Over 3', 'Over 1'])
+  })
+
+  it('marks an innings break even when an innings lasts a single over', () => {
+    const firstInnings = [0, 1, 2, 3, 4, 5].map((b) => ball({ over: 0, ball: b }))
+    const lines = projectCommentary(config, [
+      toss(),
+      ...firstInnings,
+      ball({ over: 0, ball: 0, runs: 1 }),
+    ])
+    expect(lines.some((l) => l.kind === 'INNINGS' && l.text === 'Innings break')).toBe(true)
+    const overHeaders = lines.filter((l) => l.kind === 'OVER').map((l) => l.text)
+    expect(overHeaders).toEqual(['Over 1', 'Over 1'])
+  })
+
+  it('does not repeat the over header when a penalty interrupts an over', () => {
+    const lines = projectCommentary(config, [
+      toss(),
+      ball({ over: 0, ball: 0 }),
+      penalty(2, 'B'),
+      ball({ over: 0, ball: 1, runs: 1 }),
+    ])
+    const overHeaders = lines.filter((l) => l.kind === 'OVER').map((l) => l.text)
+    expect(overHeaders).toEqual(['Over 1'])
+    expect(lines.some((l) => l.kind === 'INNINGS' && l.text === 'Penalty runs: 2 to B')).toBe(true)
   })
 
   it('reports the end of the match', () => {
