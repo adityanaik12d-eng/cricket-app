@@ -33,6 +33,8 @@ export function emptyInnings(index: number, config: MatchConfig, toss: TossEvent
     battingOrder: [],
     declared: false,
     closed: false,
+    thisOver: [],
+    thisOverIndex: null,
   }
 }
 

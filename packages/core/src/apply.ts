@@ -76,6 +76,26 @@ function applyWicket(config: MatchConfig, next: MatchState, inn: InningsState, e
   }
 }
 
+function thisOverText(event: BallEvent, config: MatchConfig): string {
+  if (event.wicket) {
+    return event.runs > 0 ? `${event.runs}W` : 'W'
+  }
+  switch (event.extras) {
+    case 'WIDE': {
+      const total = config.wideExtra + event.runs
+      return total === 1 ? 'wd' : `wd${total}`
+    }
+    case 'NO_BALL':
+      return event.runs > 0 ? `nb${event.runs}` : 'nb'
+    case 'BYE':
+      return `b${event.runs}`
+    case 'LEG_BYE':
+      return `lb${event.runs}`
+    default:
+      return String(event.runs)
+  }
+}
+
 function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, event: BallEvent): void {
   // Positions: the first delivery of an innings establishes the pair and bowler.
   if (!inn.strikerId) {
@@ -135,9 +155,23 @@ function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, eve
     inn.lastOverBowlerId = event.bowlerId
     inn.currentBowlerId = null
   }
+
+  // Record the delivery against the over in progress. A change of over number
+  // starts a fresh list, so wides/no-balls (which do not advance the over) stay
+  // with their over.
+  if (inn.thisOverIndex !== event.over) {
+    inn.thisOver = []
+    inn.thisOverIndex = event.over
+  }
+  inn.thisOver.push({
+    label: `${event.over}.${event.ball + 1}`,
+    text: thisOverText(event, config),
+    wicket: event.wicket,
+    runs: penalty + batRuns + runExtra,
+  })
 }
 
-function chaseTarget(state: MatchState, inn: InningsState): number | null {
+export function chaseTarget(state: MatchState, inn: InningsState): number | null {
   if (inn.index !== state.config.inningsCount - 1) return null
   const first = state.innings[0]
   if (!first || first === inn) return null

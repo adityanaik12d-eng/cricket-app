@@ -141,6 +141,10 @@ export interface InningsState {
   battingOrder: string[]
   declared: boolean
   closed: boolean
+  /** Deliveries of the over in progress, oldest first. Reset when the over changes. */
+  thisOver: ThisOverBall[]
+  /** Over number the current `thisOver` deliveries belong to, or null before play. */
+  thisOverIndex: number | null
 }
 
 export type MatchResult =

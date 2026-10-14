@@ -562,3 +562,65 @@ describe('effectiveEvents (corrected view for per-delivery attribution)', () => 
     expect(out[1]).toEqual(e2)
   })
 })
+
+describe('apply: current over deliveries', () => {
+  it('records the deliveries of the over in progress', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 4 }))
+    state = applyEvent(baseConfig, state, ballAt(state))
+    expect(state.innings[0].thisOver.map((b) => b.text)).toEqual(['4', '0'])
+  })
+
+  it('starts a fresh list for each new over', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = deliver(state, 6)
+    expect(state.innings[0].thisOver).toHaveLength(6)
+    state = applyEvent(baseConfig, state, ballAt(state))
+    expect(state.innings[0].thisOver.map((b) => b.label)).toEqual(['1.1'])
+  })
+
+  it('keeps non-legal deliveries together with the over', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = applyEvent(baseConfig, state, ballAt(state, { extras: 'WIDE', runs: 0 }))
+    state = applyEvent(baseConfig, state, ballAt(state))
+    expect(state.innings[0].thisOver.map((b) => b.text)).toEqual(['wd', '0'])
+  })
+
+  it('records a corrected delivery in place of the original', () => {
+    resetSeq()
+    const original = ball({ runs: 4 })
+    const state = applyEvents(baseConfig, [
+      toss,
+      original,
+      {
+        id: 'c1',
+        matchId: 'm1',
+        seq: 3,
+        ts: '2026-10-08T10:03:00.000Z',
+        type: 'CORRECTION',
+        supersedes: original.id,
+        reason: 'tapped 4 instead of 6',
+        replacement: {
+          kind: 'BALL',
+          ball: {
+            over: 0,
+            ball: 1,
+            runs: 6,
+            extras: 'NONE',
+            wicket: false,
+            dismissal: null,
+            dismissedPlayerId: null,
+            batterId: 'a1',
+            nonStrikerId: 'a2',
+            bowlerId: 'b1',
+            fieldingCaptainId: 'b11',
+          },
+        },
+      },
+    ])
+    expect(state.innings[0].thisOver.map((b) => b.text)).toEqual(['6'])
+  })
+})
