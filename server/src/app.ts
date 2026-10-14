@@ -7,11 +7,13 @@ import { openDb } from './db.ts'
 import { OtpService, registerAuthRoutes } from './auth.ts'
 import { PlayerRepo } from './players.ts'
 import { computeCareerStats } from './stats.ts'
+import { registerStatic } from './static.ts'
 
 export interface AppDeps {
   db?: ReturnType<typeof openDb>
   otp?: OtpService
   secret?: string
+  webRoot?: string
 }
 
 export async function buildApp(
@@ -19,6 +21,7 @@ export async function buildApp(
   deps: AppDeps = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
+  app.get('/healthz', async () => ({ ok: true }))
 
   const db = deps.db ?? openDb(':memory:')
   const otp = deps.otp ?? new OtpService(db)
@@ -138,6 +141,8 @@ export async function buildApp(
       res.end()
     })
   })
+
+  if (deps.webRoot) registerStatic(app, deps.webRoot)
 
   return app
 }

@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.gitignore
+**/*.md
+cricket.db
+**/*.db
+**/*.db-journal
+**/*.db-wal
+.env
+.env.*

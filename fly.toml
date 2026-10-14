@@ -1,0 +1,29 @@
+# Fly.io launch config. Either let `fly launch` create an app (and merge this
+# file), or create one yourself and set `app` below to its name. See DEPLOY.md.
+app = "REPLACE-WITH-YOUR-APP-NAME"
+primary_region = "bom" # Mumbai; "sin" (Singapore) is a good alternative.
+
+[build]
+
+[env]
+  PORT = "3000"
+  DB_PATH = "/data/cricket.db"
+  WEB_ROOT = "/app/web/dist"
+  OTP_PROVIDER = "dev"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Persistent volume for the SQLite database. Create it once with:
+#   fly volumes create cricket_data --size 1 --region bom
+[[mounts]]
+  source = "cricket_data"
+  destination = "/data"
