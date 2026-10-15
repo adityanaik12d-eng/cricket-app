@@ -773,3 +773,114 @@ button:disabled {
   color: var(--danger);
   font-weight: 600;
 }
+
+/* Home board */
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.board-section h2 {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.board-list {
+  display: grid;
+  gap: 12px;
+}
+
+.match-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'teams pill'
+    'score result';
+  gap: 6px 12px;
+  align-items: center;
+  min-height: 48px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.match-teams {
+  grid-area: teams;
+  font-weight: 600;
+}
+
+.match-card .pill {
+  grid-area: pill;
+}
+
+.match-score {
+  grid-area: score;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-result {
+  grid-area: result;
+  font-size: 13px;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.pill.upcoming {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.pill.live {
+  background: var(--danger);
+  color: var(--text);
+}
+
+.pill.break {
+  background: var(--warn);
+  color: var(--bg);
+}
+
+.pill.done {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Match report */
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.report-headline .result-line {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.innings-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
