@@ -17,7 +17,7 @@ import type {
   MatchState,
   Scorecard,
 } from '@cricket-app/core'
-import { formatWin } from './scoring'
+import { resultText } from './scoring'
 
 /**
  * Everything the UI needs to render a match, computed from a config + event log.
@@ -131,15 +131,6 @@ export function appendEvent(input: {
     throw new MatchError(err instanceof Error ? err.message : 'Invalid event', 'INVALID_EVENT')
   }
   return { event, events, state, live: projectLiveScore(state) }
-}
-
-// Local shim: Task 5 exports and tests `resultText` from './scoring' and deletes
-// this in favour of that shared version.
-function resultText(result: MatchResult | null): string | null {
-  if (!result) return null
-  if (result.kind === 'WINNER') return formatWin(result)
-  if (result.kind === 'TIE') return 'Match tied'
-  return `Match abandoned${result.reason ? `: ${result.reason}` : ''}`
 }
 
 export type SummaryStatus = 'UPCOMING' | 'LIVE' | 'BREAK' | 'DONE'
