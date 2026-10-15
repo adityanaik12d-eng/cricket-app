@@ -17,6 +17,7 @@ import type {
   MatchState,
   Scorecard,
 } from '@cricket-app/core'
+import { formatWin } from './scoring'
 
 /**
  * Everything the UI needs to render a match, computed from a config + event log.
@@ -130,4 +131,90 @@ export function appendEvent(input: {
     throw new MatchError(err instanceof Error ? err.message : 'Invalid event', 'INVALID_EVENT')
   }
   return { event, events, state, live: projectLiveScore(state) }
+}
+
+// Local shim: Task 5 exports and tests `resultText` from './scoring' and deletes
+// this in favour of that shared version.
+function resultText(result: MatchResult | null): string | null {
+  if (!result) return null
+  if (result.kind === 'WINNER') return formatWin(result)
+  if (result.kind === 'TIE') return 'Match tied'
+  return `Match abandoned${result.reason ? `: ${result.reason}` : ''}`
+}
+
+export type SummaryStatus = 'UPCOMING' | 'LIVE' | 'BREAK' | 'DONE'
+
+/** One board card: everything Home needs, and nothing it has to compute itself. */
+export interface MatchSummary {
+  matchId: string
+  teamAId: string
+  teamBId: string
+  label: string
+  score: string | null
+  status: SummaryStatus
+  statusText: string
+  resultText: string | null
+}
+
+export interface MatchRowInput {
+  id: string
+  config: unknown
+  events: unknown
+}
+
+/** A live match and an innings break both look "in play" on the board. */
+function summaryStatus(status: MatchState['status']): { status: SummaryStatus; text: string } {
+  switch (status) {
+    case 'IN_PROGRESS':
+      return { status: 'LIVE', text: 'LIVE' }
+    case 'INNINGS_BREAK':
+      return { status: 'BREAK', text: 'Innings break' }
+    case 'COMPLETED':
+    case 'TIED':
+    case 'ABANDONED':
+      return { status: 'DONE', text: 'Result' }
+    default:
+      return { status: 'UPCOMING', text: 'Yet to start' }
+  }
+}
+
+/**
+ * Replays one stored match into a board card. Uses the same engine as the match
+ * screen, so the board can never disagree with the scorecard. Throws if the
+ * stored config/events are no longer replayable — `summarizeRows` is the caller
+ * that tolerates that.
+ */
+export function summarize(matchId: string, config: MatchConfig, events: MatchEvent[]): MatchSummary {
+  const state = applyEvents(config, events)
+  const scorecard = projectScorecard(state)
+  const played = scorecard.innings.filter((i) => i.legalBalls > 0 || i.runs > 0 || i.closed)
+  const shown = played.length > 0 ? played[played.length - 1] : undefined
+  const label = summaryStatus(state.status)
+  return {
+    matchId,
+    teamAId: config.teamAId,
+    teamBId: config.teamBId,
+    label: `${config.teamAId} vs ${config.teamBId}`,
+    score: shown ? `${shown.runs}-${shown.wickets} (${shown.oversText} ov)` : null,
+    status: label.status,
+    statusText: label.text,
+    resultText: resultText(projectResult(state)),
+  }
+}
+
+/**
+ * Summarises many rows, silently dropping any that no longer replay (an old
+ * schema, a hand-edited row) so one bad match cannot blank the board.
+ */
+export function summarizeRows(rows: MatchRowInput[]): MatchSummary[] {
+  const out: MatchSummary[] = []
+  for (const row of rows) {
+    try {
+      const events = Array.isArray(row.events) ? (row.events as MatchEvent[]) : []
+      out.push(summarize(row.id, row.config as MatchConfig, events))
+    } catch {
+      // Unreplayable rows are skipped, not surfaced.
+    }
+  }
+  return out
 }
