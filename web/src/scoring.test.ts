@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
-import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import type { BattingCardLine, BowlingCardLine, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
+import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requirementText, requiresFielder, resolvePositions, resultText, topBowler, topScorer } from './scoring'
 
 const positions = { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' }
 
@@ -279,5 +279,141 @@ describe('EXTRA_GROUPS', () => {
         expect(payload.runs).toBe(option.runs)
       }
     }
+  })
+})
+
+function innings(over: Partial<InningsCard> = {}): InningsCard {
+  return {
+    index: 0,
+    battingTeamId: 'India',
+    bowlingTeamId: 'Australia',
+    runs: 0,
+    wickets: 0,
+    legalBalls: 0,
+    oversText: '0',
+    extras: 0,
+    runRate: 0,
+    batting: [],
+    bowling: [],
+    yetToBat: [],
+    declared: false,
+    closed: false,
+    ...over,
+  }
+}
+
+function batLine(over: Partial<BattingCardLine> = {}): BattingCardLine {
+  return {
+    position: 1,
+    playerId: 'a1',
+    runs: 0,
+    balls: 0,
+    fours: 0,
+    sixes: 0,
+    out: false,
+    dismissal: null,
+    isStriker: false,
+    isNonStriker: false,
+    ...over,
+  }
+}
+
+function bowlLine(over: Partial<BowlingCardLine> = {}): BowlingCardLine {
+  return {
+    playerId: 'b1',
+    balls: 6,
+    oversText: '1',
+    runs: 6,
+    wickets: 0,
+    wides: 0,
+    noBalls: 0,
+    economy: 6,
+    isCurrentBowler: false,
+    ...over,
+  }
+}
+
+describe('resultText', () => {
+  it('is null while a match is unfinished', () => {
+    expect(resultText(null)).toBeNull()
+  })
+
+  it('formats a win, a tie and an abandonment', () => {
+    expect(resultText({ kind: 'WINNER', teamId: 'Chennai', by: 'RUNS', amount: 12 })).toBe('Chennai won by 12 runs')
+    expect(resultText({ kind: 'WINNER', teamId: 'Chennai', by: 'WICKETS', amount: 1 })).toBe('Chennai won by 1 wicket')
+    expect(resultText({ kind: 'TIE' })).toBe('Match tied')
+    expect(resultText({ kind: 'ABANDONED', reason: 'Rain' })).toBe('Match abandoned: Rain')
+    expect(resultText({ kind: 'ABANDONED', reason: null })).toBe('Match abandoned')
+  })
+})
+
+describe('topScorer', () => {
+  it('is null before anyone has faced a ball', () => {
+    expect(topScorer(innings({ batting: [batLine()] }))).toBeNull()
+  })
+
+  it('picks the most runs, breaking ties on strike rate', () => {
+    const picks = topScorer(
+      innings({
+        batting: [
+          batLine({ playerId: 'a1', runs: 30, balls: 20 }),
+          batLine({ playerId: 'a2', runs: 30, balls: 15 }),
+          batLine({ playerId: 'a3', runs: 11, balls: 5 }),
+        ],
+      }),
+    )
+    expect(picks?.playerId).toBe('a2')
+  })
+})
+
+describe('topBowler', () => {
+  it('is null with no bowling', () => {
+    expect(topBowler(innings())).toBeNull()
+  })
+
+  it('picks the most wickets, breaking ties on the lower economy', () => {
+    const picks = topBowler(
+      innings({
+        bowling: [
+          bowlLine({ playerId: 'b1', wickets: 2, economy: 9 }),
+          bowlLine({ playerId: 'b2', wickets: 2, economy: 4.5 }),
+        ],
+      }),
+    )
+    expect(picks?.playerId).toBe('b2')
+  })
+})
+
+describe('requirementText', () => {
+  const live: LiveScore = {
+    status: 'IN_PROGRESS',
+    inningsIndex: 1,
+    battingTeamId: 'Australia',
+    bowlingTeamId: 'India',
+    runs: 108,
+    wickets: 3,
+    oversText: '16',
+    oversDecimal: 16,
+    runRate: 6.75,
+    target: 150,
+    requiredRunRate: 10.5,
+    freeHit: false,
+    declared: false,
+    powerplay: false,
+    ballsRemaining: 24,
+    thisOver: [],
+    striker: null,
+    nonStriker: null,
+    bowler: null,
+  }
+
+  it('states the chase', () => {
+    expect(requirementText(live)).toBe('Australia need 42 off 24')
+  })
+
+  it('is null outside a live chase or once the target is reached', () => {
+    expect(requirementText({ ...live, status: 'INNINGS_BREAK' })).toBeNull()
+    expect(requirementText({ ...live, target: null })).toBeNull()
+    expect(requirementText({ ...live, runs: 150 })).toBeNull()
   })
 })

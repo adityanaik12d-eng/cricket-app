@@ -1,4 +1,4 @@
-import type { Dismissal, Extra, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
+import type { BattingCardLine, BowlingCardLine, Dismissal, Extra, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
 
 export interface PadPositions {
   strikerId: string
@@ -144,4 +144,44 @@ export function formatBowlerFigures(balls: number, runs: number, wickets: number
   const over = Math.floor(balls / 6)
   const inOver = balls % 6
   return `${over}.${inOver}-${runs}-${wickets}`
+}
+
+/** The headline result line, or null while the match is still going. */
+export function resultText(result: MatchResult | null): string | null {
+  if (!result) return null
+  if (result.kind === 'WINNER') return formatWin(result)
+  if (result.kind === 'TIE') return 'Match tied'
+  return `Match abandoned${result.reason ? `: ${result.reason}` : ''}`
+}
+
+/** The innings' best batter; ties break on strike rate, then on fewer balls. */
+export function topScorer(inn: InningsCard): BattingCardLine | null {
+  const played = inn.batting.filter((b) => b.balls > 0 || b.out)
+  const first = played[0]
+  if (!first) return null
+  return played.reduce((best, b) => {
+    if (b.runs !== best.runs) return b.runs > best.runs ? b : best
+    const rate = b.balls > 0 ? b.runs / b.balls : 0
+    const bestRate = best.balls > 0 ? best.runs / best.balls : 0
+    if (rate !== bestRate) return rate > bestRate ? b : best
+    return b.balls < best.balls ? b : best
+  }, first)
+}
+
+/** The innings' leading wicket-taker; ties break on the lower economy. */
+export function topBowler(inn: InningsCard): BowlingCardLine | null {
+  const first = inn.bowling[0]
+  if (!first) return null
+  return inn.bowling.reduce((best, b) => {
+    if (b.wickets !== best.wickets) return b.wickets > best.wickets ? b : best
+    return b.economy < best.economy ? b : best
+  }, first)
+}
+
+/** "Australia need 42 off 24" while a chase is live, else null. */
+export function requirementText(live: LiveScore): string | null {
+  if (live.status !== 'IN_PROGRESS' || live.target == null || live.battingTeamId == null) return null
+  const need = Math.max(0, live.target - live.runs)
+  if (need === 0) return null
+  return `${live.battingTeamId} need ${need} off ${live.ballsRemaining}`
 }
