@@ -3,23 +3,12 @@ import { api, ApiRequestError } from './api'
 import { ScoringScreen } from './ScoringScreen'
 import { SigninScreen } from './SigninScreen'
 import { ProfileScreen } from './ProfileScreen'
+import { HomeScreen } from './HomeScreen'
+import { parseHash } from './routes'
+import type { Route } from './routes'
+import { rememberMatch } from './myMatches'
 import type { CreateMatchBody, Player } from './api'
 import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
-
-type Route =
-  | { name: 'setup' }
-  | { name: 'match'; matchId: string }
-  | { name: 'signin' }
-  | { name: 'profile' }
-
-function parseHash(): Route {
-  const hash = window.location.hash
-  const match = /^#\/match\/(.+)$/.exec(hash)
-  if (match && match[1]) return { name: 'match', matchId: match[1] }
-  if (hash === '#/signin') return { name: 'signin' }
-  if (hash === '#/profile') return { name: 'profile' }
-  return { name: 'setup' }
-}
 
 function slug(text: string): string {
   return (
@@ -41,16 +30,30 @@ interface TossDraft {
 }
 
 export function App() {
-  const [route, setRoute] = useState<Route>(parseHash)
+  const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash))
 
   useEffect(() => {
-    const onHash = (): void => setRoute(parseHash())
+    const onHash = (): void => setRoute(parseHash(window.location.hash))
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
+  if (route.name === 'home') {
+    return (
+      <HomeScreen
+        onNewMatch={() => { window.location.hash = '#/new' }}
+        onOpenMatch={(matchId) => { window.location.hash = `#/match/${matchId}/report` }}
+      />
+    )
+  }
   if (route.name === 'match') {
-    return <ScoringScreen matchId={route.matchId} onLeave={() => { window.location.hash = '' }} />
+    return (
+      <ScoringScreen
+        matchId={route.matchId}
+        initialTab={route.tab}
+        onLeave={() => { window.location.hash = '#/' }}
+      />
+    )
   }
   if (route.name === 'signin') {
     return (
@@ -71,6 +74,9 @@ export function App() {
         <ProfileScreen onSignedOut={() => { window.location.hash = '#/' }} />
       </div>
     )
+  }
+  if (route.name === 'setup') {
+    return <SetupFlow />
   }
   return <SetupFlow />
 }
@@ -291,6 +297,7 @@ function SetupFlow() {
         powerplayOvers: Math.min(6, overs),
       }
       const created = await api.createMatch(body)
+      rememberMatch(created.matchId)
       setToss({ matchId: created.matchId, teamAId, teamBId, oversPerInnings: overs })
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not create match')
