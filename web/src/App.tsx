@@ -359,7 +359,9 @@ function SetupFlow() {
     <div className="shell">
       <header className="topbar">
         <h1>Cricket Scorer</h1>
-        <button className="btn ghost" onClick={() => (window.location.hash = '#/')}>Back</button>
+        <div className="topbar-actions">
+          <button className="btn ghost" onClick={() => (window.location.hash = '#/')}>Back</button>
+        </div>
       </header>
       <main className="card setup-card">
         <h2>New match</h2>
