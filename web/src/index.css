@@ -53,6 +53,14 @@ body {
   font-size: 0.85rem;
 }
 
+.topbar-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -327,10 +335,6 @@ select:focus {
   gap: 8px;
 }
 
-.pad-grid.extras {
-  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
-}
-
 .pad-grid.dismissals {
   grid-template-columns: repeat(2, 1fr);
 }
@@ -341,33 +345,101 @@ select:focus {
   min-height: 56px;
 }
 
-.extras-groups {
+.extras-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.extras-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.extras-row .btn {
+  flex: 1 1 88px;
 }
 
-.extras-label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.65;
+/* Extras bottom sheet: the run variants for one extras group. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  animation: fade-in 140ms ease-out;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  padding: 12px 14px calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+  box-shadow: 0 -10px 34px rgba(0, 0, 0, 0.55);
+  animation: sheet-up 170ms ease-out;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-head strong {
+  font-size: 1.05rem;
+}
+
+.sheet-close {
+  width: 48px;
+  padding: 0;
+}
+
+.sheet-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sheet-options .btn {
+  flex: 1 1 72px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet-backdrop {
+    animation: none;
+  }
 }
 
 @media (min-width: 768px) {
   .pad-grid {
     grid-template-columns: repeat(6, 1fr);
-  }
-
-  .pad-grid.extras {
-    grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
   }
 
   .pad-grid.dismissals {

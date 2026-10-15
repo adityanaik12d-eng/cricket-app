@@ -52,12 +52,16 @@ export interface ExtraOption {
   runs: number
 }
 
+/** The four extras a delivery can carry; each one opens a sheet of run variants. */
+export type ExtraKind = 'WIDE' | 'NO_BALL' | 'BYE' | 'LEG_BYE'
+
 export interface ExtraGroup {
+  kind: ExtraKind
   label: string
   options: readonly ExtraOption[]
 }
 
-const runsOn = (kind: BallKind, prefix: string, counts: number[]): ExtraOption[] =>
+const runsOn = (kind: ExtraKind, prefix: string, counts: number[]): ExtraOption[] =>
   counts.map((runs) => ({ label: `${prefix}${runs}`, kind, runs }))
 
 /**
@@ -66,11 +70,18 @@ const runsOn = (kind: BallKind, prefix: string, counts: number[]): ExtraOption[]
  * wides (the boundary case) and `NB+6` is a no-ball plus six off the bat.
  */
 export const EXTRA_GROUPS: readonly ExtraGroup[] = [
-  { label: 'Wide', options: runsOn('WIDE', 'WD+', [0, 1, 2, 3, 4]) },
-  { label: 'No ball', options: runsOn('NO_BALL', 'NB+', [0, 1, 2, 3, 4, 6]) },
-  { label: 'Bye', options: runsOn('BYE', 'B+', [1, 2, 3, 4]) },
-  { label: 'Leg bye', options: runsOn('LEG_BYE', 'LB+', [1, 2, 3, 4]) },
+  { kind: 'WIDE', label: 'Wide', options: runsOn('WIDE', 'WD+', [0, 1, 2, 3, 4]) },
+  { kind: 'NO_BALL', label: 'No ball', options: runsOn('NO_BALL', 'NB+', [0, 1, 2, 3, 4, 6]) },
+  { kind: 'BYE', label: 'Bye', options: runsOn('BYE', 'B+', [1, 2, 3, 4]) },
+  { kind: 'LEG_BYE', label: 'Leg bye', options: runsOn('LEG_BYE', 'LB+', [1, 2, 3, 4]) },
 ]
+
+/** The run variants behind one extras button — i.e. the sheet's contents. */
+export function extrasForGroup(kind: ExtraKind): ExtraGroup {
+  const group = EXTRA_GROUPS.find((g) => g.kind === kind)
+  if (!group) throw new Error(`unknown extras group: ${kind}`)
+  return group
+}
 
 /** "20" -> {20,0}; "4.5" -> {4,5} (matches the engine's oversText format). */
 export function parseOvers(oversText: string): { over: number; ball: number } {
