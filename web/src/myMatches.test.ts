@@ -54,4 +54,21 @@ describe('myMatches', () => {
     expect(myMatchIds(fakeStore({}, { readThrows: true }).store)).toEqual([])
     expect(() => rememberMatch('m1', fakeStore({}, { writeThrows: true }).store)).not.toThrow()
   })
+
+  it('never throws when the global localStorage is blocked (review focus 3)', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('SecurityError: storage is disabled')
+      },
+    })
+    try {
+      expect(myMatchIds()).toEqual([])
+      expect(() => rememberMatch('m1')).not.toThrow()
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, 'localStorage', descriptor)
+      else delete (globalThis as { localStorage?: unknown }).localStorage
+    }
+  })
 })

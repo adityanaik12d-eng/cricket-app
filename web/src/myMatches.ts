@@ -23,19 +23,21 @@ function parse(raw: string | null): string[] {
 }
 
 /** Newest first. Never throws — a blocked or poisoned store reads as empty. */
-export function myMatchIds(store: MatchStore = localStorage): string[] {
+export function myMatchIds(store?: MatchStore): string[] {
   try {
-    return parse(store.getItem(KEY)).slice(0, MAX)
+    const s = store ?? localStorage
+    return parse(s.getItem(KEY)).slice(0, MAX)
   } catch {
     return []
   }
 }
 
 /** Called once when a match is created. Never throws — losing this list is survivable. */
-export function rememberMatch(id: string, store: MatchStore = localStorage): void {
+export function rememberMatch(id: string, store?: MatchStore): void {
   try {
-    const next = [id, ...myMatchIds(store).filter((existing) => existing !== id)].slice(0, MAX)
-    store.setItem(KEY, JSON.stringify(next))
+    const s = store ?? localStorage
+    const next = [id, ...myMatchIds(s).filter((existing) => existing !== id)].slice(0, MAX)
+    s.setItem(KEY, JSON.stringify(next))
   } catch {
     // No storage (private mode, quota): the match still exists, we just cannot list it.
   }
