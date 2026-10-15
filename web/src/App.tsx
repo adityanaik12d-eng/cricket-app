@@ -3,7 +3,6 @@ import { api, ApiRequestError } from './api'
 import { ScoringScreen } from './ScoringScreen'
 import { SigninScreen } from './SigninScreen'
 import { ProfileScreen } from './ProfileScreen'
-import { getToken } from './token'
 import type { CreateMatchBody, Player } from './api'
 import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
 
@@ -20,18 +19,6 @@ function parseHash(): Route {
   if (hash === '#/signin') return { name: 'signin' }
   if (hash === '#/profile') return { name: 'profile' }
   return { name: 'setup' }
-}
-
-function AuthLink() {
-  return getToken() ? (
-    <a className="btn ghost" href="#/profile">
-      Profile
-    </a>
-  ) : (
-    <a className="btn ghost" href="#/signin">
-      Sign in
-    </a>
-  )
 }
 
 function slug(text: string): string {
@@ -331,7 +318,6 @@ function SetupFlow() {
       <div className="shell">
         <header className="topbar">
           <h1>Cricket Scorer</h1>
-          <AuthLink />
         </header>
         <main className="card setup-card">
           <h2>Toss</h2>
@@ -366,7 +352,6 @@ function SetupFlow() {
     <div className="shell">
       <header className="topbar">
         <h1>Cricket Scorer</h1>
-        <AuthLink />
       </header>
       <main className="card setup-card">
         <h2>New match</h2>

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cricket-app/core": "*",
+    "@supabase/supabase-js": "^2.117.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -1,5 +1,10 @@
-import type { CommentaryLine, LiveScore, MatchResult, MatchState, Scorecard } from '@cricket-app/core'
-import { getToken } from './token'
+import { applyEvents, projectLiveScore } from '@cricket-app/core'
+import type { CommentaryLine, LiveScore, MatchConfig, MatchEvent, MatchState } from '@cricket-app/core'
+import { getSupabase } from './supabase'
+import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary } from './match'
+import type { MatchBundle } from './match'
+
+export type { MatchBundle }
 
 export class ApiRequestError extends Error {
   readonly code: string
@@ -9,14 +14,6 @@ export class ApiRequestError extends Error {
     this.name = 'ApiRequestError'
     this.code = code
   }
-}
-
-export interface MatchBundle {
-  matchId: string
-  state: MatchState
-  live: LiveScore
-  scorecard: Scorecard
-  result: MatchResult | null
 }
 
 export interface CreateMatchBody {
@@ -64,60 +61,118 @@ export interface AuthResponse {
   player: Player
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = { 'content-type': 'application/json' }
-  const token = getToken()
-  if (token && !path.startsWith('/auth/')) headers.authorization = `Bearer ${token}`
-  const res = await fetch(path, {
-    ...init,
-    headers: { ...headers, ...((init?.headers as Record<string, string> | undefined) ?? {}) },
-  })
-  const body: unknown = await res.json().catch(() => null)
-  if (!res.ok) {
-    const err = body as { error?: string; code?: string } | null
-    throw new ApiRequestError(err?.error ?? res.statusText, err?.code ?? `HTTP_${res.status}`)
-  }
-  return body as T
+const UNAVAILABLE = 'Sign-in and shared player profiles are not part of the online scorer yet.'
+
+function toApiError(err: unknown, fallback: string): ApiRequestError {
+  if (err instanceof ApiRequestError) return err
+  if (err instanceof MatchError) return new ApiRequestError(err.message, err.code)
+  return new ApiRequestError(err instanceof Error ? err.message : fallback, 'ERROR')
+}
+
+/** Loads a match row and replays it. One row = the whole match (config + log). */
+async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[] }> {
+  const { data, error } = await getSupabase()
+    .from('matches')
+    .select('config, events')
+    .eq('id', matchId)
+    .maybeSingle()
+  if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+  if (!data) throw new ApiRequestError(`Match ${matchId} was not found`, 'NOT_FOUND')
+  const row = data as { config: MatchConfig; events: MatchEvent[] | null }
+  return { config: row.config, events: row.events ?? [] }
 }
 
 export const api = {
-  createMatch(cfg: CreateMatchBody): Promise<{ matchId: string; state: MatchState; live: LiveScore }> {
-    return request('/matches', { method: 'POST', body: JSON.stringify(cfg) })
+  async createMatch(
+    cfg: CreateMatchBody,
+  ): Promise<{ matchId: string; state: MatchState; live: LiveScore }> {
+    const matchId = crypto.randomUUID()
+    const config = buildConfig(cfg, matchId)
+    const { error } = await getSupabase().from('matches').insert({ id: matchId, config, events: [] })
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    const state = applyEvents(config, [])
+    return { matchId, state, live: projectLiveScore(state) }
   },
-  getMatch(matchId: string): Promise<MatchBundle> {
-    return request(`/matches/${matchId}`)
+
+  async getMatch(matchId: string): Promise<MatchBundle> {
+    const { config, events } = await loadRow(matchId)
+    return computeBundle(matchId, config, events)
   },
-  postEvent(
+
+  async postEvent(
     matchId: string,
     payload: unknown,
   ): Promise<{ seq: number; state: MatchState; live: LiveScore }> {
-    return request(`/matches/${matchId}/events`, { method: 'POST', body: JSON.stringify(payload) })
+    const { config, events } = await loadRow(matchId)
+    let appended: ReturnType<typeof appendEvent>
+    try {
+      appended = appendEvent({
+        matchId,
+        config,
+        events,
+        payload,
+        uuid: crypto.randomUUID(),
+        now: new Date().toISOString(),
+      })
+    } catch (err) {
+      throw toApiError(err, 'Could not record the event')
+    }
+    const { error } = await getSupabase()
+      .from('matches')
+      .update({ events: appended.events, updated_at: new Date().toISOString() })
+      .eq('id', matchId)
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return { seq: appended.event.seq, state: appended.state, live: appended.live }
   },
-  requestOtp(mobile: string): Promise<{ ok: true; devOtp?: string }> {
-    return request('/auth/otp', { method: 'POST', body: JSON.stringify({ mobile }) })
+
+  async getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
+    const { config, events } = await loadRow(matchId)
+    return { commentary: computeCommentary(config, events) }
   },
-  verifyOtp(mobile: string, otp: string): Promise<AuthResponse> {
-    return request('/auth/verify', { method: 'POST', body: JSON.stringify({ mobile, otp }) })
+
+  // --- Shared player directory / accounts (server-backed) are deferred. The
+  // online build keeps the setup flow working with local, in-memory players. ---
+
+  async searchPlayers(_q: string): Promise<{ players: Player[] }> {
+    return { players: [] }
   },
-  register(mobile: string, otp: string, name: string): Promise<AuthResponse> {
-    return request('/auth/register', { method: 'POST', body: JSON.stringify({ mobile, otp, name }) })
+
+  async createPlayer(mobile: string, name: string): Promise<{ player: Player }> {
+    return {
+      player: {
+        id: `player-${crypto.randomUUID()}`,
+        mobile,
+        name,
+        role: 'BATSMAN',
+        batting_hand: 'RHB',
+        bowling_style: null,
+        location: null,
+        created_at: new Date().toISOString(),
+      },
+    }
   },
-  getMe(): Promise<{ player: Player }> {
-    return request('/me')
+
+  async requestOtp(_mobile: string): Promise<{ ok: true; devOtp?: string }> {
+    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
   },
-  patchMe(patch: Record<string, unknown>): Promise<{ player: Player }> {
-    return request('/me', { method: 'PATCH', body: JSON.stringify(patch) })
+
+  async verifyOtp(_mobile: string, _otp: string): Promise<AuthResponse> {
+    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
   },
-  searchPlayers(q: string): Promise<{ players: Player[] }> {
-    return request(`/players?q=${encodeURIComponent(q)}`)
+
+  async register(_mobile: string, _otp: string, _name: string): Promise<AuthResponse> {
+    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
   },
-  createPlayer(mobile: string, name: string): Promise<{ player: Player }> {
-    return request('/players', { method: 'POST', body: JSON.stringify({ mobile, name }) })
+
+  async getMe(): Promise<{ player: Player }> {
+    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
   },
-  getPlayerStats(id: string): Promise<CareerStats> {
-    return request(`/players/${id}/stats`)
+
+  async patchMe(_patch: Record<string, unknown>): Promise<{ player: Player }> {
+    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
   },
-  getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
-    return request(`/matches/${matchId}/commentary`)
+
+  async getPlayerStats(_id: string): Promise<CareerStats> {
+    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
   },
 }
