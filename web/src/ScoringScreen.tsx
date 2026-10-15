@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CommentaryLine, Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
+import { MatchReport } from './MatchReport'
 import { ScorecardView } from './ScorecardView'
 import { EXTRA_GROUPS, buildBallPayload, extrasForGroup, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
@@ -23,11 +24,12 @@ const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK'])
 interface Props {
   matchId: string
   onLeave: () => void
+  initialTab?: 'scoring' | 'report' | 'scorecard'
 }
 
-export function ScoringScreen({ matchId, onLeave }: Props) {
+export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Props) {
   const { bundle, error, refresh } = useMatch(matchId)
-  const [tab, setTab] = useState<'scoring' | 'scorecard'>('scoring')
+  const [tab, setTab] = useState<'scoring' | 'report' | 'scorecard'>(initialTab)
   const [strikerPick, setStrikerPick] = useState('')
   const [nonStrikerPick, setNonStrikerPick] = useState('')
   const [bowlerPick, setBowlerPick] = useState('')
@@ -70,7 +72,7 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
   // refresh whenever a new event lands (eventCount changes) while it's open.
   const eventCount = bundle?.state.eventCount ?? 0
   useEffect(() => {
-    if (tab !== 'scorecard') return
+    if (tab === 'scoring') return
     let alive = true
     api
       .getCommentary(matchId)
@@ -249,6 +251,9 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
       <nav className="tabs">
         <button className={tab === 'scoring' ? 'tab active' : 'tab'} onClick={() => setTab('scoring')}>
           Scoring
+        </button>
+        <button className={tab === 'report' ? 'tab active' : 'tab'} onClick={() => setTab('report')}>
+          Report
         </button>
         <button className={tab === 'scorecard' ? 'tab active' : 'tab'} onClick={() => setTab('scorecard')}>
           Scorecard
@@ -463,6 +468,8 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
             />
           )}
         </>
+      ) : tab === 'report' ? (
+        <MatchReport bundle={bundle} commentary={commentary} />
       ) : (
         <ScorecardView bundle={bundle} commentary={commentary} />
       )}
