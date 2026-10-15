@@ -1,8 +1,8 @@
 import { applyEvents, projectLiveScore } from '@cricket-app/core'
 import type { CommentaryLine, LiveScore, MatchConfig, MatchEvent, MatchState } from '@cricket-app/core'
 import { getSupabase } from './supabase'
-import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary, withoutLastEvent } from './match'
-import type { MatchBundle } from './match'
+import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary, summarizeRows, withoutLastEvent } from './match'
+import type { MatchBundle, MatchSummary } from './match'
 
 export type { MatchBundle }
 
@@ -128,6 +128,22 @@ export const api = {
   async getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
     const { config, events } = await loadRow(matchId)
     return { commentary: computeCommentary(config, events) }
+  },
+
+  /**
+   * Board data. With `ids`, fetches exactly those matches (finished ones
+   * included); otherwise the most recently updated matches across the board.
+   * Rows that no longer replay are dropped rather than failing the request.
+   */
+  async listMatches(opts: { limit?: number; ids?: string[] } = {}): Promise<MatchSummary[]> {
+    const limit = opts.limit ?? 50
+    const query = getSupabase().from('matches').select('id, config, events, updated_at')
+    const shaped = opts.ids
+      ? query.in('id', opts.ids)
+      : query.order('updated_at', { ascending: false }).limit(limit)
+    const { data, error } = await shaped
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return summarizeRows((data ?? []) as { id: string; config: unknown; events: unknown }[])
   },
 
   /**
