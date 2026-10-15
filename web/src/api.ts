@@ -1,7 +1,7 @@
 import { applyEvents, projectLiveScore } from '@cricket-app/core'
 import type { CommentaryLine, LiveScore, MatchConfig, MatchEvent, MatchState } from '@cricket-app/core'
 import { getSupabase } from './supabase'
-import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary } from './match'
+import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary, withoutLastEvent } from './match'
 import type { MatchBundle } from './match'
 
 export type { MatchBundle }
@@ -128,6 +128,26 @@ export const api = {
   async getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
     const { config, events } = await loadRow(matchId)
     return { commentary: computeCommentary(config, events) }
+  },
+
+  /**
+   * Undoes the most recent delivery by dropping the tail of the log and
+   * re-saving it. Rejected when there is nothing left to undo (an empty log or
+   * the toss alone), so the button cannot leave a match headless.
+   */
+  async undoLast(matchId: string): Promise<{ state: MatchState; live: LiveScore }> {
+    const { config, events } = await loadRow(matchId)
+    const rewound = withoutLastEvent(events)
+    if (rewound.length === events.length) {
+      throw new ApiRequestError('There is nothing to undo', 'NOTHING_TO_UNDO')
+    }
+    const { error } = await getSupabase()
+      .from('matches')
+      .update({ events: rewound, updated_at: new Date().toISOString() })
+      .eq('id', matchId)
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    const state = applyEvents(config, rewound)
+    return { state, live: projectLiveScore(state) }
   },
 
   // --- Shared player directory / accounts (server-backed) are deferred. The

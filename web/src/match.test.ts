@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MatchError, appendEvent, buildConfig, buildEvent, computeBundle, nextSeq } from './match'
+import { MatchError, appendEvent, buildConfig, buildEvent, computeBundle, nextSeq, withoutLastEvent } from './match'
 
 function setupBody() {
   const ids = (prefix: string): string[] => Array.from({ length: 11 }, (_, i) => `${prefix}${i + 1}`)
@@ -138,5 +138,96 @@ describe('computeBundle', () => {
     expect(bundle.live.status).toBe('IN_PROGRESS')
     expect(bundle.scorecard.innings).toHaveLength(1)
     expect(bundle.result).toBeNull()
+  })
+})
+
+describe('withoutLastEvent', () => {
+  it('drops the most recent delivery', () => {
+    const toss = buildEvent('m1', 1, { type: 'TOSS', winnerTeamId: 'india', winnerDecision: 'BAT' }, 'e1', NOW)
+    const ball = buildEvent(
+      'm1',
+      2,
+      {
+        type: 'BALL',
+        over: 0,
+        ball: 0,
+        runs: 4,
+        extras: 'NONE',
+        wicket: false,
+        dismissal: null,
+        dismissedPlayerId: null,
+        batterId: 'a1',
+        nonStrikerId: 'a2',
+        bowlerId: 'b1',
+        fieldingCaptainId: 'b1',
+      },
+      'e2',
+      NOW,
+    )
+    expect(withoutLastEvent([toss, ball])).toEqual([toss])
+    expect(withoutLastEvent([toss, ball])).not.toBe([toss])
+  })
+
+  it('never drops the toss, so a match cannot be left headless', () => {
+    const toss = buildEvent('m1', 1, { type: 'TOSS', winnerTeamId: 'india', winnerDecision: 'BAT' }, 'e1', NOW)
+    expect(withoutLastEvent([toss])).toEqual([toss])
+  })
+
+  it('leaves an empty log alone', () => {
+    expect(withoutLastEvent([])).toEqual([])
+  })
+
+  it('does not mutate the log it is given', () => {
+    const toss = buildEvent('m1', 1, { type: 'TOSS', winnerTeamId: 'india', winnerDecision: 'BAT' }, 'e1', NOW)
+    const ball = buildEvent(
+      'm1',
+      2,
+      {
+        type: 'BALL',
+        over: 0,
+        ball: 0,
+        runs: 1,
+        extras: 'NONE',
+        wicket: false,
+        dismissal: null,
+        dismissedPlayerId: null,
+        batterId: 'a1',
+        nonStrikerId: 'a2',
+        bowlerId: 'b1',
+        fieldingCaptainId: 'b1',
+      },
+      'e2',
+      NOW,
+    )
+    const events = [toss, ball]
+    withoutLastEvent(events)
+    expect(events).toHaveLength(2)
+  })
+
+  it('rewinds the projected score when the replayed log is recomputed', () => {
+    const config = buildConfig(setupBody(), 'm1')
+    const toss = buildEvent('m1', 1, { type: 'TOSS', winnerTeamId: 'india', winnerDecision: 'BAT' }, 'e1', NOW)
+    const ball = buildEvent(
+      'm1',
+      2,
+      {
+        type: 'BALL',
+        over: 0,
+        ball: 0,
+        runs: 4,
+        extras: 'NONE',
+        wicket: false,
+        dismissal: null,
+        dismissedPlayerId: null,
+        batterId: 'a1',
+        nonStrikerId: 'a2',
+        bowlerId: 'b1',
+        fieldingCaptainId: 'b1',
+      },
+      'e2',
+      NOW,
+    )
+    expect(computeBundle('m1', config, [toss, ball]).live.runs).toBe(4)
+    expect(computeBundle('m1', config, withoutLastEvent([toss, ball])).live.runs).toBe(0)
   })
 })

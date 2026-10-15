@@ -65,6 +65,17 @@ export function nextSeq(events: MatchEvent[]): number {
   return (last ? last.seq : 0) + 1
 }
 
+/**
+ * Rewinds the tail of the log by one event, for "undo last ball". The toss is
+ * never dropped, so a match cannot be left without one; the input log is left
+ * untouched and the caller re-saves the returned copy.
+ */
+export function withoutLastEvent(events: MatchEvent[]): MatchEvent[] {
+  const last = events[events.length - 1]
+  if (!last || last.type === 'TOSS') return events
+  return events.slice(0, -1)
+}
+
 /** Stamps a raw payload with the envelope (id/matchId/seq/ts) the engine expects. */
 export function buildEvent(
   matchId: string,

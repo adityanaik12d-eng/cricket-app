@@ -26,7 +26,7 @@ interface Props {
 }
 
 export function ScoringScreen({ matchId, onLeave }: Props) {
-  const { bundle, error } = useMatch(matchId)
+  const { bundle, error, refresh } = useMatch(matchId)
   const [tab, setTab] = useState<'scoring' | 'scorecard'>('scoring')
   const [strikerPick, setStrikerPick] = useState('')
   const [nonStrikerPick, setNonStrikerPick] = useState('')
@@ -39,6 +39,8 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
   const [commentary, setCommentary] = useState<CommentaryLine[]>([])
   const [copied, setCopied] = useState(false)
   const [extraKind, setExtraKind] = useState<ExtraKind | null>(null)
+  const [undoing, setUndoing] = useState(false)
+  const [undone, setUndone] = useState(false)
 
   const state = bundle?.state ?? null
   const live = bundle?.live ?? null
@@ -101,6 +103,28 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
     }
   }
 
+  // Reset the "Undone" label a moment after the log is rewound.
+  useEffect(() => {
+    if (!undone) return
+    const timer = setTimeout(() => setUndone(false), 2000)
+    return () => clearTimeout(timer)
+  }, [undone])
+
+  async function undo(): Promise<void> {
+    setPadError(null)
+    setUndoing(true)
+    try {
+      await api.undoLast(matchId)
+      void refresh()
+      setUndone(true)
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Could not undo the last ball')
+    } finally {
+      setUndoing(false)
+    }
+  }
+
   if (!bundle || !state || !live) {
     return (
       <div className="shell">
@@ -116,6 +140,8 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
   }
 
   const inningsNotStarted = live.striker == null || live.nonStriker == null
+  // The toss always stays, so anything past it can be rewound.
+  const canUndo = state.eventCount > 1 && !busy
   const positions = resolvePositions(live, {
     strikerId: strikerPick,
     nonStrikerId: nonStrikerPick,
@@ -203,6 +229,13 @@ export function ScoringScreen({ matchId, onLeave }: Props) {
         <div className="topbar-actions">
           <button className={copied ? 'btn accent' : 'btn ghost'} onClick={() => void share()}>
             {copied ? '✓ Link copied' : 'Share'}
+          </button>
+          <button
+            className={undone ? 'btn accent' : 'btn ghost'}
+            disabled={!canUndo || undoing}
+            onClick={() => void undo()}
+          >
+            {undone ? '✓ Undone' : '↶ Undo'}
           </button>
           <button className="btn ghost" onClick={onLeave}>
             ← Home
