@@ -44,7 +44,7 @@ describe('MatchCard', () => {
     const upcoming: MatchSummary = { ...live, score: null, status: 'UPCOMING', statusText: 'Yet to start' }
     const html = renderToStaticMarkup(<MatchCard summary={upcoming} onOpen={noop} />)
     expect(html).toContain('Yet to start')
-    expect(html).not.toContain('(0.0 ov)')
+    expect(html).not.toContain('match-score')
   })
 })
 
