@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BattingCardLine, BowlingCardLine, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
-import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, parseOvers, playerName, requirementText, requiresFielder, resolvePositions, resultText, topBowler, topScorer } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requirementText, requiresFielder, resolvePositions, resultText, topBowler, topScorer } from './scoring'
 
 const positions = { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' }
 
@@ -415,5 +415,32 @@ describe('requirementText', () => {
     expect(requirementText({ ...live, status: 'INNINGS_BREAK' })).toBeNull()
     expect(requirementText({ ...live, target: null })).toBeNull()
     expect(requirementText({ ...live, runs: 150 })).toBeNull()
+  })
+})
+
+describe('isScoringShot', () => {
+  it('accepts bat runs', () => {
+    expect(isScoringShot('RUNS', 1)).toBe(true)
+    expect(isScoringShot('RUNS', 4)).toBe(true)
+    expect(isScoringShot('RUNS', 6)).toBe(true)
+  })
+
+  it('accepts a no-ball struck for runs', () => {
+    expect(isScoringShot('NO_BALL', 2)).toBe(true)
+  })
+
+  it('rejects dot balls', () => {
+    expect(isScoringShot('RUNS', 0)).toBe(false)
+  })
+
+  it('rejects extras that are not bat shots', () => {
+    expect(isScoringShot('WIDE', 1)).toBe(false)
+    expect(isScoringShot('BYE', 1)).toBe(false)
+    expect(isScoringShot('LEG_BYE', 1)).toBe(false)
+  })
+
+  it('rejects wickets', () => {
+    expect(isScoringShot('WICKET', 0)).toBe(false)
+    expect(isScoringShot('WICKET', 4)).toBe(false)
   })
 })

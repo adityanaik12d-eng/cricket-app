@@ -66,6 +66,16 @@ export interface BallEvent extends EventBase {
   bowlerId: string
   fieldingCaptainId: string
   fielderId?: string
+  /**
+   * Optional shot placement: degrees clockwise from straight down the ground
+   * (0-360). Absent on deliveries recorded before placement existed.
+   */
+  shotAngle?: number
+  /**
+   * Optional shot placement: how far the ball travelled, as a fraction of the
+   * ground radius (0-1). Absent on deliveries recorded before placement existed.
+   */
+  shotDistance?: number
 }
 
 export interface TossEvent extends EventBase {

@@ -1,5 +1,60 @@
 # Deploying the Cricket App
 
+> **Production today: Vercel + Supabase** (static SPA, no server container).
+> See [section 0](#0-production-vercel--supabase) for the live deploy flow.
+> Everything below describes the older self-hosted Docker/SQLite container.
+
+## 0. Production (Vercel + Supabase)
+
+The live app is a **static SPA on Vercel** talking to **Supabase** from the
+browser. There is no long-running server: the `web/` bundle is the whole
+deployment, and match data lives in Supabase.
+
+- Live URL: <https://cricket-scorer-gold.vercel.app>
+- Vercel project: `cricket-scorer` (team `aditya-s-projects5`)
+- Data + auth: Supabase project `tejjcfokgrbbkeueiuwy`
+- Supabase URL + anon key are baked into the bundle at build time from
+  `web/.env.production` (both are public publishable values; the database
+  rules in `supabase/schema.sql` are what protect the data).
+
+### Deploying a change
+
+The repo is **not** connected to a Git remote, so the deploy is a CLI push of
+the freshly built `web/dist`:
+
+```bash
+# 1. Link the repo once (writes .vercel/project.json, already done here).
+vercel link --project cricket-scorer --yes
+
+# 2. Build. core must be built first — the web app resolves @cricket-app/core
+#    through its dist/ folder.
+npm run build -w @cricket-app/core
+npm run build -w @cricket-app/web
+
+# 3. Stage the built files together with the project link and push them.
+#    The link file has to sit next to the files that are uploaded.
+mkdir -p .vercel-stage/.vercel
+cp web/dist/* .vercel-stage/ -r
+cp .vercel/project.json .vercel-stage/.vercel/project.json
+cd .vercel-stage
+vercel deploy --prod --yes
+```
+
+`vercel deploy` uploads the staged folder as-is (4 files: `index.html` plus
+`assets/*`), runs no build on Vercel, and re-points
+`cricket-scorer-gold.vercel.app` at the new deployment. Verify afterwards:
+
+```bash
+curl -s https://cricket-scorer-gold.vercel.app | grep assets   # new hashes
+```
+
+> Beware: `vercel link` adds `.env*` to `.gitignore`. `web/.env.production` is
+> already tracked, so it keeps working, but do not untrack it.
+
+---
+
+## Self-hosted container (legacy)
+
 The app ships as a **single container**: the Fastify server serves both the API
 and the built web bundle, and stores everything in one SQLite file. That keeps
 deployment simple and cheap — one process, one volume, one URL.

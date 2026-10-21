@@ -30,6 +30,8 @@ export interface MatchBundle {
   live: LiveScore
   scorecard: Scorecard
   result: MatchResult | null
+  /** The effective event log, so views (e.g. the over timeline) can reproject it. */
+  events: MatchEvent[]
 }
 
 export class MatchError extends Error {
@@ -102,6 +104,7 @@ export function computeBundle(matchId: string, config: MatchConfig, events: Matc
     live: projectLiveScore(state),
     scorecard: projectScorecard(state),
     result: projectResult(state),
+    events,
   }
 }
 
@@ -145,6 +148,8 @@ export interface MatchSummary {
   status: SummaryStatus
   statusText: string
   resultText: string | null
+  /** Fraction of the current innings quota already bowled (0–1), when known. */
+  progress?: number
 }
 
 export interface MatchRowInput {
@@ -181,7 +186,7 @@ export function summarize(matchId: string, config: MatchConfig, events: MatchEve
   const played = scorecard.innings.filter((i) => i.legalBalls > 0 || i.runs > 0 || i.closed)
   const shown = played.length > 0 ? played[played.length - 1] : undefined
   const label = summaryStatus(state.status)
-  return {
+  const summary: MatchSummary = {
     matchId,
     teamAId: config.teamAId,
     teamBId: config.teamBId,
@@ -191,6 +196,11 @@ export function summarize(matchId: string, config: MatchConfig, events: MatchEve
     statusText: label.text,
     resultText: resultText(projectResult(state)),
   }
+  if (shown) {
+    const quota = config.oversPerInnings * config.ballsPerOver
+    summary.progress = quota > 0 ? Math.min(1, shown.legalBalls / quota) : 0
+  }
+  return summary
 }
 
 /**

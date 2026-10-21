@@ -1,21 +1,80 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { myMatchIds } from './myMatches'
 import { getSupabase } from './supabase'
 import type { MatchSummary } from './match'
+import { AnimatedNumber } from './ui/AnimatedNumber'
+import { playScoreBlip } from './ui/beep'
+import { ThemeToggle } from './ui/ThemeToggle'
+
+import type { CSSProperties } from 'react'
 
 interface MatchCardProps {
   summary: MatchSummary
   onOpen: (matchId: string) => void
+  style?: CSSProperties
 }
 
-export function MatchCard({ summary, onOpen }: MatchCardProps) {
+const STATUS_ICON: Record<MatchSummary['status'], string> = {
+  UPCOMING: '⏰',
+  LIVE: '🔴',
+  BREAK: '⏸️',
+  DONE: '✅',
+}
+
+/** Splits "148-3 (16.2 ov)" into its leading run count and the remaining text. */
+function splitScore(score: string): { runs: number; rest: string } | null {
+  const match = /^(\d+)(.*)$/.exec(score)
+  if (!match) return null
+  return { runs: Number(match[1]), rest: match[2] ?? '' }
+}
+
+export function MatchCard({ summary, onOpen, style }: MatchCardProps) {
+  const prevScore = useRef<string | null>(null)
+  const parsed = summary.score ? splitScore(summary.score) : null
+
+  useEffect(() => {
+    // Beep only when an existing score actually changes, never on first paint.
+    if (prevScore.current !== null && prevScore.current !== summary.score) {
+      playScoreBlip()
+    }
+    prevScore.current = summary.score
+  }, [summary.score])
+
   return (
-    <button className="card match-card" onClick={() => onOpen(summary.matchId)}>
+    <button
+      type="button"
+      className="card match-card animate"
+      style={style}
+      onClick={() => onOpen(summary.matchId)}
+      data-tooltip={summary.statusText}
+      aria-label={`${summary.label} — ${summary.statusText}`}
+    >
       <span className="match-teams">{summary.label}</span>
-      <span className={`pill ${summary.status.toLowerCase()}`}>{summary.statusText}</span>
-      {summary.score && <span className="match-score">{summary.score}</span>}
+      <span className={`pill ${summary.status.toLowerCase()}`}>
+        <span className="pill-icon" aria-hidden="true">
+          {STATUS_ICON[summary.status]}
+        </span>
+        {summary.statusText}
+      </span>
+      {summary.score && (
+        <span className="match-score">
+          {parsed ? (
+            <>
+              <AnimatedNumber value={parsed.runs} />
+              {parsed.rest}
+            </>
+          ) : (
+            summary.score
+          )}
+        </span>
+      )}
       {summary.resultText && <span className="muted match-result">{summary.resultText}</span>}
+      {typeof summary.progress === 'number' && summary.score && (
+        <span className="match-progress" aria-hidden="true">
+          <span className="match-progress-fill" style={{ width: `${Math.round(summary.progress * 100)}%` }} />
+        </span>
+      )}
     </button>
   )
 }
@@ -38,8 +97,13 @@ function Section(props: { title: string; empty: string; matches: MatchSummary[];
         <p className="muted">{props.empty}</p>
       ) : (
         <div className="board-list">
-          {props.matches.map((summary) => (
-            <MatchCard key={summary.matchId} summary={summary} onOpen={props.onOpen} />
+          {props.matches.map((summary, i) => (
+            <MatchCard
+              key={summary.matchId}
+              summary={summary}
+              onOpen={props.onOpen}
+              style={{ animationDelay: `${i * 0.06}s` }}
+            />
           ))}
         </div>
       )}
@@ -59,6 +123,7 @@ export function HomeBoard({ liveNow, mine, error, loading, onNew, onRefresh, onO
           <button className="btn accent" onClick={onNew}>
             + New match
           </button>
+          <ThemeToggle />
         </div>
       </header>
       <main className="board">

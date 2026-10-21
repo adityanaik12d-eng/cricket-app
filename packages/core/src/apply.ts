@@ -76,7 +76,8 @@ function applyWicket(config: MatchConfig, next: MatchState, inn: InningsState, e
   }
 }
 
-function thisOverText(event: BallEvent, config: MatchConfig): string {
+/** Short chip label for one delivery (e.g. "4", "wd", "W", "nb2"). Shared with the over timeline. */
+export function deliveryLabel(event: BallEvent, config: MatchConfig): string {
   if (event.wicket) {
     return event.runs > 0 ? `${event.runs}W` : 'W'
   }
@@ -94,6 +95,15 @@ function thisOverText(event: BallEvent, config: MatchConfig): string {
     default:
       return String(event.runs)
   }
+}
+
+/** Total runs added by one delivery: extras penalty + runs off the bat + byes/leg-byes. */
+export function deliveryRuns(event: BallEvent, config: MatchConfig): number {
+  const penalty =
+    event.extras === 'WIDE' ? config.wideExtra : event.extras === 'NO_BALL' ? config.noBallExtra : 0
+  const batRuns = event.extras === 'NONE' || event.extras === 'NO_BALL' ? event.runs : 0
+  const runExtra = event.extras === 'WIDE' || event.extras === 'BYE' || event.extras === 'LEG_BYE' ? event.runs : 0
+  return penalty + batRuns + runExtra
 }
 
 function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, event: BallEvent): void {
@@ -165,9 +175,9 @@ function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, eve
   }
   inn.thisOver.push({
     label: `${event.over}.${event.ball + 1}`,
-    text: thisOverText(event, config),
+    text: deliveryLabel(event, config),
     wicket: event.wicket,
-    runs: penalty + batRuns + runExtra,
+    runs: deliveryRuns(event, config),
   })
 }
 

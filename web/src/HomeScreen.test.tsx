@@ -30,7 +30,9 @@ describe('MatchCard', () => {
   it('shows teams, score, status pill and result line', () => {
     const html = renderToStaticMarkup(<MatchCard summary={live} onOpen={noop} />)
     expect(html).toContain('India vs Australia')
-    expect(html).toContain('148-3 (16.2 ov)')
+    // The run figure animates, so it sits in its own span; the rest is plain text.
+    expect(html).toContain('148')
+    expect(html).toContain('-3 (16.2 ov)')
     expect(html).toContain('LIVE')
   })
 
@@ -45,6 +47,14 @@ describe('MatchCard', () => {
     const html = renderToStaticMarkup(<MatchCard summary={upcoming} onOpen={noop} />)
     expect(html).toContain('Yet to start')
     expect(html).not.toContain('match-score')
+  })
+
+  it('renders the status tooltip and innings progress bar', () => {
+    const withProgress: MatchSummary = { ...live, progress: 0.5 }
+    const html = renderToStaticMarkup(<MatchCard summary={withProgress} onOpen={noop} />)
+    expect(html).toContain('data-tooltip')
+    expect(html).toContain('match-progress')
+    expect(html).toContain('width:50%')
   })
 })
 

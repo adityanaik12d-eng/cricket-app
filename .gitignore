@@ -10,3 +10,5 @@ cricket.db
 *.db
 
 .superpowers/
+.vercel
+.env*

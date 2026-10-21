@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { CommentaryLine, Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { MatchReport } from './MatchReport'
 import { ScorecardView } from './ScorecardView'
-import { EXTRA_GROUPS, buildBallPayload, extrasForGroup, formatBowlerFigures, formatWin, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
 import { ExtrasSheet } from './ExtrasSheet'
 import { matchShareUrl } from './share'
+import { ThemeToggle } from './ui/ThemeToggle'
+import { OverTimeline } from './ui/OverTimeline'
+import { StickyScore } from './ui/StickyScore'
+import { ShotPicker } from './ui/ShotPicker'
+import { WagonWheel } from './ui/WagonWheel'
 
 const DISMISSALS: Dismissal[] = [
   'BOWLED',
@@ -21,15 +26,18 @@ const DISMISSALS: Dismissal[] = [
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK'])
 
+// The charts are the heaviest view, so they load only when the tab is opened.
+const MatchCharts = lazy(() => import('./ui/charts/MatchCharts').then((m) => ({ default: m.MatchCharts })))
+
 interface Props {
   matchId: string
   onLeave: () => void
-  initialTab?: 'scoring' | 'report' | 'scorecard'
+  initialTab?: 'scoring' | 'report' | 'scorecard' | 'wheel' | 'charts'
 }
 
 export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Props) {
   const { bundle, error, refresh } = useMatch(matchId)
-  const [tab, setTab] = useState<'scoring' | 'report' | 'scorecard'>(initialTab)
+  const [tab, setTab] = useState<'scoring' | 'report' | 'scorecard' | 'wheel' | 'charts'>(initialTab)
   const [strikerPick, setStrikerPick] = useState('')
   const [nonStrikerPick, setNonStrikerPick] = useState('')
   const [bowlerPick, setBowlerPick] = useState('')
@@ -46,6 +54,10 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   const state = bundle?.state ?? null
   const live = bundle?.live ?? null
+  const stickyRef = useRef<HTMLElement | null>(null)
+  const [stickyVisible, setStickyVisible] = useState(false)
+  const [placementMode, setPlacementMode] = useState(false)
+  const [pendingShot, setPendingShot] = useState<number | null>(null)
 
   // New innings: forget the previous innings' opener/bowler picks.
   const inningsIndex = live?.inningsIndex ?? 0
@@ -94,6 +106,23 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     return () => clearTimeout(timer)
   }, [copied])
 
+  // Slide the compact score bar in once the full live card scrolls off the top.
+  useEffect(() => {
+    if (tab !== 'scoring') return
+    const el = stickyRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      setStickyVisible(!entry.isIntersecting && el.getBoundingClientRect().top < 0)
+    })
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      setStickyVisible(false)
+    }
+  }, [tab])
+
   async function share(): Promise<void> {
     const url = matchShareUrl(matchId, window.location.origin)
     try {
@@ -132,9 +161,12 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       <div className="shell">
         <header className="topbar">
           <h1>Cricket Scorer</h1>
-          <button className="btn ghost" onClick={onLeave}>
-            ← Home
-          </button>
+          <div className="topbar-actions">
+            <ThemeToggle />
+            <button className="btn ghost" onClick={onLeave}>
+              ← Home
+            </button>
+          </div>
         </header>
         <main className="card">{error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>}</main>
       </div>
@@ -171,7 +203,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         over,
         ball,
       })
-      await api.postEvent(matchId, payload)
+      const posted = await api.postEvent(matchId, payload)
+      if (placementMode && isScoringShot(kind, runs)) setPendingShot(posted.seq)
       setWicketMode(false)
       setSelectedDismissal(null)
       setFielderPick('')
@@ -180,6 +213,22 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       if (e instanceof ApiRequestError) setPadError(e.message)
       else setPadError(e instanceof Error ? e.message : 'Failed to record ball')
       return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Saves the optional shot placement against an already-recorded delivery. */
+  async function recordPlacement(seq: number, angle: number, distance: number): Promise<void> {
+    setBusy(true)
+    setPadError(null)
+    try {
+      await api.patchEventShot(matchId, seq, { shotAngle: angle, shotDistance: distance })
+      setPendingShot(null)
+      void refresh()
+    } catch (e) {
+      setPadError(e instanceof ApiRequestError ? e.message : e instanceof Error ? e.message : 'Failed to save placement')
+      setPendingShot(null)
     } finally {
       setBusy(false)
     }
@@ -239,6 +288,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           >
             {undone ? '✓ Undone' : '↶ Undo'}
           </button>
+          <ThemeToggle />
           <button className="btn ghost" onClick={onLeave}>
             ← Home
           </button>
@@ -258,11 +308,17 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         <button className={tab === 'scorecard' ? 'tab active' : 'tab'} onClick={() => setTab('scorecard')}>
           Scorecard
         </button>
+        <button className={tab === 'wheel' ? 'tab active' : 'tab'} onClick={() => setTab('wheel')}>
+          Wheel
+        </button>
+        <button className={tab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>
+          Charts
+        </button>
       </nav>
 
       {tab === 'scoring' ? (
         <>
-          <section className="card live-card">
+          <section className="card live-card" ref={stickyRef}>
             <div className="score-line">
               <span className="score">
                 {live.runs}-{live.wickets}
@@ -278,16 +334,6 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 </span>
               )}
             </div>
-            {live.thisOver.length > 0 && (
-              <div className="this-over">
-                <span className="muted">This over:</span>
-                {live.thisOver.map((b, i) => (
-                  <span key={i} className={`chip ${b.wicket ? 'danger' : b.runs >= 4 ? 'accent' : ''}`}>
-                    {b.text}
-                  </span>
-                ))}
-              </div>
-            )}
             <div className="players">
               <div className="player">
                 <span className="muted">Strike</span>
@@ -314,6 +360,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               </div>
             </div>
           </section>
+
+          <OverTimeline config={state.config} events={bundle.events} innings={live.inningsIndex} />
 
           {inningsNotStarted && BATTING_STATUSES.has(live.status) && (
             <section className="card">
@@ -351,6 +399,15 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           )}
 
           <section className="card pad">
+            <button
+              type="button"
+              className={`btn ${placementMode ? 'accent' : 'ghost'} placement-toggle`}
+              aria-pressed={placementMode}
+              onClick={() => setPlacementMode((value) => !value)}
+            >
+              {placementMode ? 'Placement on' : 'Record placement'}
+            </button>
+
             {(live.bowler == null || inningsNotStarted) && (
               <label className="bowler-select">
                 Bowler
@@ -457,6 +514,14 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             {padError && <p className="error">{padError}</p>}
           </section>
 
+          {pendingShot !== null && (
+            <ShotPicker
+              busy={busy}
+              onSkip={() => setPendingShot(null)}
+              onPick={(angle, distance) => void recordPlacement(pendingShot, angle, distance)}
+            />
+          )}
+
           {extraKind && (
             <ExtrasSheet
               label={extrasForGroup(extraKind).label}
@@ -470,9 +535,17 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         </>
       ) : tab === 'report' ? (
         <MatchReport bundle={bundle} commentary={commentary} />
-      ) : (
+      ) : tab === 'scorecard' ? (
         <ScorecardView bundle={bundle} commentary={commentary} />
+      ) : tab === 'wheel' ? (
+        <WagonWheel config={state.config} events={bundle.events} />
+      ) : (
+        <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
+          <MatchCharts config={state.config} events={bundle.events} />
+        </Suspense>
       )}
+
+      {tab === 'scoring' && <StickyScore live={live} visible={stickyVisible} />}
     </div>
   )
 }

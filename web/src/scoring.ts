@@ -132,6 +132,15 @@ export function buildBallPayload(input: BuildBallInput): BallPayloadBody {
 }
 
 /** "australia won by 10 wickets" — 'by' arrives as WICKETS/RUNS and is already plural. */
+/**
+ * True when a delivery was struck by the bat for at least one run.
+ * Extras that are not bat shots (wides, byes, leg byes) never qualify.
+ */
+export function isScoringShot(kind: BallKind, runs: number): boolean {
+  if (kind !== 'RUNS' && kind !== 'NO_BALL') return false
+  return runs > 0
+}
+
 export function formatWin(result: MatchResult & { kind: 'WINNER' }): string {
   const noun = result.by === 'WICKETS'
     ? result.amount === 1 ? 'wicket' : 'wickets'

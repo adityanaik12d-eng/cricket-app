@@ -9,6 +9,11 @@ import type { Route } from './routes'
 import { rememberMatch } from './myMatches'
 import type { CreateMatchBody, Player } from './api'
 import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
+import { ThemeToggle } from './ui/ThemeToggle'
+import { initTheme } from './ui/theme'
+
+// Reflect the stored theme before first paint (no-op outside the browser).
+initTheme()
 
 function slug(text: string): string {
   return (
@@ -60,6 +65,9 @@ export function App() {
       <div className="shell">
         <header className="topbar">
           <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
         </header>
         <SigninScreen onDone={() => { window.location.hash = '#/profile' }} />
       </div>
@@ -70,6 +78,9 @@ export function App() {
       <div className="shell">
         <header className="topbar">
           <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
         </header>
         <ProfileScreen onSignedOut={() => { window.location.hash = '#/' }} />
       </div>
@@ -325,6 +336,9 @@ function SetupFlow() {
       <div className="shell">
         <header className="topbar">
           <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
         </header>
         <main className="card setup-card">
           <h2>Toss</h2>
@@ -360,6 +374,7 @@ function SetupFlow() {
       <header className="topbar">
         <h1>Cricket Scorer</h1>
         <div className="topbar-actions">
+          <ThemeToggle />
           <button className="btn ghost" onClick={() => (window.location.hash = '#/')}>Back</button>
         </div>
       </header>

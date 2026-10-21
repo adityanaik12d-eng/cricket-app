@@ -125,6 +125,31 @@ export const api = {
     return { seq: appended.event.seq, state: appended.state, live: appended.live }
   },
 
+  /**
+   * Attaches an optional shot placement to an already-recorded delivery.
+   * The delivery log lives in a single JSON column, so this rewrites that
+   * column the same way `undoLast` does — no schema change is required.
+   */
+  async patchEventShot(
+    matchId: string,
+    seq: number,
+    shot: { shotAngle: number; shotDistance: number },
+  ): Promise<{ state: MatchState; live: LiveScore }> {
+    const { config, events } = await loadRow(matchId)
+    const next = events.map((event) =>
+      event.type === 'BALL' && event.seq === seq
+        ? { ...event, shotAngle: shot.shotAngle, shotDistance: shot.shotDistance }
+        : event,
+    )
+    const { error } = await getSupabase()
+      .from('matches')
+      .update({ events: next, updated_at: new Date().toISOString() })
+      .eq('id', matchId)
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    const state = applyEvents(config, next)
+    return { state, live: projectLiveScore(state) }
+  },
+
   async getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
     const { config, events } = await loadRow(matchId)
     return { commentary: computeCommentary(config, events) }

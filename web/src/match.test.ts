@@ -310,6 +310,8 @@ describe('summarize', () => {
     expect(summary.statusText).toBe('LIVE')
     expect(summary.score).toBe('4-0 (0.2 ov)')
     expect(summary.resultText).toBeNull()
+    // 2 legal balls of a 2-over (12-ball) innings.
+    expect(summary.progress).toBeCloseTo(2 / 12)
   })
 
   it('replays a correction before summarising (review focus 4)', () => {
