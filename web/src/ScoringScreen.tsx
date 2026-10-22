@@ -14,6 +14,7 @@ import { OverTimeline } from './ui/OverTimeline'
 import { StickyScore } from './ui/StickyScore'
 import { ShotPicker } from './ui/ShotPicker'
 import { WagonWheel } from './ui/WagonWheel'
+import { Beehive } from './ui/Beehive'
 import { WatcherView } from './ui/WatcherView'
 
 const DISMISSALS: Dismissal[] = [
@@ -38,6 +39,7 @@ interface Props {
 }
 
 type Tab = 'scoring' | 'watch' | 'report' | 'scorecard' | 'wheel' | 'charts'
+type WheelView = 'wheel' | 'beehive'
 
 export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Props) {
   const { bundle, error, refresh, canScore, resolved } = useMatch(matchId)
@@ -66,6 +68,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [stickyVisible, setStickyVisible] = useState(false)
   const [placementMode, setPlacementMode] = useState(false)
   const [pendingShot, setPendingShot] = useState<number | null>(null)
+  const [wheelView, setWheelView] = useState<WheelView>('wheel')
 
   // New innings: forget the previous innings' opener/bowler picks.
   const inningsIndex = live?.inningsIndex ?? 0
@@ -565,7 +568,27 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       ) : activeTab === 'scorecard' ? (
         <ScorecardView bundle={bundle} commentary={commentary} events={bundle.events} />
       ) : activeTab === 'wheel' ? (
-        <WagonWheel config={state.config} events={bundle.events} />
+        <>
+          <div className="wheel-view-toggle" role="group" aria-label="Wheel view">
+            <button
+              type="button"
+              className={wheelView === 'wheel' ? 'toggle-btn active' : 'toggle-btn'}
+              aria-pressed={wheelView === 'wheel'}
+              onClick={() => setWheelView('wheel')}
+            >
+              Wheel
+            </button>
+            <button
+              type="button"
+              className={wheelView === 'beehive' ? 'toggle-btn active' : 'toggle-btn'}
+              aria-pressed={wheelView === 'beehive'}
+              onClick={() => setWheelView('beehive')}
+            >
+              Beehive
+            </button>
+          </div>
+          {wheelView === 'wheel' ? <WagonWheel config={state.config} events={bundle.events} /> : <Beehive events={bundle.events} />}
+        </>
       ) : (
         <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
           <MatchCharts config={state.config} events={bundle.events} />

@@ -126,3 +126,34 @@ export function beehiveTone(balls: number): BeehiveTone {
   if (balls <= 8) return 'mid'
   return 'high'
 }
+
+/** A coordinate pair in the beehive lattice. */
+export interface BeehiveCoord {
+  col: number
+  row: number
+}
+
+/**
+ * Every hex cell that lies on the ground (within the boundary of the
+ * beehive). The lattice is generated for the grid that `hexCenter`/`groundToCell`
+ * use, so the beehive view can render the full shape.
+ */
+export function beehiveLattice(radius: number): BeehiveCoord[] {
+  const size = hexRadius(radius)
+  const maxRings = Math.max(1, Math.ceil(BEEHIVE_HEX_RINGS * radius / BEEHIVE_RADIUS))
+  const seen = new Map<string, BeehiveCoord>()
+
+  for (let row = -maxRings; row <= maxRings; row++) {
+    for (let col = -maxRings; col <= maxRings; col++) {
+      const centre = hexCenter(col, row, radius)
+      if (Math.hypot(centre.x, centre.y) <= radius + size * 0.6) {
+        const key = `${col}:${row}`
+        if (!seen.has(key)) {
+          seen.set(key, { col, row })
+        }
+      }
+    }
+  }
+
+  return [...seen.values()].sort((a, b) => a.row - b.row || a.col - b.col)
+}

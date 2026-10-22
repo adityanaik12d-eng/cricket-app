@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { BEEHIVE_RADIUS, beehiveTone, groundToCell, hexCenter, projectBeehive } from './beehive.js'
+import {
+  BEEHIVE_RADIUS,
+  beehiveLattice,
+  beehiveTone,
+  groundToCell,
+  hexCenter,
+  projectBeehive,
+} from './beehive.js'
 import { withDefaults } from '../config.js'
 import type { BallEvent, CorrectionEvent, MatchConfig } from '../types.js'
 
@@ -121,6 +128,35 @@ describe('groundToCell', () => {
         expect(Math.hypot(x - centre.x, y - centre.y)).toBeLessThanOrEqual(HEX_R + 1e-9)
       }
     }
+  })
+})
+
+describe('beehiveLattice', () => {
+  it('covers the ground with a ring of cells', () => {
+    const cells = beehiveLattice(BEEHIVE_RADIUS)
+    expect(cells.length).toBeGreaterThan(10)
+  })
+
+  it('starts at the centre of the ground', () => {
+    const cells = beehiveLattice(BEEHIVE_RADIUS)
+    expect(cells.some((c) => c.col === 0 && c.row === 0)).toBe(true)
+  })
+
+  it('keeps every cell within reach of the ground', () => {
+    for (const cell of beehiveLattice(BEEHIVE_RADIUS)) {
+      const centre = hexCenter(cell.col, cell.row, BEEHIVE_RADIUS)
+      expect(Math.hypot(centre.x, centre.y)).toBeLessThanOrEqual(BEEHIVE_RADIUS + HEX_R)
+    }
+  })
+
+  it('covers more of a bigger ground', () => {
+    expect(beehiveLattice(50).length).toBeLessThan(beehiveLattice(100).length)
+  })
+
+  it('lists every cell once', () => {
+    const cells = beehiveLattice(BEEHIVE_RADIUS)
+    const keys = new Set(cells.map((c) => `${c.col}:${c.row}`))
+    expect(keys.size).toBe(cells.length)
   })
 })
 

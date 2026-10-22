@@ -2219,3 +2219,72 @@ table.visually-hidden {
   margin: 0;
   font-size: var(--fs-sm);
 }
+
+/* ---------- beehive ---------- */
+.beehive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.beehive h2 {
+  margin: 0;
+}
+
+.beehive-svg {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  display: block;
+}
+
+.beehive-cell {
+  stroke: color-mix(in srgb, var(--border) 70%, transparent);
+  stroke-width: 0.8;
+}
+
+.beehive-tone-none {
+  fill: color-mix(in srgb, var(--surface-2) 40%, transparent);
+}
+
+.beehive-tone-low {
+  fill: color-mix(in srgb, var(--accent-2) 28%, transparent);
+}
+
+.beehive-tone-mid {
+  fill: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.beehive-tone-high {
+  fill: color-mix(in srgb, var(--accent) 58%, transparent);
+}
+
+.beehive-empty {
+  margin: 0;
+}
+
+/* ---------- wheel / beehive toggle ---------- */
+.wheel-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: var(--s-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  align-self: center;
+}
+
+.wheel-view-toggle .toggle-btn {
+  min-height: 38px;
+  padding: var(--s-2) var(--s-4);
+  border: none;
+  border-radius: var(--r-pill);
+  background: transparent;
+  box-shadow: none;
+}
+
+.wheel-view-toggle .toggle-btn.active {
+  background: var(--grad-accent);
+  color: var(--accent-ink);
+}
