@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { CommentaryLine, InningsCard, MatchConfig, MatchState, Scorecard } from '@cricket-app/core'
-import { ScorecardView } from './ScorecardView'
+import type { BallEvent, CommentaryLine, InningsCard, MatchConfig, MatchState, Scorecard } from '@cricket-app/core'
+import { BattingTable, ScorecardView, batterRowKey, toggleRowKey } from './ScorecardView'
 
 const config = {
   matchId: 'm1',
@@ -98,8 +98,7 @@ const state = {
 } as MatchState
 
 describe('ScorecardView', () => {
-  it('resolves player names everywhere and never leaks raw player ids', () => {
-    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard } }))
+  it('resolves player names everywhere and never leaks raw player ids', () => {    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard } }))
     expect(html).toContain('Aarav Shah')
     expect(html).toContain('Bilal Khan')
     expect(html).toContain('Danish Ali')
@@ -149,5 +148,123 @@ describe('ScorecardView', () => {
     }
     expect(errors.some((e) => e.includes('same key'))).toBe(false)
     expect(errors.some((e) => e.includes('key'))).toBe(false)
+  })
+})
+
+const ballEvent = (p: Partial<BallEvent> = {}): BallEvent => ({
+  id: 'e1',
+  matchId: 'm1',
+  seq: 1,
+  ts: '2026-10-21T10:00:00.000Z',
+  type: 'BALL',
+  over: 3,
+  ball: 2,
+  runs: 4,
+  extras: 'NONE',
+  wicket: false,
+  dismissal: null,
+  dismissedPlayerId: null,
+  batterId: 'a1',
+  nonStrikerId: 'a2',
+  bowlerId: 'b1',
+  fieldingCaptainId: 'b1',
+  ...p,
+})
+
+const events: BallEvent[] = [
+  ballEvent({ id: 'e1', seq: 1, over: 3, ball: 2, runs: 4 }),
+  ballEvent({ id: 'e2', seq: 2, over: 3, ball: 3, runs: 6, batterId: 'a2' }),
+  ballEvent({
+    id: 'e3',
+    seq: 3,
+    over: 3,
+    ball: 4,
+    runs: 0,
+    wicket: true,
+    dismissal: 'BOWLED',
+    dismissedPlayerId: 'a1',
+  }),
+]
+
+describe('expandable batting rows', () => {
+  const panelTag = (html: string, inningsIndex: number, position: number): string =>
+    html.match(new RegExp(`<tr id="batter-balls-${inningsIndex}-${position}"[^>]*>`))?.[0] ?? ''
+
+  it('renders a collapsed toggle for every batting row', () => {
+    const html = renderToStaticMarkup(
+      createElement(BattingTable, {
+        state,
+        innings,
+        events,
+        expanded: new Set<string>(),
+        onToggle: () => {},
+      }),
+    )
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('aria-controls="batter-balls-0-1"')
+    expect(html).toContain('aria-controls="batter-balls-0-2"')
+  })
+
+  it('hides the ball-by-ball until the row is expanded', () => {
+    const html = renderToStaticMarkup(
+      createElement(BattingTable, {
+        state,
+        innings,
+        events,
+        expanded: new Set<string>(),
+        onToggle: () => {},
+      }),
+    )
+    expect(panelTag(html, 0, 1)).toContain('hidden')
+    expect(html).not.toContain('3.3')
+  })
+
+  it('shows the ball-by-ball of the expanded row', () => {
+    const html = renderToStaticMarkup(
+      createElement(BattingTable, {
+        state,
+        innings,
+        events,
+        expanded: new Set([batterRowKey(0, 1)]),
+        onToggle: () => {},
+      }),
+    )
+    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('3.3')
+    expect(html).toContain('3.5')
+    expect(panelTag(html, 0, 1)).not.toContain('hidden')
+    expect(panelTag(html, 0, 2)).toContain('hidden')
+  })
+
+  it('keeps the other rows collapsed while one row is open', () => {
+    const html = renderToStaticMarkup(
+      createElement(BattingTable, {
+        state,
+        innings,
+        events,
+        expanded: new Set([batterRowKey(0, 1)]),
+        onToggle: () => {},
+      }),
+    )
+    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('aria-expanded="false"')
+  })
+
+  it('opens one row without closing the others', () => {
+    const first = toggleRowKey(new Set<string>(), batterRowKey(0, 1))
+    const both = toggleRowKey(first, batterRowKey(0, 2))
+    expect(both.has(batterRowKey(0, 1))).toBe(true)
+    expect(both.has(batterRowKey(0, 2))).toBe(true)
+  })
+
+  it('closes a row that is opened twice', () => {
+    const key = batterRowKey(0, 1)
+    const once = toggleRowKey(new Set<string>(), key)
+    const twice = toggleRowKey(once, key)
+    expect(twice.has(key)).toBe(false)
+  })
+
+  it('gives each innings its own row keys', () => {
+    expect(batterRowKey(0, 1)).not.toBe(batterRowKey(1, 1))
   })
 })

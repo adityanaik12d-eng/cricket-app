@@ -2125,3 +2125,97 @@ table.visually-hidden {
     transform: none;
   }
 }
+
+/* ---------- expandable scorecard rows ---------- */
+.row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: var(--s-1) var(--s-2);
+  min-height: 0;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+@media (hover: hover) {
+  .row-toggle:hover {
+    background: var(--surface-2);
+  }
+}
+
+.row-toggle-caret {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.row-toggle[aria-expanded='true'] .row-toggle-caret {
+  color: var(--accent);
+}
+
+.batter-balls-row > td {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  padding-top: var(--s-2);
+  padding-bottom: var(--s-3);
+}
+
+.batter-balls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.batter-ball {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 3px var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.batter-ball-label {
+  color: var(--muted);
+}
+
+.batter-ball-runs {
+  font-weight: var(--fw-bold);
+}
+
+.batter-ball.is-boundary {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+}
+
+.batter-ball.is-boundary .batter-ball-label {
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+}
+
+.batter-ball.is-wicket {
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  color: var(--danger);
+}
+
+.batter-ball-mark {
+  font-weight: var(--fw-bold);
+}
+
+.batter-balls-empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+}

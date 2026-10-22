@@ -563,7 +563,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       ) : activeTab === 'report' ? (
         <MatchReport bundle={bundle} commentary={commentary} />
       ) : activeTab === 'scorecard' ? (
-        <ScorecardView bundle={bundle} commentary={commentary} />
+        <ScorecardView bundle={bundle} commentary={commentary} events={bundle.events} />
       ) : activeTab === 'wheel' ? (
         <WagonWheel config={state.config} events={bundle.events} />
       ) : (
