@@ -2085,3 +2085,43 @@ table.visually-hidden {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Route changes cross-fade. The browser's default transition is replaced so the
+   animation only ever touches opacity and transform. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: view-fade-out 200ms ease both;
+  }
+  ::view-transition-new(root) {
+    animation: view-fade-in 240ms ease both;
+  }
+}
+
+/* Reduced motion: no transition animation at all. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+@keyframes view-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

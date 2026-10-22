@@ -12,6 +12,7 @@ import type { CreateMatchBody, Player } from './api'
 import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { initTheme } from './ui/theme'
+import { withViewTransition } from './ui/viewTransition'
 
 // Reflect the stored theme before first paint (no-op outside the browser).
 initTheme()
@@ -39,7 +40,10 @@ export function App() {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash))
 
   useEffect(() => {
-    const onHash = (): void => setRoute(parseHash(window.location.hash))
+    const onHash = (): void => {
+      const next = parseHash(window.location.hash)
+      withViewTransition(() => setRoute(next), document)
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
