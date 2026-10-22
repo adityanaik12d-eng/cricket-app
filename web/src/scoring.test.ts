@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { withDefaults } from '@cricket-app/core'
 import type { BattingCardLine, BowlingCardLine, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
-import { EXTRA_GROUPS, buildBallPayload, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requirementText, requiresFielder, resolvePositions, resultText, topBowler, topScorer } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, celebrationForDelivery, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requirementText, requiresFielder, resolvePositions, resultText, topBowler, topScorer } from './scoring'
 
 const positions = { strikerId: 'a1', nonStrikerId: 'a2', bowlerId: 'b1' }
 
@@ -442,5 +443,55 @@ describe('isScoringShot', () => {
   it('rejects wickets', () => {
     expect(isScoringShot('WICKET', 0)).toBe(false)
     expect(isScoringShot('WICKET', 4)).toBe(false)
+  })
+})
+
+describe('celebrationForDelivery', () => {
+  const config = withDefaults({
+    matchId: 'm1',
+    teamAId: 'A',
+    teamBId: 'B',
+    lineups: { A: ['a1'], B: ['b1'] },
+  })
+
+  it('returns null for a delivery that earned nothing', () => {
+    expect(
+      celebrationForDelivery({ runs: 12, wickets: 1 }, { runs: 0, extras: 'NONE', wicket: false }, config),
+    ).toBeNull()
+  })
+
+  it('celebrates a six', () => {
+    const c = celebrationForDelivery({ runs: 18, wickets: 1 }, { runs: 6, extras: 'NONE', wicket: false }, config)
+    expect(c?.kind).toBe('six')
+    expect(c?.label).toBe('SIX!')
+  })
+
+  it('celebrates a wicket', () => {
+    const c = celebrationForDelivery({ runs: 18, wickets: 2 }, { runs: 0, extras: 'NONE', wicket: true }, config)
+    expect(c?.kind).toBe('wicket')
+    expect(c?.label).toBe('WICKET!')
+  })
+
+  it('celebrates a four struck off a no-ball', () => {
+    const c = celebrationForDelivery({ runs: 21, wickets: 1 }, { runs: 4, extras: 'NO_BALL', wicket: false }, config)
+    expect(c?.kind).toBe('boundary')
+    expect(c?.label).toBe('FOUR!')
+  })
+
+  it('does not call four byes a boundary', () => {
+    const c = celebrationForDelivery({ runs: 21, wickets: 1 }, { runs: 4, extras: 'BYE', wicket: false }, config)
+    expect(c).toBeNull()
+  })
+
+  it('celebrates a milestone the team reached on a wide', () => {
+    const c = celebrationForDelivery({ runs: 50, wickets: 0 }, { runs: 0, extras: 'WIDE', wicket: false }, config)
+    expect(c?.kind).toBe('milestone')
+    expect(c?.milestone).toBe(50)
+    expect(c?.label).toBe('50 RUNS')
+  })
+
+  it('does not celebrate a wide that crosses nothing', () => {
+    const c = celebrationForDelivery({ runs: 21, wickets: 0 }, { runs: 0, extras: 'WIDE', wicket: false }, config)
+    expect(c).toBeNull()
   })
 })

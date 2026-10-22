@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyEvents, applyEvent, effectiveEvents } from './apply.js'
+import { applyEvents, applyEvent, deliveryBatRuns, deliveryRuns, effectiveEvents } from './apply.js'
 import { EngineError } from './errors.js'
 import { withDefaults } from './config.js'
 import { emptyInnings, emptyState } from './state.js'
@@ -622,5 +622,37 @@ describe('apply: current over deliveries', () => {
       },
     ])
     expect(state.innings[0].thisOver.map((b) => b.text)).toEqual(['6'])
+  })
+})
+
+describe('deliveryRuns', () => {
+  it('counts an ordinary delivery as its runs', () => {
+    expect(deliveryRuns({ runs: 4, extras: 'NONE' }, baseConfig)).toBe(4)
+  })
+
+  it('adds the wide penalty to a wide', () => {
+    expect(deliveryRuns({ runs: 0, extras: 'WIDE' }, baseConfig)).toBe(baseConfig.wideExtra)
+  })
+
+  it('counts a no-ball as the penalty plus the runs off the bat', () => {
+    expect(deliveryRuns({ runs: 4, extras: 'NO_BALL' }, baseConfig)).toBe(baseConfig.noBallExtra + 4)
+  })
+
+  it('counts byes and leg byes as runs added to the team', () => {
+    expect(deliveryRuns({ runs: 2, extras: 'BYE' }, baseConfig)).toBe(2)
+    expect(deliveryRuns({ runs: 2, extras: 'LEG_BYE' }, baseConfig)).toBe(2)
+  })
+})
+
+describe('deliveryBatRuns', () => {
+  it('counts the runs off the bat', () => {
+    expect(deliveryBatRuns({ runs: 4, extras: 'NONE' })).toBe(4)
+    expect(deliveryBatRuns({ runs: 4, extras: 'NO_BALL' })).toBe(4)
+  })
+
+  it('counts nothing off the bat for extras that are not bat shots', () => {
+    expect(deliveryBatRuns({ runs: 4, extras: 'WIDE' })).toBe(0)
+    expect(deliveryBatRuns({ runs: 4, extras: 'BYE' })).toBe(0)
+    expect(deliveryBatRuns({ runs: 4, extras: 'LEG_BYE' })).toBe(0)
   })
 })

@@ -1,4 +1,5 @@
-import type { BattingCardLine, BowlingCardLine, Dismissal, Extra, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
+import { celebrateDelivery, deliveryBatRuns, deliveryRuns } from '@cricket-app/core'
+import type { BattingCardLine, BowlingCardLine, DeliveryCelebration, Dismissal, Extra, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
 
 export interface PadPositions {
   strikerId: string
@@ -129,6 +130,28 @@ export function buildBallPayload(input: BuildBallInput): BallPayloadBody {
     fieldingCaptainId: positions.bowlerId,
     ...(input.fielderId ? { fielderId: input.fielderId } : {}),
   }
+}
+
+/**
+ * The celebration a delivery earned, or null when it earned none.
+ *
+ * `after` is the score the delivery produced (team runs and wickets). The
+ * engine needs the runs off the bat (a wide is not a four) and the total the
+ * delivery added to the team (a wide can still take the team to fifty).
+ */
+export function celebrationForDelivery(
+  after: { runs: number; wickets: number },
+  delivery: { runs: number; extras: Extra; wicket: boolean },
+  config: MatchConfig,
+): DeliveryCelebration | null {
+  const celebration = celebrateDelivery({
+    runs: deliveryBatRuns(delivery),
+    totalRuns: deliveryRuns(delivery, config),
+    isWicket: delivery.wicket,
+    wickets: after.wickets,
+    teamRuns: after.runs,
+  })
+  return celebration.kind === 'none' ? null : celebration
 }
 
 /** "australia won by 10 wickets" — 'by' arrives as WICKETS/RUNS and is already plural. */

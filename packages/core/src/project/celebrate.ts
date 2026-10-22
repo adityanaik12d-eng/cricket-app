@@ -8,6 +8,11 @@ export type CelebrationTier = 'none' | 'small' | 'big' | 'huge'
 export interface CelebrationInput {
   /** Runs scored off the delivery. */
   runs: number
+  /**
+   * Total runs the delivery added to the team (penalty + bat runs + byes).
+   * Defaults to `runs`; extras make the two differ.
+   */
+  totalRuns?: number
   /** True when the delivery took a wicket. */
   isWicket: boolean
   /** Team wickets after the delivery. */
@@ -78,7 +83,9 @@ function tierFor(kind: CelebrationKind, milestone: number | null): CelebrationTi
  */
 export function celebrateDelivery(input: CelebrationInput): DeliveryCelebration {
   const { runs, isWicket, wickets, teamRuns } = input
-  const prevRuns = teamRuns - runs
+  // The milestone is about the team's score, so it uses the total the delivery
+  // added; a wide that takes the team to fifty counts.
+  const prevRuns = teamRuns - (input.totalRuns ?? runs)
   const milestone = milestoneReached(prevRuns, teamRuns)
 
   let kind: CelebrationKind = 'none'

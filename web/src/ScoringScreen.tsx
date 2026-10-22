@@ -1,13 +1,14 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import type { CommentaryLine, Dismissal, LiveScore, MatchState } from '@cricket-app/core'
+import type { CommentaryLine, DeliveryCelebration, Dismissal, LiveScore, MatchState } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { MatchReport } from './MatchReport'
 import { ScorecardView } from './ScorecardView'
-import { EXTRA_GROUPS, buildBallPayload, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
 import { ExtrasSheet } from './ExtrasSheet'
 import { matchShareUrl } from './share'
+import { Celebration } from './ui/Celebration'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { OverTimeline } from './ui/OverTimeline'
 import { StickyScore } from './ui/StickyScore'
@@ -54,6 +55,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [extraKind, setExtraKind] = useState<ExtraKind | null>(null)
   const [undoing, setUndoing] = useState(false)
   const [undone, setUndone] = useState(false)
+  const [celebration, setCelebration] = useState<DeliveryCelebration | null>(null)
 
   const state = bundle?.state ?? null
   const live = bundle?.live ?? null
@@ -195,7 +197,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     !busy
 
   async function submitBall(kind: BallKind, runs: number, dismissal?: Dismissal, fielderId?: string): Promise<boolean> {
-    if (!live) return false
+    if (!live || !state) return false
     setPadError(null)
     setBusy(true)
     try {
@@ -210,6 +212,9 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         ball,
       })
       const posted = await api.postEvent(matchId, payload)
+      // The celebration follows the score the delivery actually produced.
+      const earned = celebrationForDelivery(posted.live, payload, state.config)
+      if (earned) setCelebration(earned)
       if (placementMode && isScoringShot(kind, runs)) setPendingShot(posted.seq)
       setWicketMode(false)
       setSelectedDismissal(null)
@@ -566,6 +571,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           <MatchCharts config={state.config} events={bundle.events} />
         </Suspense>
       )}
+
+      {celebration && <Celebration celebration={celebration} onDone={() => setCelebration(null)} />}
 
       {(activeTab === 'scoring' || activeTab === 'watch') && <StickyScore live={live} visible={stickyVisible} />}
     </div>

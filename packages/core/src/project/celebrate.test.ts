@@ -133,3 +133,35 @@ describe('celebrateDelivery', () => {
     expect(result.tier).toBe('huge')
   })
 })
+
+describe('celebrateDelivery with extras', () => {
+  it('reads the milestone from the total runs the delivery added', () => {
+    const result = celebrateDelivery({
+      runs: 0,
+      totalRuns: 1,
+      isWicket: false,
+      wickets: 0,
+      teamRuns: 50,
+    })
+    expect(result.kind).toBe('milestone')
+    expect(result.milestone).toBe(50)
+    expect(result.label).toBe('50 RUNS')
+  })
+
+  it('keeps the boundary when the delivery also carried an extra', () => {
+    const result = celebrateDelivery({
+      runs: 4,
+      totalRuns: 5,
+      isWicket: false,
+      wickets: 0,
+      teamRuns: 5,
+    })
+    expect(result.kind).toBe('boundary')
+    expect(result.label).toBe('FOUR!')
+  })
+
+  it('falls back to the runs off the bat when no total is given', () => {
+    const result = celebrateDelivery({ runs: 4, isWicket: false, wickets: 0, teamRuns: 4 })
+    expect(result.kind).toBe('boundary')
+  })
+})

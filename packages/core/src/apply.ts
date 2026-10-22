@@ -98,12 +98,17 @@ export function deliveryLabel(event: BallEvent, config: MatchConfig): string {
 }
 
 /** Total runs added by one delivery: extras penalty + runs off the bat + byes/leg-byes. */
-export function deliveryRuns(event: BallEvent, config: MatchConfig): number {
+export function deliveryRuns(event: Pick<BallEvent, 'runs' | 'extras'>, config: MatchConfig): number {
   const penalty =
     event.extras === 'WIDE' ? config.wideExtra : event.extras === 'NO_BALL' ? config.noBallExtra : 0
   const batRuns = event.extras === 'NONE' || event.extras === 'NO_BALL' ? event.runs : 0
   const runExtra = event.extras === 'WIDE' || event.extras === 'BYE' || event.extras === 'LEG_BYE' ? event.runs : 0
   return penalty + batRuns + runExtra
+}
+
+/** Runs scored off the bat: nothing for a wide, a bye or a leg bye. */
+export function deliveryBatRuns(event: Pick<BallEvent, 'runs' | 'extras'>): number {
+  return event.extras === 'NONE' || event.extras === 'NO_BALL' ? event.runs : 0
 }
 
 function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, event: BallEvent): void {
