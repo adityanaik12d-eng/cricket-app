@@ -1904,3 +1904,184 @@ table.visually-hidden {
   border-color: var(--border-strong);
   color: var(--muted);
 }
+
+/* ============================================================
+   Celebration overlay — transform/opacity only.
+   ============================================================ */
+.celebration {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+  pointer-events: none;
+  animation: celebration-veil var(--dur-slow) var(--ease-out) both;
+}
+
+.celebration-label {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--text);
+  text-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
+  animation: celebration-pop var(--dur-slow) var(--ease-spring) both;
+}
+
+.celebration-tier-small .celebration-label {
+  font-size: var(--fs-2xl);
+}
+
+.celebration-tier-big .celebration-label {
+  font-size: var(--fs-3xl);
+}
+
+.celebration-tier-huge .celebration-label {
+  font-size: calc(var(--fs-3xl) * 1.35);
+  color: var(--accent-3);
+}
+
+/* boundary — a ripple spreading out of the middle */
+.celebration-ripple {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  border: 3px solid var(--accent-2);
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.28), rgba(20, 184, 166, 0));
+  animation: celebration-ripple 900ms var(--ease-out) both;
+}
+
+/* six — a burst of rays */
+.celebration-burst {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    var(--accent-3) 0deg 12deg,
+    rgba(245, 158, 11, 0) 12deg 30deg,
+    var(--accent-3) 30deg 42deg,
+    rgba(245, 158, 11, 0) 42deg 60deg,
+    var(--accent-3) 60deg 72deg,
+    rgba(245, 158, 11, 0) 72deg 90deg,
+    var(--accent-3) 90deg 102deg,
+    rgba(245, 158, 11, 0) 102deg 120deg,
+    var(--accent-3) 120deg 132deg,
+    rgba(245, 158, 11, 0) 132deg 150deg,
+    var(--accent-3) 150deg 162deg,
+    rgba(245, 158, 11, 0) 162deg 180deg,
+    var(--accent-3) 180deg 192deg,
+    rgba(245, 158, 11, 0) 192deg 210deg,
+    var(--accent-3) 210deg 222deg,
+    rgba(245, 158, 11, 0) 222deg 240deg,
+    var(--accent-3) 240deg 252deg,
+    rgba(245, 158, 11, 0) 252deg 270deg,
+    var(--accent-3) 270deg 282deg,
+    rgba(245, 158, 11, 0) 282deg 300deg,
+    var(--accent-3) 300deg 312deg,
+    rgba(245, 158, 11, 0) 312deg 330deg,
+    var(--accent-3) 330deg 342deg,
+    rgba(245, 158, 11, 0) 342deg 360deg
+  );
+  -webkit-mask-image: radial-gradient(circle, transparent 34%, #000 36%, #000 100%);
+  mask-image: radial-gradient(circle, transparent 34%, #000 36%, #000 100%);
+  animation: celebration-burst 1000ms var(--ease-out) both;
+}
+
+/* wicket — the stumps come down */
+.celebration-stumps {
+  width: 132px;
+  height: 132px;
+  fill: var(--danger);
+  filter: drop-shadow(0 8px 26px rgba(0, 0, 0, 0.5));
+  animation: celebration-stumps 900ms var(--ease-spring) both;
+}
+
+/* milestone — the number itself is the badge */
+.celebration-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 132px;
+  padding: 0 var(--s-5);
+  border-radius: var(--r-pill);
+  border: 2px solid var(--accent);
+  background: rgba(34, 197, 94, 0.16);
+  color: var(--text);
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  animation: celebration-pop 900ms var(--ease-spring) both;
+}
+
+.celebration-tier-huge .celebration-badge {
+  border-color: var(--accent-3);
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--accent-3);
+}
+
+@keyframes celebration-veil {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes celebration-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes celebration-ripple {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes celebration-burst {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.35) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35) rotate(60deg);
+  }
+}
+
+@keyframes celebration-stumps {
+  0% {
+    opacity: 0;
+    transform: translateY(-26px) scale(0.9);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
