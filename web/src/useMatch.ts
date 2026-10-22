@@ -3,11 +3,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { api, ApiRequestError } from './api'
 import type { MatchBundle } from './api'
 import { getSupabase } from './supabase'
+import { ownsMatchLocally, resolveScorerStatus } from './scorerControl'
 
 interface UseMatchResult {
   bundle: MatchBundle | null
   error: string | null
   refresh: () => void
+  /** True when this browser may score the match. */
+  canScore: boolean
+  /** True once scoring rights have been worked out. */
+  resolved: boolean
 }
 
 /**
@@ -20,6 +25,8 @@ export function useMatch(matchId: string | null): UseMatchResult {
   const [error, setError] = useState<string | null>(null)
   const [refreshToken, setRefreshToken] = useState(0)
   const refreshRef = useRef<() => void>(() => {})
+  const [canScore, setCanScore] = useState(false)
+  const [resolved, setResolved] = useState(false)
 
   const refresh = useCallback(() => setRefreshToken((n) => n + 1), [])
   refreshRef.current = refresh
@@ -44,6 +51,33 @@ export function useMatch(matchId: string | null): UseMatchResult {
     }
   }, [matchId, refreshToken])
 
+  // Scoring rights: the browser that created the match may score it, everyone
+  // else is a watcher. The database has the last word when another device has
+  // taken over the match.
+  useEffect(() => {
+    if (!matchId) {
+      setCanScore(false)
+      setResolved(false)
+      return
+    }
+    let alive = true
+    setResolved(false)
+    resolveScorerStatus(matchId)
+      .then((status) => {
+        if (!alive) return
+        setCanScore(status.canScore)
+        setResolved(true)
+      })
+      .catch(() => {
+        if (!alive) return
+        setCanScore(ownsMatchLocally(matchId))
+        setResolved(true)
+      })
+    return () => {
+      alive = false
+    }
+  }, [matchId])
+
   // Realtime subscription: any UPDATE to this row triggers a refetch.
   useEffect(() => {
     if (!matchId) return
@@ -66,5 +100,5 @@ export function useMatch(matchId: string | null): UseMatchResult {
     }
   }, [matchId])
 
-  return { bundle, error, refresh }
+  return { bundle, error, refresh, canScore, resolved }
 }

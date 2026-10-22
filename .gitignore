@@ -12,3 +12,4 @@ cricket.db
 .superpowers/
 .vercel
 .env*
+ui-*.png

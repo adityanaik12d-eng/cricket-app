@@ -3,8 +3,16 @@ import type { CommentaryLine, LiveScore, MatchConfig, MatchEvent, MatchState } f
 import { getSupabase } from './supabase'
 import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary, summarizeRows, withoutLastEvent } from './match'
 import type { MatchBundle, MatchSummary } from './match'
+import { hashScorerToken, isScorerMatch, readScorerToken, sha256Hex } from './ownership'
 
 export type { MatchBundle }
+
+/**
+ * The header the database policy reads the scorer token from. PostgREST
+ * exposes every request header to SQL, so the policy can check it without
+ * the token ever being stored in the readable part of the row.
+ */
+const SCORER_TOKEN_HEADER = 'x-scorer-token'
 
 export class ApiRequestError extends Error {
   readonly code: string
@@ -69,6 +77,37 @@ function toApiError(err: unknown, fallback: string): ApiRequestError {
   return new ApiRequestError(err instanceof Error ? err.message : fallback, 'ERROR')
 }
 
+/**
+ * The scorer token this browser holds for a match, if any. A watcher has
+ * none, and a watcher must never be able to write to the match.
+ */
+function scorerTokenFor(matchId: string): string | null {
+  try {
+    return readScorerToken(matchId)
+  } catch {
+    return null
+  }
+}
+
+/** Adds the scorer token to a write so the database can check it. */
+function withScorerToken<T extends { setHeader: (name: string, value: string) => T }>(
+  query: T,
+  token: string | null,
+): T {
+  if (token) query.setHeader(SCORER_TOKEN_HEADER, token)
+  return query
+}
+
+/**
+ * Refuses a write from a browser that does not own the match. The database
+ * policy is the real gate; this keeps the mistake out of the request and
+ * gives the UI a clear message.
+ */
+function assertScorer(matchId: string): void {
+  if (isScorerMatch(matchId)) return
+  throw new ApiRequestError('This match is being scored on another device', 'NOT_SCORER')
+}
+
 /** Loads a match row and replays it. One row = the whole match (config + log). */
 async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[] }> {
   const { data, error } = await getSupabase()
@@ -85,10 +124,16 @@ async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: 
 export const api = {
   async createMatch(
     cfg: CreateMatchBody,
+    scorerToken?: string,
   ): Promise<{ matchId: string; state: MatchState; live: LiveScore }> {
     const matchId = crypto.randomUUID()
     const config = buildConfig(cfg, matchId)
-    const { error } = await getSupabase().from('matches').insert({ id: matchId, config, events: [] })
+    // The hash of the scorer token rides along in the match config, so the
+    // database can check every write without a schema change.
+    const hash = scorerToken ? sha256Hex(scorerToken) : ''
+    const { error } = await getSupabase()
+      .from('matches')
+      .insert({ id: matchId, config: hash ? { ...config, scorerTokenHash: hash } : config, events: [] })
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     const state = applyEvents(config, [])
     return { matchId, state, live: projectLiveScore(state) }
@@ -103,6 +148,7 @@ export const api = {
     matchId: string,
     payload: unknown,
   ): Promise<{ seq: number; state: MatchState; live: LiveScore }> {
+    assertScorer(matchId)
     const { config, events } = await loadRow(matchId)
     let appended: ReturnType<typeof appendEvent>
     try {
@@ -117,10 +163,13 @@ export const api = {
     } catch (err) {
       throw toApiError(err, 'Could not record the event')
     }
-    const { error } = await getSupabase()
-      .from('matches')
-      .update({ events: appended.events, updated_at: new Date().toISOString() })
-      .eq('id', matchId)
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ events: appended.events, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     return { seq: appended.event.seq, state: appended.state, live: appended.live }
   },
@@ -135,16 +184,20 @@ export const api = {
     seq: number,
     shot: { shotAngle: number; shotDistance: number },
   ): Promise<{ state: MatchState; live: LiveScore }> {
+    assertScorer(matchId)
     const { config, events } = await loadRow(matchId)
     const next = events.map((event) =>
       event.type === 'BALL' && event.seq === seq
         ? { ...event, shotAngle: shot.shotAngle, shotDistance: shot.shotDistance }
         : event,
     )
-    const { error } = await getSupabase()
-      .from('matches')
-      .update({ events: next, updated_at: new Date().toISOString() })
-      .eq('id', matchId)
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ events: next, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     const state = applyEvents(config, next)
     return { state, live: projectLiveScore(state) }
@@ -177,18 +230,65 @@ export const api = {
    * the toss alone), so the button cannot leave a match headless.
    */
   async undoLast(matchId: string): Promise<{ state: MatchState; live: LiveScore }> {
+    assertScorer(matchId)
     const { config, events } = await loadRow(matchId)
     const rewound = withoutLastEvent(events)
     if (rewound.length === events.length) {
       throw new ApiRequestError('There is nothing to undo', 'NOTHING_TO_UNDO')
     }
-    const { error } = await getSupabase()
-      .from('matches')
-      .update({ events: rewound, updated_at: new Date().toISOString() })
-      .eq('id', matchId)
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ events: rewound, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     const state = applyEvents(config, rewound)
     return { state, live: projectLiveScore(state) }
+  },
+
+  /**
+   * Stores the hash of the scorer token in the match config.
+   *
+   * Best effort: it only matters once the row policy exists, and a failure
+   * here must never stop a match from being created, scored or watched.
+   */
+  async claimScoring(matchId: string, token: string): Promise<boolean> {
+    const hash = await hashScorerToken(token)
+    if (!hash) return false
+    try {
+      const { config } = await loadRow(matchId)
+      const { error } = await withScorerToken(
+        getSupabase()
+          .from('matches')
+          .update({ config: { ...config, scorerTokenHash: hash } })
+          .eq('id', matchId),
+        token,
+      )
+      return !error
+    } catch {
+      return false
+    }
+  },
+
+  /**
+   * The stored token hash of a match, or null when the match has never been
+   * claimed. The hash lives in the match config, so reading it never fails.
+   */
+  async readScorerHash(matchId: string): Promise<string | null> {
+    try {
+      const { data, error } = await getSupabase()
+        .from('matches')
+        .select('config')
+        .eq('id', matchId)
+        .maybeSingle()
+      if (error) return null
+      const config = (data as { config?: { scorerTokenHash?: string } } | null)?.config
+      return config?.scorerTokenHash ?? null
+    } catch {
+      return null
+    }
   },
 
   // --- Shared player directory / accounts (server-backed) are deferred. The

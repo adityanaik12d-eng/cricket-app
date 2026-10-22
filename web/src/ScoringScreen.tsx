@@ -13,6 +13,7 @@ import { OverTimeline } from './ui/OverTimeline'
 import { StickyScore } from './ui/StickyScore'
 import { ShotPicker } from './ui/ShotPicker'
 import { WagonWheel } from './ui/WagonWheel'
+import { WatcherView } from './ui/WatcherView'
 
 const DISMISSALS: Dismissal[] = [
   'BOWLED',
@@ -35,9 +36,11 @@ interface Props {
   initialTab?: 'scoring' | 'report' | 'scorecard' | 'wheel' | 'charts'
 }
 
+type Tab = 'scoring' | 'watch' | 'report' | 'scorecard' | 'wheel' | 'charts'
+
 export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Props) {
-  const { bundle, error, refresh } = useMatch(matchId)
-  const [tab, setTab] = useState<'scoring' | 'report' | 'scorecard' | 'wheel' | 'charts'>(initialTab)
+  const { bundle, error, refresh, canScore, resolved } = useMatch(matchId)
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [strikerPick, setStrikerPick] = useState('')
   const [nonStrikerPick, setNonStrikerPick] = useState('')
   const [bowlerPick, setBowlerPick] = useState('')
@@ -54,6 +57,9 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   const state = bundle?.state ?? null
   const live = bundle?.live ?? null
+  // A watcher never sees the pad: the scoring tab becomes the watch view.
+  const watching = resolved && !canScore
+  const activeTab: Tab = watching && tab === 'scoring' ? 'watch' : tab
   const stickyRef = useRef<HTMLElement | null>(null)
   const [stickyVisible, setStickyVisible] = useState(false)
   const [placementMode, setPlacementMode] = useState(false)
@@ -84,7 +90,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   // refresh whenever a new event lands (eventCount changes) while it's open.
   const eventCount = bundle?.state.eventCount ?? 0
   useEffect(() => {
-    if (tab === 'scoring') return
+    if (activeTab === 'scoring') return
     let alive = true
     api
       .getCommentary(matchId)
@@ -97,7 +103,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     return () => {
       alive = false
     }
-  }, [tab, matchId, eventCount])
+  }, [activeTab, matchId, eventCount])
 
   // Reset the "Copied" label a moment after the link is copied.
   useEffect(() => {
@@ -108,7 +114,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   // Slide the compact score bar in once the full live card scrolls off the top.
   useEffect(() => {
-    if (tab !== 'scoring') return
+    if (activeTab !== 'scoring' && activeTab !== 'watch') return
     const el = stickyRef.current
     if (!el || typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver((entries) => {
@@ -121,7 +127,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       observer.disconnect()
       setStickyVisible(false)
     }
-  }, [tab])
+  }, [activeTab])
 
   async function share(): Promise<void> {
     const url = matchShareUrl(matchId, window.location.origin)
@@ -156,7 +162,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     }
   }
 
-  if (!bundle || !state || !live) {
+  if (!bundle || !state || !live || !resolved) {
     return (
       <div className="shell">
         <header className="topbar">
@@ -281,13 +287,15 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           <button className={copied ? 'btn accent' : 'btn ghost'} onClick={() => void share()}>
             {copied ? '✓ Link copied' : 'Share'}
           </button>
-          <button
-            className={undone ? 'btn accent' : 'btn ghost'}
-            disabled={!canUndo || undoing}
-            onClick={() => void undo()}
-          >
-            {undone ? '✓ Undone' : '↶ Undo'}
-          </button>
+          {canScore && (
+            <button
+              className={undone ? 'btn accent' : 'btn ghost'}
+              disabled={!canUndo || undoing}
+              onClick={() => void undo()}
+            >
+              {undone ? '✓ Undone' : '↶ Undo'}
+            </button>
+          )}
           <ThemeToggle />
           <button className="btn ghost" onClick={onLeave}>
             ← Home
@@ -299,24 +307,30 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       {error && <div className="banner warn">{error}</div>}
 
       <nav className="tabs">
-        <button className={tab === 'scoring' ? 'tab active' : 'tab'} onClick={() => setTab('scoring')}>
-          Scoring
-        </button>
-        <button className={tab === 'report' ? 'tab active' : 'tab'} onClick={() => setTab('report')}>
+        {watching ? (
+          <button className={activeTab === 'watch' ? 'tab active' : 'tab'} onClick={() => setTab('watch')}>
+            Watch
+          </button>
+        ) : (
+          <button className={activeTab === 'scoring' ? 'tab active' : 'tab'} onClick={() => setTab('scoring')}>
+            Scoring
+          </button>
+        )}
+        <button className={activeTab === 'report' ? 'tab active' : 'tab'} onClick={() => setTab('report')}>
           Report
         </button>
-        <button className={tab === 'scorecard' ? 'tab active' : 'tab'} onClick={() => setTab('scorecard')}>
+        <button className={activeTab === 'scorecard' ? 'tab active' : 'tab'} onClick={() => setTab('scorecard')}>
           Scorecard
         </button>
-        <button className={tab === 'wheel' ? 'tab active' : 'tab'} onClick={() => setTab('wheel')}>
+        <button className={activeTab === 'wheel' ? 'tab active' : 'tab'} onClick={() => setTab('wheel')}>
           Wheel
         </button>
-        <button className={tab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>
+        <button className={activeTab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>
           Charts
         </button>
       </nav>
 
-      {tab === 'scoring' ? (
+      {activeTab === 'scoring' ? (
         <>
           <section className="card live-card" ref={stickyRef}>
             <div className="score-line">
@@ -533,11 +547,19 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             />
           )}
         </>
-      ) : tab === 'report' ? (
+      ) : activeTab === 'watch' ? (
+        <WatcherView
+          config={state.config}
+          live={live}
+          events={bundle.events}
+          commentary={commentary}
+          heroRef={stickyRef}
+        />
+      ) : activeTab === 'report' ? (
         <MatchReport bundle={bundle} commentary={commentary} />
-      ) : tab === 'scorecard' ? (
+      ) : activeTab === 'scorecard' ? (
         <ScorecardView bundle={bundle} commentary={commentary} />
-      ) : tab === 'wheel' ? (
+      ) : activeTab === 'wheel' ? (
         <WagonWheel config={state.config} events={bundle.events} />
       ) : (
         <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
@@ -545,7 +567,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         </Suspense>
       )}
 
-      {tab === 'scoring' && <StickyScore live={live} visible={stickyVisible} />}
+      {(activeTab === 'scoring' || activeTab === 'watch') && <StickyScore live={live} visible={stickyVisible} />}
     </div>
   )
 }

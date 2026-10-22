@@ -1807,3 +1807,100 @@ table.visually-hidden {
     font-size: var(--fs-sm);
   }
 }
+
+/* --- Watcher view ------------------------------------------------------- */
+
+.watch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.watch-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.watch-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto -30% -70% -30%;
+  height: 170px;
+  background: var(--grad-accent);
+  opacity: 0.14;
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+.watch-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.watch-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.watch-over,
+.watch-commentary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.watch-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.watch-line {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+.watch-line-over {
+  flex: none;
+  min-width: 36px;
+  color: var(--muted);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.watch-line-text {
+  flex: 1 1 auto;
+}
+
+.watch-line.kind-wicket {
+  border-color: var(--danger);
+}
+
+.watch-line.kind-over,
+.watch-line.kind-innings,
+.watch-line.kind-end {
+  border-color: var(--border-strong);
+  color: var(--muted);
+}

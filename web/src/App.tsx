@@ -7,6 +7,7 @@ import { HomeScreen } from './HomeScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
 import { rememberMatch } from './myMatches'
+import { createScorerToken, storeScorerToken } from './ownership'
 import type { CreateMatchBody, Player } from './api'
 import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
 import { ThemeToggle } from './ui/ThemeToggle'
@@ -307,8 +308,12 @@ function SetupFlow() {
         oversPerInnings: overs,
         powerplayOvers: Math.min(6, overs),
       }
-      const created = await api.createMatch(body)
+      const token = createScorerToken()
+      const created = await api.createMatch(body, token)
       rememberMatch(created.matchId)
+      // This browser owns the match from now on: it keeps the scorer token,
+      // and the database only accepts writes that carry it.
+      storeScorerToken(created.matchId, token)
       setToss({ matchId: created.matchId, teamAId, teamBId, oversPerInnings: overs })
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not create match')
