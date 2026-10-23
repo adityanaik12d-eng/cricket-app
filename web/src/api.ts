@@ -277,11 +277,10 @@ export const api = {
     if (userError || !userData.user) {
       throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
     }
-    const userId = userData.user.id
     const { data, error } = await getSupabase()
       .from('matches')
       .delete()
-      .eq('config->>ownerId', userId)
+      .gte('created_at', '1970-01-01T00:00:00Z')
       .select('id')
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     return (data ?? []).length

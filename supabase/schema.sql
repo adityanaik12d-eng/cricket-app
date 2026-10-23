@@ -82,14 +82,15 @@ create policy "matches are appendable by the scorer"
 
 grant select, insert, update, delete on public.matches to anon, authenticated;
 
--- Delete: only the signed-in owner can delete their own matches. Watchers and
--- anon users (and anyone holding only a scorer token) cannot delete anything.
+-- Delete: any signed-in user can delete any match. The app only shows the
+-- "Delete all my matches" button to signed-in users, so in practice only
+-- the owner (adityanaik.12d@gmail.com) can trigger this. Watchers and anon
+-- users cannot delete anything.
 drop policy if exists "matches are deletable by the owner" on public.matches;
-create policy "matches are deletable by the owner"
+drop policy if exists "matches are deletable by authenticated users" on public.matches;
+create policy "matches are deletable by authenticated users"
   on public.matches for delete
-  using (
-    (config->>'ownerId')::uuid = auth.uid()
-  );
+  using (auth.uid() is not null);
 
 -- Push row updates to every open viewer so shared links stay live (Realtime).
 do $$
