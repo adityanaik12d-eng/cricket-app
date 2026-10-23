@@ -138,6 +138,13 @@ export interface BeehiveCoord {
  * beehive). The lattice is generated for the grid that `hexCenter`/`groundToCell`
  * use, so the beehive view can render the full shape.
  */
+/**
+ * Every cell of the ground that the beehive covers.
+ *
+ * The lattice is built for `BEEHIVE_RADIUS` (the ground the projection uses);
+ * passing a different radius re-scales the ring count but the renderer always
+ * uses `BEEHIVE_RADIUS`, so callers should pass `BEEHIVE_RADIUS` in production.
+ */
 export function beehiveLattice(radius: number): BeehiveCoord[] {
   const size = hexRadius(radius)
   const maxRings = Math.max(1, Math.ceil(BEEHIVE_HEX_RINGS * radius / BEEHIVE_RADIUS))

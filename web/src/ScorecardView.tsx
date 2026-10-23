@@ -17,7 +17,7 @@ interface Props {
   }
   commentary?: CommentaryLine[]
   /** The match event log — the ball-by-ball of every batter is derived from it. */
-  events?: MatchEvent[]
+  events: MatchEvent[]
 }
 
 /** Identifies one batting row: the innings it belongs to and its batting position. */
@@ -132,7 +132,7 @@ export function BattingTable({ state, innings, events, expanded, onToggle }: Bat
   )
 }
 
-export function ScorecardView({ bundle, commentary, events = [] }: Props) {
+export function ScorecardView({ bundle, commentary, events }: Props) {
   const { state, scorecard } = bundle
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set<string>())
   const onToggle = (key: string) => setExpanded((prev) => toggleRowKey(prev, key))

@@ -27,8 +27,10 @@ export interface BatterBall {
  * listed — the batter did not face it and it is not credited to them.
  *
  * Innings are split with the same rule as the commentary projection: a
- * regression in the (over, ball) address opens a new innings. Pass
- * `inningsIndex` to read a single innings; omit it to read the whole match.
+ * regression in the (over, ball) address opens a new innings. The input must
+ * be in the order the deliveries were recorded (seq-ordered), otherwise the
+ * heuristic can miscount innings. Pass `inningsIndex` to read a single innings;
+ * omit it to read the whole match.
  */
 export function projectBatterBalls(
   events: MatchEvent[],

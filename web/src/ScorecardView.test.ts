@@ -98,7 +98,7 @@ const state = {
 } as MatchState
 
 describe('ScorecardView', () => {
-  it('resolves player names everywhere and never leaks raw player ids', () => {    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard } }))
+  it('resolves player names everywhere and never leaks raw player ids', () => {    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard }, events: [] }))
     expect(html).toContain('Aarav Shah')
     expect(html).toContain('Bilal Khan')
     expect(html).toContain('Danish Ali')
@@ -115,7 +115,7 @@ describe('ScorecardView', () => {
       { seq: 3, kind: 'BALL', over: '0.1', text: '0.1 Danish Ali to Aarav Shah, FOUR' },
     ]
     const html = renderToStaticMarkup(
-      createElement(ScorecardView, { bundle: { state, scorecard }, commentary }),
+      createElement(ScorecardView, { bundle: { state, scorecard }, commentary, events: [] }),
     )
     expect(html).toContain('Commentary')
     expect(html).toContain('FOUR')
@@ -124,7 +124,7 @@ describe('ScorecardView', () => {
   })
 
   it('omits the commentary card when there are no lines', () => {
-    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard } }))
+    const html = renderToStaticMarkup(createElement(ScorecardView, { bundle: { state, scorecard }, events: [] }))
     expect(html).not.toContain('Commentary')
   })
 
@@ -141,7 +141,7 @@ describe('ScorecardView', () => {
     }
     try {
       renderToStaticMarkup(
-        createElement(ScorecardView, { bundle: { state, scorecard }, commentary }),
+        createElement(ScorecardView, { bundle: { state, scorecard }, commentary, events: [] }),
       )
     } finally {
       console.error = original
