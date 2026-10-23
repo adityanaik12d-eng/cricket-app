@@ -2141,7 +2141,7 @@ table.visually-hidden {
   font-weight: var(--fw-medium);
   text-align: left;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
+
 }
 
 @media (hover: hover) {
@@ -2154,7 +2154,7 @@ table.visually-hidden {
   color: var(--muted);
   font-size: var(--fs-sm);
   line-height: 1;
-  transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 .row-toggle[aria-expanded='true'] .row-toggle-caret {
