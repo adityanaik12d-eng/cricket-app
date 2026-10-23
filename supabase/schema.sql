@@ -29,11 +29,56 @@ create policy "matches are creatable by anyone"
   on public.matches for insert
   with check (true);
 
+-- Scorer ownership: a match may be owned by a signed-in user (owner_id in
+-- config) and/or by a device holding the scorer token (scorerTokenHash in
+-- config). A write is allowed when either gate passes; legacy rows with
+-- neither are claimable by the first writer.
+create or replace function public.scorer_token_matches(p_token text, p_hash text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select p_token is not null
+     and p_token <> ''
+     and encode(digest(p_token, 'sha256'), 'hex') = p_hash;
+$$;
+
 drop policy if exists "matches are appendable by anyone" on public.matches;
-create policy "matches are appendable by anyone"
+drop policy if exists "matches are appendable by the scorer" on public.matches;
+create policy "matches are appendable by the scorer"
   on public.matches for update
-  using (true)
-  with check (true);
+  using (
+    (config->>'ownerId')::uuid = auth.uid()
+    or (
+      config->>'ownerId' is null
+      and public.scorer_token_matches(
+        coalesce(current_setting('request.headers', true)::json->>'x-scorer-token', ''),
+        config->>'scorerTokenHash'
+      )
+    )
+    or (
+      config->>'ownerId' is null
+      and config->>'scorerTokenHash' is null
+      and coalesce(current_setting('request.headers', true)::json->>'x-scorer-token', '') <> ''
+    )
+  )
+  with check (
+    (config->>'ownerId')::uuid = auth.uid()
+    or (
+      config->>'ownerId' is null
+      and public.scorer_token_matches(
+        coalesce(current_setting('request.headers', true)::json->>'x-scorer-token', ''),
+        config->>'scorerTokenHash'
+      )
+    )
+    or (
+      config->>'ownerId' is null
+      and config->>'scorerTokenHash' is null
+      and coalesce(current_setting('request.headers', true)::json->>'x-scorer-token', '') <> ''
+    )
+  );
 
 grant select, insert, update on public.matches to anon, authenticated;
 

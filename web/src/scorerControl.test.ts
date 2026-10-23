@@ -38,6 +38,9 @@ function fakeApi(options: {
       this.reads.push(matchId)
       return hash
     },
+    async readMatchOwner(_matchId: string): Promise<string | null> {
+      return null
+    },
   }
 }
 

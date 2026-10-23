@@ -43,6 +43,11 @@ export interface MatchConfig {
   noBallExtra: number
   minutesPerOver: number
   playerRefs?: Record<string, PlayerRef>
+  /**
+   * The Supabase Auth user id of the match owner, when the match was created
+   * by a signed-in user. Absent for anonymous (token-based) matches.
+   */
+  ownerId?: string
 }
 
 interface EventBase {

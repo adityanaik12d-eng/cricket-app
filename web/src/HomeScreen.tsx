@@ -123,6 +123,9 @@ export function HomeBoard({ liveNow, mine, error, loading, onNew, onRefresh, onO
           <button className="btn accent" onClick={onNew}>
             + New match
           </button>
+          <a className="btn ghost" href="#/signin">
+            Sign in
+          </a>
           <ThemeToggle />
         </div>
       </header>

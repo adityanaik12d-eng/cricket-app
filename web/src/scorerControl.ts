@@ -1,4 +1,5 @@
 import { api } from './api'
+import { getSupabase } from './supabase'
 import {
   createScorerToken,
   hashScorerToken,
@@ -31,6 +32,7 @@ export interface ScorerStatus {
 export interface ScorerControlApi {
   claimScoring(matchId: string, token: string): Promise<boolean>
   readScorerHash(matchId: string): Promise<string | null>
+  readMatchOwner(matchId: string): Promise<string | null>
 }
 
 export interface ScorerControlDeps {
@@ -41,6 +43,7 @@ export interface ScorerControlDeps {
 const defaultApi: ScorerControlApi = {
   claimScoring: (matchId, token) => api.claimScoring(matchId, token),
   readScorerHash: (matchId) => api.readScorerHash(matchId),
+  readMatchOwner: (matchId) => api.readMatchOwner(matchId),
 }
 
 /**
@@ -87,9 +90,24 @@ export async function resolveScorerStatus(
   const store = deps.store
   const token = readScorerToken(matchId, store)
   const isLegacyOwner = legacyMatchIds(store).includes(matchId)
+  const control = deps.api ?? defaultApi
+
+  // Auth-based ownership: a signed-in user who owns the match can score from
+  // any device where they are signed in, regardless of the device token.
+  try {
+    const { data } = await getSupabase().auth.getUser()
+    const userId = data.user?.id
+    if (userId) {
+      const ownerId = await control.readMatchOwner(matchId)
+      if (ownerId === userId) return { canScore: true, reason: 'owned' }
+      if (ownerId) return { canScore: false, reason: 'other-device' }
+    }
+  } catch {
+    // Auth not available (offline or not configured) — fall through to token model.
+  }
+
   if (!token && !isLegacyOwner) return { canScore: false, reason: 'watcher' }
 
-  const control = deps.api ?? defaultApi
   let hash: string | null = null
   try {
     hash = await control.readScorerHash(matchId)

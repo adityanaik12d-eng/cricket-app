@@ -121,6 +121,25 @@ async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: 
   return { config: row.config, events: row.events ?? [] }
 }
 
+/**
+ * Maps a Supabase Auth user to the app's Player shape. The profile lives in
+ * the user's metadata; fields the user has not set get sensible defaults.
+ */
+function userToPlayer(user: { id: string; phone?: string | null; created_at: string; user_metadata?: Record<string, unknown> }): Player {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+  const mobile = (user.phone ?? '').replace(/^\\+/, '')
+  return {
+    id: user.id,
+    mobile,
+    name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : 'Player',
+    role: meta.role === 'BATSMAN' || meta.role === 'BOWLER' || meta.role === 'KEEPER' || meta.role === 'ALL_ROUNDER' ? meta.role : 'BATSMAN',
+    batting_hand: meta.batting_hand === 'LHB' ? 'LHB' : 'RHB',
+    bowling_style: typeof meta.bowling_style === 'string' ? meta.bowling_style : null,
+    location: typeof meta.location === 'string' ? meta.location : null,
+    created_at: user.created_at,
+  }
+}
+
 export const api = {
   async createMatch(
     cfg: CreateMatchBody,
@@ -131,12 +150,33 @@ export const api = {
     // The hash of the scorer token rides along in the match config, so the
     // database can check every write without a schema change.
     const hash = scorerToken ? sha256Hex(scorerToken) : ''
+    // If the creator is signed in, record them as the owner so they can score
+    // from any device where they are signed in.
+    let ownerId: string | null = null
+    try {
+      const { data } = await getSupabase().auth.getUser()
+      ownerId = data.user?.id ?? null
+    } catch {
+      ownerId = null
+    }
+    const configWithOwner = ownerId ? { ...config, ownerId } : config
     const { error } = await getSupabase()
       .from('matches')
-      .insert({ id: matchId, config: hash ? { ...config, scorerTokenHash: hash } : config, events: [] })
+      .insert({ id: matchId, config: hash ? { ...configWithOwner, scorerTokenHash: hash } : configWithOwner, events: [] })
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     const state = applyEvents(config, [])
     return { matchId, state, live: projectLiveScore(state) }
+  },
+
+  async readMatchOwner(matchId: string): Promise<string | null> {
+    const { data, error } = await getSupabase()
+      .from('matches')
+      .select('config')
+      .eq('id', matchId)
+      .maybeSingle()
+    if (error || !data) return null
+    const config = data.config as { ownerId?: string } | null
+    return config?.ownerId ?? null
   },
 
   async getMatch(matchId: string): Promise<MatchBundle> {
@@ -313,24 +353,56 @@ export const api = {
     }
   },
 
-  async requestOtp(_mobile: string): Promise<{ ok: true; devOtp?: string }> {
-    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+  async requestOtp(mobile: string): Promise<{ ok: true; devOtp?: string }> {
+    const { error } = await getSupabase().auth.signInWithOtp({ phone: mobile })
+    if (error) throw new ApiRequestError(error.message, 'AUTH_ERROR')
+    return { ok: true }
   },
 
-  async verifyOtp(_mobile: string, _otp: string): Promise<AuthResponse> {
-    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+  async verifyOtp(mobile: string, otp: string): Promise<AuthResponse> {
+    const { data, error } = await getSupabase().auth.verifyOtp({
+      phone: mobile,
+      token: otp,
+      type: 'sms',
+    })
+    if (error || !data.session || !data.user) {
+      throw new ApiRequestError(error?.message ?? 'Verification failed', 'OTP_MISMATCH')
+    }
+    const player = userToPlayer(data.user)
+    return { token: data.session.access_token, player }
   },
 
-  async register(_mobile: string, _otp: string, _name: string): Promise<AuthResponse> {
-    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+  async register(mobile: string, otp: string, name: string): Promise<AuthResponse> {
+    const { data, error } = await getSupabase().auth.verifyOtp({
+      phone: mobile,
+      token: otp,
+      type: 'sms',
+    })
+    if (error || !data.session || !data.user) {
+      throw new ApiRequestError(error?.message ?? 'Verification failed', 'OTP_MISMATCH')
+    }
+    const { data: updated, error: updateError } = await getSupabase().auth.updateUser({
+      data: { name: name.trim() || 'Player' },
+    })
+    if (updateError) throw new ApiRequestError(updateError.message, 'AUTH_ERROR')
+    const player = userToPlayer(updated?.user ?? data.user)
+    return { token: data.session.access_token, player }
   },
 
   async getMe(): Promise<{ player: Player }> {
-    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+    const { data, error } = await getSupabase().auth.getUser()
+    if (error || !data.user) {
+      throw new ApiRequestError('Not signed in', 'UNAUTHENTICATED')
+    }
+    return { player: userToPlayer(data.user) }
   },
 
-  async patchMe(_patch: Record<string, unknown>): Promise<{ player: Player }> {
-    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+  async patchMe(patch: Record<string, unknown>): Promise<{ player: Player }> {
+    const { data, error } = await getSupabase().auth.updateUser({ data: patch })
+    if (error || !data.user) {
+      throw new ApiRequestError(error?.message ?? 'Update failed', 'AUTH_ERROR')
+    }
+    return { player: userToPlayer(data.user) }
   },
 
   async getPlayerStats(_id: string): Promise<CareerStats> {
