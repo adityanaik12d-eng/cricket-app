@@ -15,7 +15,8 @@ export function SigninScreen({ onDone }: { onDone: () => void }): React.ReactEle
 
   async function requestOtp(): Promise<void> {
     setError(null)
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    const trimmed = email.trim()
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(trimmed)) {
       setError('Enter a valid email address')
       return
     }
