@@ -125,12 +125,12 @@ async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: 
  * Maps a Supabase Auth user to the app's Player shape. The profile lives in
  * the user's metadata; fields the user has not set get sensible defaults.
  */
-function userToPlayer(user: { id: string; phone?: string | null; created_at: string; user_metadata?: Record<string, unknown> }): Player {
+function userToPlayer(user: { id: string; email?: string | null; phone?: string | null; created_at: string; user_metadata?: Record<string, unknown> }): Player {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>
-  const mobile = (user.phone ?? '').replace(/^\\+/, '')
+  const email = (user.email ?? '').trim()
   return {
     id: user.id,
-    mobile,
+    mobile: email,
     name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : 'Player',
     role: meta.role === 'BATSMAN' || meta.role === 'BOWLER' || meta.role === 'KEEPER' || meta.role === 'ALL_ROUNDER' ? meta.role : 'BATSMAN',
     batting_hand: meta.batting_hand === 'LHB' ? 'LHB' : 'RHB',
@@ -353,17 +353,17 @@ export const api = {
     }
   },
 
-  async requestOtp(mobile: string): Promise<{ ok: true; devOtp?: string }> {
-    const { error } = await getSupabase().auth.signInWithOtp({ phone: mobile })
+  async requestOtp(email: string): Promise<{ ok: true; devOtp?: string }> {
+    const { error } = await getSupabase().auth.signInWithOtp({ email })
     if (error) throw new ApiRequestError(error.message, 'AUTH_ERROR')
     return { ok: true }
   },
 
-  async verifyOtp(mobile: string, otp: string): Promise<AuthResponse> {
+  async verifyOtp(email: string, otp: string): Promise<AuthResponse> {
     const { data, error } = await getSupabase().auth.verifyOtp({
-      phone: mobile,
+      email,
       token: otp,
-      type: 'sms',
+      type: 'email',
     })
     if (error || !data.session || !data.user) {
       throw new ApiRequestError(error?.message ?? 'Verification failed', 'OTP_MISMATCH')
@@ -372,11 +372,11 @@ export const api = {
     return { token: data.session.access_token, player }
   },
 
-  async register(mobile: string, otp: string, name: string): Promise<AuthResponse> {
+  async register(email: string, otp: string, name: string): Promise<AuthResponse> {
     const { data, error } = await getSupabase().auth.verifyOtp({
-      phone: mobile,
+      email,
       token: otp,
-      type: 'sms',
+      type: 'email',
     })
     if (error || !data.session || !data.user) {
       throw new ApiRequestError(error?.message ?? 'Verification failed', 'OTP_MISMATCH')
