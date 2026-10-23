@@ -13,6 +13,9 @@ interface MatchCardProps {
   summary: MatchSummary
   onOpen: (matchId: string) => void
   style?: CSSProperties
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (matchId: string) => void
 }
 
 const STATUS_ICON: Record<MatchSummary['status'], string> = {
@@ -29,7 +32,7 @@ function splitScore(score: string): { runs: number; rest: string } | null {
   return { runs: Number(match[1]), rest: match[2] ?? '' }
 }
 
-export function MatchCard({ summary, onOpen, style }: MatchCardProps) {
+export function MatchCard({ summary, onOpen, style, selectMode, selected, onToggleSelect }: MatchCardProps) {
   const prevScore = useRef<string | null>(null)
   const parsed = summary.score ? splitScore(summary.score) : null
 
@@ -40,6 +43,43 @@ export function MatchCard({ summary, onOpen, style }: MatchCardProps) {
     }
     prevScore.current = summary.score
   }, [summary.score])
+
+  if (selectMode) {
+    return (
+      <label
+        className={`card match-card animate ${selected ? 'is-selected' : ''}`}
+        style={style}
+        data-tooltip={summary.statusText}
+      >
+        <input
+          type="checkbox"
+          className="match-select"
+          checked={selected ?? false}
+          onChange={() => onToggleSelect?.(summary.matchId)}
+        />
+        <span className="match-teams">{summary.label}</span>
+        <span className={`pill ${summary.status.toLowerCase()}`}>
+          <span className="pill-icon" aria-hidden="true">
+            {STATUS_ICON[summary.status]}
+          </span>
+          {summary.statusText}
+        </span>
+        {summary.score && (
+          <span className="match-score">
+            {parsed ? (
+              <>
+                <AnimatedNumber value={parsed.runs} />
+                {parsed.rest}
+              </>
+            ) : (
+              summary.score
+            )}
+          </span>
+        )}
+        {summary.resultText && <span className="muted match-result">{summary.resultText}</span>}
+      </label>
+    )
+  }
 
   return (
     <button
@@ -85,14 +125,30 @@ export interface HomeBoardProps {
   error: string | null
   loading: boolean
   signedIn: boolean
+  selectMode: boolean
+  selected: Set<string>
   onNew: () => void
   onRefresh: () => void
   onOpen: (matchId: string) => void
+  onToggleSelect: (matchId: string) => void
+  onSelectAll: () => void
+  onClearSelection: () => void
+  onDeleteSelected: () => void
   onDeleteAll: () => void
   deleting: boolean
+  onEnterSelectMode: () => void
+  onExitSelectMode: () => void
 }
 
-function Section(props: { title: string; empty: string; matches: MatchSummary[]; onOpen: (matchId: string) => void }) {
+function Section(props: {
+  title: string
+  empty: string
+  matches: MatchSummary[]
+  onOpen: (matchId: string) => void
+  selectMode: boolean
+  selected: Set<string>
+  onToggleSelect: (matchId: string) => void
+}) {
   return (
     <section className="board-section">
       <h2>{props.title}</h2>
@@ -106,6 +162,9 @@ function Section(props: { title: string; empty: string; matches: MatchSummary[];
               summary={summary}
               onOpen={props.onOpen}
               style={{ animationDelay: `${i * 0.06}s` }}
+              selectMode={props.selectMode}
+              selected={props.selected.has(summary.matchId)}
+              onToggleSelect={props.onToggleSelect}
             />
           ))}
         </div>
@@ -114,7 +173,29 @@ function Section(props: { title: string; empty: string; matches: MatchSummary[];
   )
 }
 
-export function HomeBoard({ liveNow, mine, error, loading, signedIn, onNew, onRefresh, onOpen, onDeleteAll, deleting }: HomeBoardProps) {
+export function HomeBoard({
+  liveNow,
+  mine,
+  error,
+  loading,
+  signedIn,
+  selectMode,
+  selected,
+  onNew,
+  onRefresh,
+  onOpen,
+  onToggleSelect,
+  onSelectAll,
+  onClearSelection,
+  onDeleteSelected,
+  onDeleteAll,
+  deleting,
+  onEnterSelectMode,
+  onExitSelectMode,
+}: HomeBoardProps) {
+  const allMatches = [...liveNow, ...mine]
+  const selectedCount = selected.size
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -126,11 +207,34 @@ export function HomeBoard({ liveNow, mine, error, loading, signedIn, onNew, onRe
           <button className="btn accent" onClick={onNew}>
             + New match
           </button>
-          {signedIn ? (
-            <button className="btn danger" onClick={onDeleteAll} disabled={deleting}>
-              {deleting ? 'Deleting…' : 'Delete all my matches'}
-            </button>
-          ) : (
+          {signedIn && (
+            <>
+              {selectMode ? (
+                <>
+                  <button className="btn ghost" onClick={onSelectAll}>
+                    Select all
+                  </button>
+                  <button className="btn ghost" onClick={onClearSelection} disabled={selectedCount === 0}>
+                    Clear
+                  </button>
+                  <button className="btn danger" onClick={onDeleteSelected} disabled={deleting || selectedCount === 0}>
+                    {deleting ? 'Deleting…' : `Delete selected (${selectedCount})`}
+                  </button>
+                  <button className="btn danger" onClick={onDeleteAll} disabled={deleting || allMatches.length === 0}>
+                    {deleting ? 'Deleting…' : 'Delete all'}
+                  </button>
+                  <button className="btn ghost" onClick={onExitSelectMode} disabled={deleting}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button className="btn ghost" onClick={onEnterSelectMode}>
+                  Select matches
+                </button>
+              )}
+            </>
+          )}
+          {!signedIn && (
             <a className="btn ghost" href="#/signin">
               Sign in
             </a>
@@ -141,8 +245,24 @@ export function HomeBoard({ liveNow, mine, error, loading, signedIn, onNew, onRe
       <main className="board">
         {error && <div className="banner warn">{error}</div>}
         {loading && liveNow.length === 0 && mine.length === 0 && <p className="muted">Loading matches…</p>}
-        <Section title="Live now" empty="Nothing being played right now." matches={liveNow} onOpen={onOpen} />
-        <Section title="Your matches" empty="No matches on this device yet." matches={mine} onOpen={onOpen} />
+        <Section
+          title="Live now"
+          empty="Nothing being played right now."
+          matches={liveNow}
+          onOpen={onOpen}
+          selectMode={selectMode}
+          selected={selected}
+          onToggleSelect={onToggleSelect}
+        />
+        <Section
+          title="Your matches"
+          empty="No matches on this device yet."
+          matches={mine}
+          onOpen={onOpen}
+          selectMode={selectMode}
+          selected={selected}
+          onToggleSelect={onToggleSelect}
+        />
       </main>
     </div>
   )
@@ -156,6 +276,8 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
   const [reload, setReload] = useState(0)
   const [signedIn, setSignedIn] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const refresh = useCallback(() => setReload((n) => n + 1), [])
 
@@ -206,17 +328,64 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
   }, [reload])
 
   const handleDeleteAll = useCallback(async (): Promise<void> => {
-    if (!window.confirm('Delete ALL of your matches? This cannot be undone.')) return
+    if (!window.confirm('Delete ALL matches? This cannot be undone.')) return
     setDeleting(true)
     try {
       await api.deleteAllMyMatches()
       clearMyMatches()
+      setSelected(new Set())
+      setSelectMode(false)
       setReload((n) => n + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete matches')
     } finally {
       setDeleting(false)
     }
+  }, [])
+
+  const handleToggleSelect = useCallback((matchId: string): void => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(matchId)) next.delete(matchId)
+      else next.add(matchId)
+      return next
+    })
+  }, [])
+
+  const handleSelectAll = useCallback((): void => {
+    const all = [...liveNow, ...mine].map((m) => m.matchId)
+    setSelected(new Set(all))
+  }, [liveNow, mine])
+
+  const handleClearSelection = useCallback((): void => {
+    setSelected(new Set())
+  }, [])
+
+  const handleDeleteSelected = useCallback(async (): Promise<void> => {
+    if (selected.size === 0) return
+    if (!window.confirm(`Delete ${selected.size} selected match(es)? This cannot be undone.`)) return
+    setDeleting(true)
+    try {
+      await api.deleteMatches([...selected])
+      clearMyMatches()
+      setSelected(new Set())
+      setSelectMode(false)
+      setReload((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete matches')
+    } finally {
+      setDeleting(false)
+    }
+  }, [selected])
+
+  const handleEnterSelectMode = useCallback((): void => {
+    setSelectMode(true)
+    setSelected(new Set())
+  }, [])
+
+  const handleExitSelectMode = useCallback((): void => {
+    setSelectMode(false)
+    setSelected(new Set())
   }, [])
 
   // Any change to any match row re-reads the board.
@@ -238,11 +407,19 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
       error={error}
       loading={loading}
       signedIn={signedIn}
+      selectMode={selectMode}
+      selected={selected}
       onNew={onNewMatch}
       onRefresh={refresh}
       onOpen={onOpenMatch}
+      onToggleSelect={handleToggleSelect}
+      onSelectAll={handleSelectAll}
+      onClearSelection={handleClearSelection}
+      onDeleteSelected={handleDeleteSelected}
       onDeleteAll={handleDeleteAll}
       deleting={deleting}
+      onEnterSelectMode={handleEnterSelectMode}
+      onExitSelectMode={handleExitSelectMode}
     />
   )
 }

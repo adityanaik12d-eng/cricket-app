@@ -61,7 +61,7 @@ describe('MatchCard', () => {
 describe('HomeBoard', () => {
   it('renders both sections with their cards', () => {
     const html = renderToStaticMarkup(
-      <HomeBoard liveNow={[live]} mine={[done]} error={null} loading={false} signedIn={false} onNew={noop} onRefresh={noop} onOpen={noop} onDeleteAll={noop} deleting={false} />
+      <HomeBoard liveNow={[live]} mine={[done]} error={null} loading={false} signedIn={false} selectMode={false} selected={new Set()} onNew={noop} onRefresh={noop} onOpen={noop} onToggleSelect={noop} onSelectAll={noop} onClearSelection={noop} onDeleteSelected={noop} onDeleteAll={noop} deleting={false} onEnterSelectMode={noop} onExitSelectMode={noop} />
     )
     expect(html).toContain('Live now')
     expect(html).toContain('Your matches')
@@ -71,7 +71,7 @@ describe('HomeBoard', () => {
 
   it('shows empty states instead of blank sections', () => {
     const html = renderToStaticMarkup(
-      <HomeBoard liveNow={[]} mine={[]} error={null} loading={false} signedIn={false} onNew={noop} onRefresh={noop} onOpen={noop} onDeleteAll={noop} deleting={false} />,
+      <HomeBoard liveNow={[]} mine={[]} error={null} loading={false} signedIn={false} selectMode={false} selected={new Set()} onNew={noop} onRefresh={noop} onOpen={noop} onToggleSelect={noop} onSelectAll={noop} onClearSelection={noop} onDeleteSelected={noop} onDeleteAll={noop} deleting={false} onEnterSelectMode={noop} onExitSelectMode={noop} />,
     )
     expect(html).toContain('Nothing being played right now.')
     expect(html).toContain('No matches on this device yet.')
@@ -79,7 +79,7 @@ describe('HomeBoard', () => {
 
   it('shows the error and keeps Refresh usable (review focus 5)', () => {
     const html = renderToStaticMarkup(
-      <HomeBoard liveNow={[]} mine={[]} error="Network unreachable" loading={false} signedIn={false} onNew={noop} onRefresh={noop} onOpen={noop} onDeleteAll={noop} deleting={false} />,
+      <HomeBoard liveNow={[]} mine={[]} error="Network unreachable" loading={false} signedIn={false} selectMode={false} selected={new Set()} onNew={noop} onRefresh={noop} onOpen={noop} onToggleSelect={noop} onSelectAll={noop} onClearSelection={noop} onDeleteSelected={noop} onDeleteAll={noop} deleting={false} onEnterSelectMode={noop} onExitSelectMode={noop} />,
     )
     expect(html).toContain('Network unreachable')
     expect(html).toContain('Refresh')

@@ -286,6 +286,21 @@ export const api = {
     return (data ?? []).length
   },
 
+  async deleteMatches(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
+    }
+    const { data, error } = await getSupabase()
+      .from('matches')
+      .delete()
+      .in('id', ids)
+      .select('id')
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return (data ?? []).length
+  },
+
   /**
    * Undoes the most recent delivery by dropping the tail of the log and
    * re-saving it. Rejected when there is nothing left to undo (an empty log or

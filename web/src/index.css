@@ -1070,6 +1070,21 @@ a.btn {
   animation: card-in var(--dur-slow) var(--ease-out) backwards;
 }
 
+.match-select {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.match-card.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
 @keyframes card-in {
   from {
     opacity: 0;
