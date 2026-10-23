@@ -81,7 +81,7 @@ function CelebrationOverlay({
 
   useEffect(
     () => scheduleCelebrationDismiss(() => doneRef.current(), durationMs),
-    [durationMs],
+    [durationMs, celebration],
   )
 
   return (
