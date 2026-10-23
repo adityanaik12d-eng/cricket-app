@@ -15,9 +15,10 @@ export function SigninScreen({ onDone }: { onDone: () => void }): React.ReactEle
 
   async function requestOtp(): Promise<void> {
     setError(null)
-    const trimmed = email.trim()
-    if (!trimmed.includes('@') || !trimmed.includes('.')) {
-      setError('Enter a valid email address')
+    const trimmed = email.trim().replace(/[\\u200B-\\u200D\\uFEFF]/g, '')
+    // Let Supabase validate the email server-side; only reject obviously empty input.
+    if (trimmed.length === 0) {
+      setError('Enter your email address')
       return
     }
     setBusy(true)
