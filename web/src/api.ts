@@ -265,6 +265,29 @@ export const api = {
   },
 
   /**
+   * Deletes every match owned by the currently signed-in user. Returns the
+   * number of rows removed. Throws UNAUTHENTICATED when there is no session.
+   *
+   * The database policy is the real gate: this call only succeeds for matches
+   * whose config.ownerId equals auth.uid(). Watchers and anon users cannot
+   * delete anything.
+   */
+  async deleteAllMyMatches(): Promise<number> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
+    }
+    const userId = userData.user.id
+    const { data, error } = await getSupabase()
+      .from('matches')
+      .delete()
+      .eq('config->>ownerId', userId)
+      .select('id')
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return (data ?? []).length
+  },
+
+  /**
    * Undoes the most recent delivery by dropping the tail of the log and
    * re-saving it. Rejected when there is nothing left to undo (an empty log or
    * the toss alone), so the button cannot leave a match headless.

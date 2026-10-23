@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
-import { myMatchIds } from './myMatches'
+import { myMatchIds, clearMyMatches } from './myMatches'
 import { getSupabase } from './supabase'
 import type { MatchSummary } from './match'
 import { AnimatedNumber } from './ui/AnimatedNumber'
@@ -84,9 +84,12 @@ export interface HomeBoardProps {
   mine: MatchSummary[]
   error: string | null
   loading: boolean
+  signedIn: boolean
   onNew: () => void
   onRefresh: () => void
   onOpen: (matchId: string) => void
+  onDeleteAll: () => void
+  deleting: boolean
 }
 
 function Section(props: { title: string; empty: string; matches: MatchSummary[]; onOpen: (matchId: string) => void }) {
@@ -111,7 +114,7 @@ function Section(props: { title: string; empty: string; matches: MatchSummary[];
   )
 }
 
-export function HomeBoard({ liveNow, mine, error, loading, onNew, onRefresh, onOpen }: HomeBoardProps) {
+export function HomeBoard({ liveNow, mine, error, loading, signedIn, onNew, onRefresh, onOpen, onDeleteAll, deleting }: HomeBoardProps) {
   return (
     <div className="shell">
       <header className="topbar">
@@ -123,9 +126,15 @@ export function HomeBoard({ liveNow, mine, error, loading, onNew, onRefresh, onO
           <button className="btn accent" onClick={onNew}>
             + New match
           </button>
-          <a className="btn ghost" href="#/signin">
-            Sign in
-          </a>
+          {signedIn ? (
+            <button className="btn danger" onClick={onDeleteAll} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete all my matches'}
+            </button>
+          ) : (
+            <a className="btn ghost" href="#/signin">
+              Sign in
+            </a>
+          )}
           <ThemeToggle />
         </div>
       </header>
@@ -145,8 +154,32 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [reload, setReload] = useState(0)
+  const [signedIn, setSignedIn] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const refresh = useCallback(() => setReload((n) => n + 1), [])
+
+  // Track signed-in state.
+  useEffect(() => {
+    let alive = true
+    const supabase = getSupabase()
+    const check = async (): Promise<void> => {
+      try {
+        const { data } = await supabase.auth.getUser()
+        if (alive) setSignedIn(Boolean(data.user))
+      } catch {
+        if (alive) setSignedIn(false)
+      }
+    }
+    void check()
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (alive) setSignedIn(Boolean(session?.user))
+    })
+    return () => {
+      alive = false
+      sub.subscription.unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -172,6 +205,20 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
     }
   }, [reload])
 
+  const handleDeleteAll = useCallback(async (): Promise<void> => {
+    if (!window.confirm('Delete ALL of your matches? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await api.deleteAllMyMatches()
+      clearMyMatches()
+      setReload((n) => n + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete matches')
+    } finally {
+      setDeleting(false)
+    }
+  }, [])
+
   // Any change to any match row re-reads the board.
   useEffect(() => {
     const supabase = getSupabase()
@@ -190,9 +237,12 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
       mine={mine}
       error={error}
       loading={loading}
+      signedIn={signedIn}
       onNew={onNewMatch}
       onRefresh={refresh}
       onOpen={onOpenMatch}
+      onDeleteAll={handleDeleteAll}
+      deleting={deleting}
     />
   )
 }

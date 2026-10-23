@@ -42,3 +42,13 @@ export function rememberMatch(id: string, store?: MatchStore): void {
     // No storage (private mode, quota): the match still exists, we just cannot list it.
   }
 }
+
+/** Clears the local list of matches created on this device. Never throws. */
+export function clearMyMatches(store?: MatchStore): void {
+  try {
+    const s = store ?? localStorage
+    s.setItem(KEY, JSON.stringify([]))
+  } catch {
+    // No storage (private mode, quota): the match still exists, we just cannot list it.
+  }
+}
