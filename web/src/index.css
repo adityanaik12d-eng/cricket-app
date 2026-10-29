@@ -461,6 +461,15 @@ a.btn {
   margin-top: var(--s-1);
 }
 
+.super-over-target {
+  color: var(--accent-3);
+  font-weight: var(--fw-bold);
+  background: color-mix(in srgb, var(--accent-3) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent-3) 40%, transparent);
+  border-radius: var(--r-sm);
+  padding: var(--s-1) var(--s-3);
+}
+
 .this-over {
   display: flex;
   flex-wrap: wrap;
@@ -625,6 +634,256 @@ a.btn {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ---------- modal overlay ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-4);
+  animation: fade-in var(--dur-fast) var(--ease-out);
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+  box-shadow: var(--sh-3);
+  animation: modal-in var(--dur) var(--ease-spring);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal h2 {
+  margin: 0 0 var(--s-1);
+  font-size: var(--fs-xl);
+}
+
+.modal p.muted {
+  margin: 0 0 var(--s-4);
+}
+
+.modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-bottom: var(--s-3);
+}
+
+.modal-fields label {
+  gap: var(--s-2);
+}
+
+.modal-fields select {
+  min-height: 48px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--s-2);
+}
+
+/* ---------- match result screen (full-screen) ---------- */
+.result-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-4);
+  animation: fade-in var(--dur-fast) var(--ease-out);
+}
+
+.result-header {
+  text-align: center;
+  margin-bottom: var(--s-5);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.result-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-1) var(--s-3);
+  background: var(--grad-accent);
+  color: var(--accent-ink);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--r-pill);
+  margin-bottom: var(--s-3);
+}
+
+.result-headline {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+}
+
+.result-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.result-innings-comparison {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+.result-innings-comparison.tie {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.result-innings {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-5);
+  text-align: center;
+  min-width: 160px;
+  flex: 1;
+  max-width: 280px;
+}
+
+.result-innings.winner {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.result-innings.loser {
+  opacity: 0.7;
+}
+
+.result-team-name {
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-lg);
+  margin-bottom: var(--s-2);
+}
+
+.result-score {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--s-1);
+}
+
+.result-overs {
+  color: var(--muted);
+  font-size: var(--fs-md);
+}
+
+.result-vs {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-lg);
+  padding: 0 var(--s-2);
+}
+
+.result-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.result-innings-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s-4);
+}
+
+.result-innings-detail h2 {
+  margin: 0 0 var(--s-3);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+}
+
+.result-innings-summary {
+  display: flex;
+  gap: var(--s-4);
+  margin-bottom: var(--s-3);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.result-top-performers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.performer {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+
+.performer-label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.performer-value {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.performer-value strong {
+  color: var(--text);
+}
+
+.result-footer {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.result-home-btn {
+  width: 100%;
+  max-width: 280px;
+  font-size: var(--fs-lg);
+  padding: var(--s-3) var(--s-5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
 }
 
 /* ---------- scorecard & report ---------- */
@@ -1370,6 +1629,16 @@ a.btn {
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   color: var(--text);
+}
+
+.sticky-score-need.super-over {
+  color: var(--accent-3);
+  font-weight: var(--fw-bold);
+  background: color-mix(in srgb, var(--accent-3) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent-3) 40%, transparent);
+  border-radius: var(--r-sm);
+  padding: var(--s-1) var(--s-3);
+  margin-left: auto;
 }
 
 @supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {

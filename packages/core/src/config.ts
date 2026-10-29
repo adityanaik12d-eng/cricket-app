@@ -12,6 +12,9 @@ export const DEFAULT_MATCH_CONFIG = {
   wideExtra: 1,
   noBallExtra: 1,
   minutesPerOver: 4,
+  superOverEnabled: false,
+  superOverOvers: 1,
+  superOverMaxWickets: 2,
 } as const
 
 type DefaultKey = keyof typeof DEFAULT_MATCH_CONFIG
@@ -48,7 +51,19 @@ export function validateMatchConfig(config: MatchConfig): ValidationResult {
     return fail('INVALID_FORMAT', 'a match needs two different teams')
   }
 
-  const minSquad = config.maxWickets + 1
+  if (config.superOverEnabled) {
+    if (config.superOverOvers !== undefined && (config.superOverOvers < 1 || config.superOverOvers > 3)) {
+      return fail('INVALID_FORMAT', 'superOverOvers must be between 1 and 3')
+    }
+    if (config.superOverMaxWickets !== undefined && (config.superOverMaxWickets < 1 || config.superOverMaxWickets > 10)) {
+      return fail('INVALID_FORMAT', 'superOverMaxWickets must be between 1 and 10')
+    }
+  }
+
+  // Minimum squad: need at least maxWickets + 1 players (all out + 1 not out)
+  // But for short formats, maxWickets may be capped by player count
+  const effectiveMaxWickets = Math.min(config.maxWickets, Math.max(1, config.lineups.A.length - 1, config.lineups.B.length - 1))
+  const minSquad = effectiveMaxWickets + 1
   const teamAPlayers = config.lineups.A
   const teamBPlayers = config.lineups.B
   if (teamAPlayers.length < minSquad) {

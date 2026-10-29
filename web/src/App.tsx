@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { api, ApiRequestError } from './api'
 import { ScoringScreen } from './ScoringScreen'
 import { SigninScreen } from './SigninScreen'
+import { SignupScreen } from './SignupScreen'
 import { ProfileScreen } from './ProfileScreen'
 import { HomeScreen } from './HomeScreen'
+import { SettingsScreen } from './SettingsScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
 import { rememberMatch } from './myMatches'
@@ -78,6 +80,19 @@ export function App() {
       </div>
     )
   }
+  if (route.name === 'signup') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
+        </header>
+        <SignupScreen onDone={() => { window.location.hash = '#/profile' }} />
+      </div>
+    )
+  }
   if (route.name === 'profile') {
     return (
       <div className="shell">
@@ -88,6 +103,19 @@ export function App() {
           </div>
         </header>
         <ProfileScreen onSignedOut={() => { window.location.hash = '#/' }} />
+      </div>
+    )
+  }
+  if (route.name === 'settings') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
+        </header>
+        <SettingsScreen onBack={() => { window.location.hash = '#/profile' }} />
       </div>
     )
   }
@@ -102,6 +130,9 @@ function SetupFlow() {
   const [teamB, setTeamB] = useState('')
   const [overs, setOvers] = useState(20)
   const [players, setPlayers] = useState(11)
+  const [superOverEnabled, setSuperOverEnabled] = useState(false)
+  const [superOverOvers, setSuperOverOvers] = useState(1)
+  const [superOverMaxWickets, setSuperOverMaxWickets] = useState(2)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [toss, setToss] = useState<TossDraft | null>(null)
@@ -294,8 +325,10 @@ function SetupFlow() {
   async function createMatch(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setError(null)
-    if (lineupA.length < 11 || lineupB.length < 11) {
-      setError('Each side must have at least 11 players')
+    // Minimum 2 players per side (striker + non-striker). Allow fewer for short formats.
+    const minPlayers = Math.max(2, Math.min(11, overs + 1))
+    if (lineupA.length < minPlayers || lineupB.length < minPlayers) {
+      setError(`Each side must have at least ${minPlayers} players for a ${overs}-over match`)
       return
     }
     setBusy(true)
@@ -311,6 +344,8 @@ function SetupFlow() {
         playerRefs: { ...a.refs, ...b.refs },
         oversPerInnings: overs,
         powerplayOvers: Math.min(6, overs),
+        superOverEnabled,
+        ...(superOverEnabled ? { superOverOvers, superOverMaxWickets } : {}),
       }
       const token = createScorerToken()
       const created = await api.createMatch(body, token)
@@ -420,6 +455,36 @@ function SetupFlow() {
               />
             </label>
           </div>
+          <div className="field-row">
+            <label>
+              <input type="checkbox" checked={superOverEnabled} onChange={(e) => setSuperOverEnabled(e.target.checked)} />
+              Enable Superover (for tied matches)
+            </label>
+          </div>
+          {superOverEnabled && (
+            <div className="field-row">
+              <label>
+                Superover Overs
+                <input
+                  type="number"
+                  min={1}
+                  max={3}
+                  value={superOverOvers}
+                  onChange={(e) => setSuperOverOvers(Number(e.target.value) || 1)}
+                />
+              </label>
+              <label>
+                Superover Max Wickets
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={superOverMaxWickets}
+                  onChange={(e) => setSuperOverMaxWickets(Number(e.target.value) || 2)}
+                />
+              </label>
+            </div>
+          )}
 
           <div className="lineup-section">
             <div className="lineup-head">

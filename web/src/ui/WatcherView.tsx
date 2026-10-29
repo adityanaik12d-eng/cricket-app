@@ -54,7 +54,13 @@ export function WatcherView({ config, live, events, commentary, heroRef }: Props
         </div>
         <div className="live-meta">
           <span>CRR {live.runRate.toFixed(2)}</span>
-          {live.target != null && (
+          {live.target != null && live.status === 'SUPER_OVER' && (
+            <span className="super-over-target">
+              Super Over Target: {live.target} · {live.battingTeamId} need {Math.max(0, live.target - live.runs)} off {live.ballsRemaining} balls
+              {live.requiredRunRate != null && ` · RRR ${live.requiredRunRate.toFixed(2)}`}
+            </span>
+          )}
+          {live.target != null && live.status !== 'SUPER_OVER' && (
             <span>
               Target {live.target} · need {Math.max(0, live.target - live.runs)} off {live.ballsRemaining}
               {live.requiredRunRate != null && ` · RRR ${live.requiredRunRate.toFixed(2)}`}

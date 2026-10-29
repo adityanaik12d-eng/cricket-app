@@ -1,0 +1,60 @@
+Final depth: [33m1[39m
+
+All braces:
+open depth=1 line=1: { chromium } from 'playwright';\n\nasync function simulateMatc
+close depth=1 line=1: import { chromium } from 'playwright';
+open depth=1 line=3: {\n  const browser = await chromium.launch({ headless: false,
+open depth=2 line=4: { headless: false, slowMo: 300 });\n  const context = await b
+close depth=2 line=4: m.launch({ headless: false, slowMo: 300 });\n  const context 
+open depth=2 line=5: { viewport: { width: 1280, height: 720 } });\n  const page = 
+open depth=3 line=5: { width: 1280, height: 720 } });\n  const page = await contex
+close depth=3 line=5: ({ viewport: { width: 1280, height: 720 } });\n  const page =
+close depth=2 line=5:  viewport: { width: 1280, height: 720 } });\n  const page = a
+open depth=2 line=28: { timeout: 2000 }).catch(() => false)) {\n    console.log('Si
+close depth=2 line=28: it emailInput.isVisible({ timeout: 2000 }).catch(() => false
+open depth=2 line=28: {\n    console.log('Signing in...');\n    await emailInput.fil
+close depth=2 line=37: \n    await page.waitForTimeout(3000);\n  } else if (await sig
+open depth=2 line=37: { timeout: 2000 }).catch(() => false)) {\n    console.log('Cl
+close depth=2 line=37:  signInButton.isVisible({ timeout: 2000 }).catch(() => false
+open depth=2 line=37: {\n    console.log('Clicking sign in button...');\n    await s
+close depth=2 line=49: \n    await page.waitForTimeout(3000);\n  }\n\n  console.log('Lo
+open depth=2 line=53: { state: 'visible', timeout: 10000 });\n  await newMatchBtn.c
+close depth=2 line=53: tFor({ state: 'visible', timeout: 10000 });\n  await newMatch
+open depth=2 line=67: { timeout: 2000 }).catch(() => false)) {\n    await oversInpu
+close depth=2 line=67: it oversInput.isVisible({ timeout: 2000 }).catch(() => false
+open depth=2 line=67: {\n    await oversInput.fill('5');\n  }\n\n  // Manually add 11 
+close depth=2 line=69: e)) {\n    await oversInput.fill('5');\n  }\n\n  // Manually add
+open depth=2 line=76: {\n    await nameAInput.fill(`Player A${i}`);\n    await addAB
+close depth=2 line=80: ;\n    await page.waitForTimeout(150);\n  }\n\n  // Manually add
+open depth=2 line=87: {\n    await nameBInput.fill(`Player B${i}`);\n    await addBB
+close depth=2 line=91: ;\n    await page.waitForTimeout(150);\n  }\n\n  // Enable super
+open depth=2 line=96: { timeout: 2000 }).catch(() => false)) {\n    await superOver
+close depth=2 line=96: rOverCheckbox.isVisible({ timeout: 2000 }).catch(() => false
+open depth=2 line=96: {\n    await superOverCheckbox.check();\n    await page.waitFo
+close depth=2 line=99: ;\n    await page.waitForTimeout(500);\n  }\n\n  const createBtn
+open depth=2 line=110: { timeout: 3000 }).catch(() => false)) {\n    await batBtn.cl
+close depth=2 line=110: (await batBtn.isVisible({ timeout: 3000 }).catch(() => false
+open depth=2 line=110: {\n    await batBtn.click();\n    await page.waitForLoadState(
+close depth=2 line=114: \n    await page.waitForTimeout(2000);\n  }\n\n  console.log('No
+open depth=2 line=127: { timeout: 5000 }).catch(() => false)) {\n    await strikerSe
+close depth=2 line=127: strikerSelect.isVisible({ timeout: 5000 }).catch(() => false
+open depth=2 line=127: {\n    await strikerSelect.selectOption({ index: 1 }); // Fir
+open depth=3 line=128: { index: 1 }); // First option after "Select..."\n    await p
+close depth=3 line=128: t strikerSelect.selectOption({ index: 1 }); // First option 
+close depth=2 line=130: "\n    await page.waitForTimeout(500);\n  }\n\n  // Select non-s
+open depth=2 line=135: { timeout: 5000 }).catch(() => false)) {\n    await nonStrike
+close depth=2 line=135: StrikerSelect.isVisible({ timeout: 5000 }).catch(() => false
+open depth=2 line=135: {\n    await nonStrikerSelect.selectOption({ index: 2 }); // 
+open depth=3 line=136: { index: 2 }); // Second player\n    await page.waitForTimeou
+close depth=3 line=136: onStrikerSelect.selectOption({ index: 2 }); // Second player
+close depth=2 line=138: r\n    await page.waitForTimeout(500);\n  }\n\n  // Select bowle
+open depth=2 line=143: { timeout: 5000 }).catch(() => false)) {\n    await bowlerSel
+close depth=2 line=143:  bowlerSelect.isVisible({ timeout: 5000 }).catch(() => false
+open depth=2 line=143: {\n    await bowlerSelect.selectOption({ index: 1 }); // Firs
+open depth=3 line=144: { index: 1 }); // First option after "Select..."\n    await p
+close depth=3 line=144: it bowlerSelect.selectOption({ index: 1 }); // First option 
+close depth=2 line=146: "\n    await page.waitForTimeout(500);\n  }\n\n  // Click Start 
+open depth=2 line=151: { timeout: 3000 }).catch(() => false)) {\n    await startInni
+close depth=2 line=151: artInningsBtn.isVisible({ timeout: 3000 }).catch(() => false
+open depth=2 line=151: {\n    await startInningsBtn.click();\n    await page.waitForT
+close depth=2 line=154: \n    await page.waitForTimeout(1000);\n  }\n\n  console.log('1s

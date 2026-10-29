@@ -125,6 +125,7 @@ export interface HomeBoardProps {
   error: string | null
   loading: boolean
   signedIn: boolean
+  isAdmin: boolean
   selectMode: boolean
   selected: Set<string>
   onNew: () => void
@@ -135,6 +136,7 @@ export interface HomeBoardProps {
   onClearSelection: () => void
   onDeleteSelected: () => void
   onDeleteAll: () => void
+  onLogout: () => void
   deleting: boolean
   onEnterSelectMode: () => void
   onExitSelectMode: () => void
@@ -179,6 +181,7 @@ export function HomeBoard({
   error,
   loading,
   signedIn,
+  isAdmin,
   selectMode,
   selected,
   onNew,
@@ -189,6 +192,7 @@ export function HomeBoard({
   onClearSelection,
   onDeleteSelected,
   onDeleteAll,
+  onLogout,
   deleting,
   onEnterSelectMode,
   onExitSelectMode,
@@ -209,34 +213,46 @@ export function HomeBoard({
           </button>
           {signedIn && (
             <>
-              {selectMode ? (
+              {isAdmin && (
                 <>
-                  <button className="btn ghost" onClick={onSelectAll}>
-                    Select all
-                  </button>
-                  <button className="btn ghost" onClick={onClearSelection} disabled={selectedCount === 0}>
-                    Clear
-                  </button>
-                  <button className="btn danger" onClick={onDeleteSelected} disabled={deleting || selectedCount === 0}>
-                    {deleting ? 'Deleting…' : `Delete selected (${selectedCount})`}
-                  </button>
-                  <button className="btn danger" onClick={onDeleteAll} disabled={deleting || allMatches.length === 0}>
-                    {deleting ? 'Deleting…' : 'Delete all'}
-                  </button>
-                  <button className="btn ghost" onClick={onExitSelectMode} disabled={deleting}>
-                    Cancel
-                  </button>
+                  {selectMode ? (
+                    <>
+                      <button className="btn ghost" onClick={onSelectAll}>
+                        Select all
+                      </button>
+                      <button className="btn ghost" onClick={onClearSelection} disabled={selectedCount === 0}>
+                        Clear
+                      </button>
+                      <button className="btn danger" onClick={onDeleteSelected} disabled={deleting || selectedCount === 0}>
+                        {deleting ? 'Deleting…' : `Delete selected (${selectedCount})`}
+                      </button>
+                      <button className="btn danger" onClick={onDeleteAll} disabled={deleting || allMatches.length === 0}>
+                        {deleting ? 'Deleting…' : 'Delete all'}
+                      </button>
+                      <button className="btn ghost" onClick={onExitSelectMode} disabled={deleting}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn ghost" onClick={onEnterSelectMode}>
+                      Select matches
+                    </button>
+                  )}
                 </>
-              ) : (
-                <button className="btn ghost" onClick={onEnterSelectMode}>
-                  Select matches
-                </button>
               )}
+              <button className="btn ghost" onClick={onLogout}>
+                Logout
+              </button>
             </>
           )}
           {!signedIn && (
             <a className="btn ghost" href="#/signin">
               Sign in
+            </a>
+          )}
+          {signedIn && (
+            <a className="btn ghost" href="#/settings">
+              Settings
             </a>
           )}
           <ThemeToggle />
@@ -275,27 +291,37 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
   const [loading, setLoading] = useState(true)
   const [reload, setReload] = useState(0)
   const [signedIn, setSignedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const refresh = useCallback(() => setReload((n) => n + 1), [])
 
-  // Track signed-in state.
+  // Track signed-in state and admin status.
   useEffect(() => {
     let alive = true
     const supabase = getSupabase()
     const check = async (): Promise<void> => {
       try {
         const { data } = await supabase.auth.getUser()
-        if (alive) setSignedIn(Boolean(data.user))
+        if (alive) {
+          setSignedIn(Boolean(data.user))
+          setIsAdmin(data.user?.email === 'adityanaik.12d@gmail.com')
+        }
       } catch {
-        if (alive) setSignedIn(false)
+        if (alive) {
+          setSignedIn(false)
+          setIsAdmin(false)
+        }
       }
     }
     void check()
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (alive) setSignedIn(Boolean(session?.user))
+      if (alive) {
+        setSignedIn(Boolean(session?.user))
+        setIsAdmin(session?.user?.email === 'adityanaik.12d@gmail.com')
+      }
     })
     return () => {
       alive = false
@@ -388,6 +414,24 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
     setSelected(new Set())
   }, [])
 
+  const handleLogout = useCallback(async (): Promise<void> => {
+    try {
+      await api.signOut()
+      clearMyMatches()
+      setSignedIn(false)
+      setSelected(new Set())
+      setSelectMode(false)
+      setReload((n) => n + 1)
+    } catch {
+      // Even if signOut fails locally, clear local state
+      clearMyMatches()
+      setSignedIn(false)
+      setSelected(new Set())
+      setSelectMode(false)
+      setReload((n) => n + 1)
+    }
+  }, [])
+
   // Any change to any match row re-reads the board.
   useEffect(() => {
     const supabase = getSupabase()
@@ -417,9 +461,11 @@ export function HomeScreen({ onNewMatch, onOpenMatch }: { onNewMatch: () => void
       onClearSelection={handleClearSelection}
       onDeleteSelected={handleDeleteSelected}
       onDeleteAll={handleDeleteAll}
+      onLogout={handleLogout}
       deleting={deleting}
       onEnterSelectMode={handleEnterSelectMode}
       onExitSelectMode={handleExitSelectMode}
+      isAdmin={isAdmin}
     />
   )
 }

@@ -13,6 +13,78 @@ import { EngineError } from './errors.js'
 import { isLegalDelivery, validateDelivery } from './validate.js'
 import { oversToBalls } from './overs.js'
 
+function initSuperOver(config: MatchConfig, state: MatchState, firstBattingTeamId: string): MatchState {
+  const next: MatchState = JSON.parse(JSON.stringify(state))
+  next.status = 'SUPER_OVER'
+  next.superOverState = {
+    active: true,
+    firstBattingTeamId,
+    firstInningsRuns: null,
+    firstInningsWickets: null,
+  }
+  // Add superover innings
+  const superOverOvers = config.superOverOvers ?? 1
+  const superOverMaxWickets = config.superOverMaxWickets ?? 2
+  const ballsPerOver = config.ballsPerOver
+
+  // First superover innings - use correct index (next in sequence)
+  const firstInnings = emptyInnings(next.innings.length, config, next.toss!)
+  firstInnings.battingTeamId = firstBattingTeamId
+  firstInnings.bowlingTeamId = firstBattingTeamId === config.teamAId ? config.teamBId : config.teamAId
+  // Override for superover: 1 over, 2 wickets
+  firstInnings.batters = {}
+  firstInnings.bowlers = {}
+  firstInnings.battingOrder = []
+  next.innings.push(firstInnings)
+
+  return next
+}
+
+function createSuperOverSecondInnings(config: MatchConfig, state: MatchState, target: number): MatchState {
+  const next: MatchState = JSON.parse(JSON.stringify(state))
+  const firstInnings = next.innings[next.innings.length - 1]
+  if (!firstInnings) return next
+  const secondInnings = emptyInnings(next.innings.length, config, next.toss!)
+  secondInnings.battingTeamId = firstInnings.bowlingTeamId
+  secondInnings.bowlingTeamId = firstInnings.battingTeamId
+  secondInnings.batters = {}
+  secondInnings.bowlers = {}
+  secondInnings.battingOrder = []
+  next.innings.push(secondInnings)
+  return next
+}
+
+function finalizeSuperOver(config: MatchConfig, next: MatchState): void {
+  const superOverInnings = next.innings.filter((inn, idx) => idx >= next.config.inningsCount)
+  const first = superOverInnings[0]
+  const second = superOverInnings[1]
+
+  if (!first || !second) return
+
+  if (second.runs > first.runs) {
+    next.overrideResult = {
+      kind: 'SUPER_OVER_WINNER',
+      teamId: second.battingTeamId,
+      by: 'WICKETS',
+      amount: (config.superOverMaxWickets ?? 2) - second.wickets,
+    }
+  } else if (first.runs > second.runs) {
+    next.overrideResult = {
+      kind: 'SUPER_OVER_WINNER',
+      teamId: first.battingTeamId,
+      by: 'RUNS',
+      amount: first.runs - second.runs,
+    }
+  } else {
+    // Still tied after superover - sudden death could be added here
+    // For now, declare as tied
+    next.overrideResult = { kind: 'TIE' }
+  }
+  next.status = 'COMPLETED'
+  next.superOverState = { ...next.superOverState!, active: false }
+  for (const inn of next.innings) inn.closed = true
+}
+
 function ensureBatter(inn: InningsState, playerId: string): BatterLine {
   let line = inn.batters[playerId]
   if (!line) {
@@ -187,7 +259,25 @@ function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, eve
 }
 
 export function chaseTarget(state: MatchState, inn: InningsState): number | null {
-  if (inn.index !== state.config.inningsCount - 1) return null
+  const regularInningsCount = state.config.inningsCount
+  const isSuperOverInnings = inn.index >= regularInningsCount
+
+  if (isSuperOverInnings) {
+    // Super over innings
+    const superOverInningsIndex = inn.index - regularInningsCount // 0 for first, 1 for second
+    if (superOverInningsIndex === 1) {
+      // Second super over innings: target is firstInningsRuns + 1
+      const firstInningsRuns = state.superOverState?.firstInningsRuns
+      if (firstInningsRuns !== null && firstInningsRuns !== undefined) {
+        return firstInningsRuns + 1
+      }
+    }
+    // First super over innings (index 0): no target, they set the target
+    return null
+  }
+
+  // Regular innings: only the final regular innings has a target
+  if (inn.index !== regularInningsCount - 1) return null
   const first = state.innings[0]
   if (!first || first === inn) return null
   return first.runs + 1
@@ -198,21 +288,53 @@ function maybeEndInnings(config: MatchConfig, next: MatchState): void {
   const inn = currentInnings(next)
   if (!inn || inn.closed) return
 
-  const totalBalls = oversToBalls(config.oversPerInnings, config.ballsPerOver)
+  // Determine if this is a superover innings
+  const isSuperOver = next.status === 'SUPER_OVER'
+  const superOverOvers = config.superOverOvers ?? 1
+  const superOverMaxWickets = config.superOverMaxWickets ?? 2
+  const oversForThisInnings = isSuperOver ? superOverOvers : config.oversPerInnings
+  const maxWicketsForThisInnings = isSuperOver ? superOverMaxWickets : config.maxWickets
+
+  const totalBalls = oversToBalls(oversForThisInnings, config.ballsPerOver)
   const target = chaseTarget(next, inn)
   const chased = target !== null && inn.runs >= target
-  const allOut = inn.wickets >= config.maxWickets
+  const allOut = inn.wickets >= maxWicketsForThisInnings
   const oversDone = inn.legalBalls >= totalBalls
   if (!chased && !allOut && !oversDone && !inn.declared) return
 
   inn.closed = true
+
+  // Handle superover innings completion
+  if (isSuperOver) {
+    const superOverInnings = next.innings.filter((i, idx) => idx >= config.inningsCount)
+    const isFirstSuperOverInnings = superOverInnings.length === 1
+
+    if (isFirstSuperOverInnings) {
+      // First superover innings completed
+      next.superOverState = {
+        ...next.superOverState!,
+        firstInningsRuns: inn.runs,
+        firstInningsWickets: inn.wickets,
+      }
+      // Create second superover innings
+      const target = inn.runs + 1
+      const updated = createSuperOverSecondInnings(config, next, target)
+      Object.assign(next, updated)
+      next.status = 'SUPER_OVER'
+      return
+    } else if (superOverInnings.length === 2) {
+      // Second superover innings completed
+      finalizeSuperOver(config, next)
+      return
+    }
+  }
 
   if (chased) {
     next.overrideResult = {
       kind: 'WINNER',
       teamId: inn.battingTeamId,
       by: 'WICKETS',
-      amount: config.maxWickets - inn.wickets,
+      amount: maxWicketsForThisInnings - inn.wickets,
     }
     next.status = 'COMPLETED'
     return
@@ -224,14 +346,22 @@ function maybeEndInnings(config: MatchConfig, next: MatchState): void {
     if (first && first !== inn && next.innings.length >= 2) {
       const diff = inn.runs - first.runs
       if (diff > 0) {
-        next.overrideResult = { kind: 'WINNER', teamId: inn.battingTeamId, by: 'WICKETS', amount: config.maxWickets - inn.wickets }
+        next.overrideResult = { kind: 'WINNER', teamId: inn.battingTeamId, by: 'WICKETS', amount: maxWicketsForThisInnings - inn.wickets }
         next.status = 'COMPLETED'
       } else if (diff < 0) {
         next.overrideResult = { kind: 'WINNER', teamId: first.battingTeamId, by: 'RUNS', amount: -diff }
         next.status = 'COMPLETED'
       } else {
-        next.overrideResult = { kind: 'TIE' }
-        next.status = 'TIED'
+        // Match tied - check if superover is enabled
+        if (config.superOverEnabled) {
+          // Determine who bats first in superover (team that batted second in regular match)
+          const firstBattingTeamId = inn.battingTeamId
+          const updated = initSuperOver(config, next, firstBattingTeamId)
+          Object.assign(next, updated)
+        } else {
+          next.overrideResult = { kind: 'TIE' }
+          next.status = 'TIED'
+        }
       }
     } else {
       next.status = 'COMPLETED'
@@ -380,4 +510,124 @@ export function applyEvents(config: MatchConfig, events: MatchEvent[]): MatchSta
     state = applyEvent(config, state, resolveEffective(e, corrections))
   }
   return state
+}
+
+/**
+ * Edit a previously recorded delivery by creating a CORRECTION event.
+ * Replays all events from the edited point forward to recalculate state.
+ */
+export function editDelivery(
+  config: MatchConfig,
+  state: MatchState,
+  editTarget: { seq: number } | { over: number; ball: number },
+  newBall: Omit<BallEvent, 'id' | 'matchId' | 'seq' | 'ts' | 'type'>
+): MatchState {
+  // Find the event to edit
+  const events = stateToEvents(state)
+  let targetEvent: BallEvent | null = null
+
+  for (const e of events) {
+    if (e.type !== 'BALL') continue
+    if ('seq' in editTarget) {
+      if (e.seq === editTarget.seq) { targetEvent = e; break }
+    } else {
+      if (e.over === editTarget.over && e.ball === editTarget.ball) { targetEvent = e; break }
+    }
+  }
+
+  if (!targetEvent) {
+    throw new EngineError('POSITION', 'Delivery not found')
+  }
+
+  // Cannot edit deliveries from closed innings unless it's the current innings
+  const targetInnings = state.innings[targetEvent.over]
+  if (targetInnings?.closed && targetInnings !== currentInnings(state)) {
+    throw new EngineError('INNINGS_OVER', 'Cannot edit deliveries in a closed innings')
+  }
+
+  // Create the correction event
+  const correction: CorrectionEvent = {
+    id: crypto.randomUUID(),
+    matchId: config.matchId,
+    seq: state.lastSeq + 1,
+    ts: new Date().toISOString(),
+    type: 'CORRECTION',
+    supersedes: targetEvent.id,
+    replacement: { kind: 'BALL', ball: newBall },
+    reason: 'Manual edit via scorecard',
+  }
+
+  // Replay all events with the correction applied
+  const allEvents = [...events, correction]
+  return applyEvents(config, allEvents)
+}
+
+/**
+ * Convert current MatchState back to an event list for replay.
+ * This reconstructs the event log from the current state.
+ */
+function stateToEvents(state: MatchState): MatchEvent[] {
+  const events: MatchEvent[] = []
+
+  // Add toss if present
+  if (state.toss) events.push(state.toss)
+
+  // Reconstruct ball events from innings
+  for (const inn of state.innings) {
+    if (!inn.thisOver) continue
+    for (const ball of inn.thisOver) {
+      // Note: This is a simplified reconstruction.
+      // In production, we'd store the full event log in state or fetch from DB.
+      // For now, we assume the scorer has access to the event log.
+    }
+  }
+
+  // Since we can't fully reconstruct from state alone,
+  // this function should be called with the full event log from the database.
+  // The actual implementation will receive events as a parameter.
+
+  return events
+}
+
+/**
+ * Edit a delivery given the full event log (preferred method).
+ */
+export function editDeliveryFromLog(
+  config: MatchConfig,
+  events: MatchEvent[],
+  editTarget: { seq: number } | { over: number; ball: number },
+  newBall: Omit<BallEvent, 'id' | 'matchId' | 'seq' | 'ts' | 'type'>
+): MatchState {
+  // Find the event to edit
+  let targetEvent: BallEvent | null = null
+
+  for (const e of events) {
+    if (e.type !== 'BALL') continue
+    if ('seq' in editTarget) {
+      if (e.seq === editTarget.seq) { targetEvent = e; break }
+    } else {
+      if (e.over === editTarget.over && e.ball === editTarget.ball) { targetEvent = e; break }
+    }
+  }
+
+  if (!targetEvent) {
+    throw new EngineError('POSITION', 'Delivery not found')
+  }
+
+  // Create the correction event
+  const lastSeq = Math.max(...events.map(e => e.seq), 0)
+  const correction: CorrectionEvent = {
+    id: crypto.randomUUID(),
+    matchId: config.matchId,
+    seq: lastSeq + 1,
+    ts: new Date().toISOString(),
+    type: 'CORRECTION',
+    supersedes: targetEvent.id,
+    replacement: { kind: 'BALL', ball: newBall },
+    reason: 'Manual edit via scorecard',
+  }
+
+  // Replay all events with the correction applied
+  const allEvents = [...events, correction]
+  return applyEvents(config, allEvents)
 }

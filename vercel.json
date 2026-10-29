@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build -w @cricket-app/web",
+  "outputDirectory": "web/dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

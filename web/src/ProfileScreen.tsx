@@ -4,6 +4,7 @@ import { api, ApiRequestError } from './api'
 import { clearToken } from './token'
 import { roleLabel, validateProfilePatch } from './profile'
 import type { ProfilePatch } from './profile'
+import { HomeIcon } from './ui/HomeIcon'
 
 const ROLES: Array<Player['role']> = ['BATSMAN', 'BOWLER', 'KEEPER', 'ALL_ROUNDER']
 
@@ -61,8 +62,15 @@ export function ProfileScreen({ onSignedOut }: { onSignedOut: () => void }): Rea
 
   return (
     <div className="card">
-      <h2>{player.name}</h2>
-      <p className="muted">{player.location ?? 'Add your location'}</p>
+      <div className="profile-header">
+        <button className="btn ghost home-btn" onClick={() => { window.location.hash = '#/' }} aria-label="Home">
+          <HomeIcon />
+        </button>
+        <div>
+          <h2>{player.name}</h2>
+          <p className="muted">{player.location ?? 'Add your location'}</p>
+        </div>
+      </div>
       <div className="career-strip">
         <div><strong>{stats?.matches ?? 0}</strong><span>Matches</span></div>
         <div><strong>{stats?.runs ?? 0}</strong><span>Runs</span></div>

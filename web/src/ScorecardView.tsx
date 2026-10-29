@@ -218,9 +218,11 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
           <p>
             {scorecard.result.kind === 'WINNER'
               ? formatWin(scorecard.result)
-              : scorecard.result.kind === 'TIE'
-                ? 'Match tied'
-                : `Match abandoned${scorecard.result.reason ? `: ${scorecard.result.reason}` : ''}`}
+              : scorecard.result.kind === 'SUPER_OVER_WINNER'
+                ? formatWin(scorecard.result)
+                : scorecard.result.kind === 'TIE'
+                  ? 'Match tied'
+                  : `Match abandoned${scorecard.result.reason ? `: ${scorecard.result.reason}` : ''}`}
           </p>
         </section>
       )}

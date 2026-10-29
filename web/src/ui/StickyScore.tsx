@@ -15,6 +15,8 @@ interface StickyScoreProps {
  */
 export function StickyScore({ live, visible }: StickyScoreProps) {
   const requirement = requirementText(live)
+  const isSuperOver = live.status === 'SUPER_OVER'
+  const target = live.target
 
   return (
     <div
@@ -33,7 +35,12 @@ export function StickyScore({ live, visible }: StickyScoreProps) {
           <span>CRR {live.runRate.toFixed(2)}</span>
           {live.requiredRunRate != null && <span>RRR {live.requiredRunRate.toFixed(2)}</span>}
         </span>
-        {requirement && <span className="sticky-score-need">{requirement}</span>}
+        {isSuperOver && target != null && (
+          <span className="sticky-score-need super-over">
+            Super Over Target: {target} · {live.battingTeamId} need {Math.max(0, target - live.runs)} off {live.ballsRemaining} balls
+          </span>
+        )}
+        {!isSuperOver && requirement && <span className="sticky-score-need">{requirement}</span>}
       </div>
     </div>
   )

@@ -164,7 +164,7 @@ export function isScoringShot(kind: BallKind, runs: number): boolean {
   return runs > 0
 }
 
-export function formatWin(result: MatchResult & { kind: 'WINNER' }): string {
+export function formatWin(result: MatchResult & { kind: 'WINNER' | 'SUPER_OVER_WINNER' }): string {
   const noun = result.by === 'WICKETS'
     ? result.amount === 1 ? 'wicket' : 'wickets'
     : result.amount === 1 ? 'run' : 'runs'
@@ -182,6 +182,7 @@ export function formatBowlerFigures(balls: number, runs: number, wickets: number
 export function resultText(result: MatchResult | null): string | null {
   if (!result) return null
   if (result.kind === 'WINNER') return formatWin(result)
+  if (result.kind === 'SUPER_OVER_WINNER') return formatWin(result)
   if (result.kind === 'TIE') return 'Match tied'
   return `Match abandoned${result.reason ? `: ${result.reason}` : ''}`
 }
@@ -212,7 +213,7 @@ export function topBowler(inn: InningsCard): BowlingCardLine | null {
 
 /** "Australia need 42 off 24" while a chase is live, else null. */
 export function requirementText(live: LiveScore): string | null {
-  if (live.status !== 'IN_PROGRESS' || live.target == null || live.battingTeamId == null) return null
+  if ((live.status !== 'IN_PROGRESS' && live.status !== 'SUPER_OVER') || live.target == null || live.battingTeamId == null) return null
   const need = Math.max(0, live.target - live.runs)
   if (need === 0) return null
   return `${live.battingTeamId} need ${need} off ${live.ballsRemaining}`

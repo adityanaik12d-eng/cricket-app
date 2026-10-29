@@ -18,6 +18,48 @@ export interface TimelineBall {
   bowlerId: string
 }
 
+/** Partnership information for a single batting pair. */
+export interface Partnership {
+  /** First batter in the partnership (striker at start). */
+  strikerId: string
+  /** Second batter in the partnership (non-striker at start). */
+  nonStrikerId: string
+  /** Runs scored by this partnership (off the bat + byes/leg-byes). */
+  runs: number
+  /** Legal balls faced by this partnership. */
+  balls: number
+  /** Duration in deliveries (including wides/no-balls). */
+  deliveries: number
+  /** Whether this is the current active partnership. */
+  isCurrent: boolean
+  /** Fall of wicket that ended this partnership, if any. */
+  fallOfWicket: FallOfWicket | null
+  /** Sequence number of the first delivery of this partnership. */
+  startSeq: number
+  /** Sequence number of the last delivery of this partnership. */
+  endSeq: number | null
+}
+
+/** Fall of wicket event details. */
+export interface FallOfWicket {
+  /** Sequence number of the wicket ball. */
+  seq: number
+  /** Over and ball label (e.g. "12.4"). */
+  over: string
+  /** Total runs at fall of wicket. */
+  runs: number
+  /** Wickets fallen at this point. */
+  wickets: number
+  /** Batter who was dismissed. */
+  dismissedPlayerId: string
+  /** Type of dismissal. */
+  dismissal: Dismissal | null
+  /** Bowler who took the wicket (null for run out/obstructing). */
+  bowlerId: string | null
+  /** Fielder involved (if caught/stumped/run out). */
+  fielderId: string | undefined
+}
+
 /** Every delivery of a single over, in the order they were bowled. */
 export interface TimelineOver {
   /** 0-based innings index — matches `LiveScore.inningsIndex`. */
@@ -86,4 +128,125 @@ export function projectTimeline(config: MatchConfig, events: MatchEvent[]): Time
   }
 
   return overs
+}
+
+/**
+ * Projects partnerships from a match's ball events.
+ *
+ * Returns partnerships grouped by innings, including the current active partnership
+ * and all historical partnerships. Each partnership tracks the batter pair,
+ * runs scored, balls faced, duration, and fall-of-wicket details.
+ *
+ * @param config - Match configuration
+ * @param events - All match events (will be corrected via effectiveEvents)
+ * @returns Array of partnerships per innings, with current partnership first
+ */
+export function projectPartnerships(
+  config: MatchConfig,
+  events: MatchEvent[]
+): Partnership[][] {
+  const effEvents = effectiveEvents(events)
+  const partnershipsByInnings: Partnership[][] = []
+
+  let currentInnings = -1
+  let currentPartnership: Partnership | null = null
+  let inningsRuns = 0
+  let inningsWickets = 0
+
+  for (const event of effEvents) {
+    if (event.type !== 'BALL') continue
+
+    // Detect new innings: over/ball address regression
+    if (currentInnings === -1 || (event.over === 0 && event.ball === 0 && currentInnings >= 0)) {
+      // Finalize previous innings if exists
+      if (currentInnings >= 0 && currentPartnership) {
+        currentPartnership.endSeq = event.seq - 1
+        currentPartnership.isCurrent = false
+        const prevInnings = partnershipsByInnings[currentInnings]
+        if (prevInnings) prevInnings.push(currentPartnership)
+      }
+
+      // Start new innings
+      currentInnings += 1
+      partnershipsByInnings[currentInnings] = []
+      inningsRuns = 0
+      inningsWickets = 0
+      currentPartnership = null
+    }
+
+    const isLegal = event.extras === 'NONE' || event.extras === 'NO_BALL' || event.extras === 'BYE' || event.extras === 'LEG_BYE'
+
+    // Initialize partnership on first ball of innings (or after wicket)
+    if (!currentPartnership) {
+      const partnershipStartSeq = event.seq
+      currentPartnership = {
+        strikerId: event.batterId,
+        nonStrikerId: event.nonStrikerId ?? '',
+        runs: 0,
+        balls: 0,
+        deliveries: 0,
+        isCurrent: true,
+        fallOfWicket: null,
+        startSeq: partnershipStartSeq,
+        endSeq: null,
+      }
+    }
+
+    // Add runs for this delivery (penalty + bat runs + byes/leg-byes)
+    const penalty =
+      event.extras === 'WIDE' ? config.wideExtra : event.extras === 'NO_BALL' ? config.noBallExtra : 0
+    const batRuns = event.extras === 'NONE' || event.extras === 'NO_BALL' ? event.runs : 0
+    const runExtra = event.extras === 'WIDE' || event.extras === 'BYE' || event.extras === 'LEG_BYE' ? event.runs : 0
+    const deliveryRuns = penalty + batRuns + runExtra
+
+    if (currentPartnership) {
+      currentPartnership.runs += deliveryRuns
+      currentPartnership.deliveries += 1
+      if (isLegal) {
+        currentPartnership.balls += 1
+      }
+    }
+    inningsRuns += deliveryRuns
+
+    // Handle wicket - partnership ends
+    if (event.wicket && currentPartnership) {
+      inningsWickets += 1
+      const dismissedId = event.dismissedPlayerId ?? event.batterId
+
+      // Determine bowler credit (no credit for run out/obstructing)
+      const bowlerCredit =
+        event.dismissal !== null && event.dismissal !== 'RUN_OUT' && event.dismissal !== 'OBSTRUCTING'
+
+      const fallOfWicket: FallOfWicket = {
+        seq: event.seq,
+        over: `${event.over}.${event.ball + 1}`,
+        runs: inningsRuns,
+        wickets: inningsWickets,
+        dismissedPlayerId: dismissedId,
+        dismissal: event.dismissal,
+        bowlerId: bowlerCredit ? event.bowlerId : null,
+        fielderId: event.fielderId,
+      }
+
+      currentPartnership.fallOfWicket = fallOfWicket
+      currentPartnership.endSeq = event.seq
+      currentPartnership.isCurrent = false
+
+      const currInnings = partnershipsByInnings[currentInnings]
+      if (currInnings) currInnings.push(currentPartnership)
+
+      // Reset for next partnership - will be initialized on next ball
+      currentPartnership = null
+    }
+  }
+
+  // Handle any remaining current partnership at end of events
+  if (currentPartnership && currentInnings >= 0) {
+    currentPartnership.isCurrent = true
+    currentPartnership.endSeq = null
+    const currInnings = partnershipsByInnings[currentInnings]
+    if (currInnings) currInnings.push(currentPartnership)
+  }
+
+  return partnershipsByInnings
 }

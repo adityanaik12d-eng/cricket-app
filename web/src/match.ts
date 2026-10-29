@@ -162,7 +162,8 @@ export interface MatchRowInput {
 function summaryStatus(status: MatchState['status']): { status: SummaryStatus; text: string } {
   switch (status) {
     case 'IN_PROGRESS':
-      return { status: 'LIVE', text: 'LIVE' }
+    case 'SUPER_OVER':
+      return { status: 'LIVE', text: status === 'SUPER_OVER' ? 'Superover' : 'LIVE' }
     case 'INNINGS_BREAK':
       return { status: 'BREAK', text: 'Innings break' }
     case 'COMPLETED':

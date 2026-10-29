@@ -31,6 +31,9 @@ export interface CreateMatchBody {
   playerRefs: Record<string, { name: string; mobile?: string; verified: boolean }>
   oversPerInnings: number
   powerplayOvers: number
+  superOverEnabled?: boolean
+  superOverOvers?: number
+  superOverMaxWickets?: number
 }
 
 export interface Player {
@@ -154,8 +157,8 @@ export const api = {
     // from any device where they are signed in.
     let ownerId: string | null = null
     try {
-      const { data } = await getSupabase().auth.getUser()
-      ownerId = data.user?.id ?? null
+      const { data: { session } } = await getSupabase().auth.getSession()
+      ownerId = session?.user?.id ?? null
     } catch {
       ownerId = null
     }
@@ -243,6 +246,28 @@ export const api = {
     return { state, live: projectLiveScore(state) }
   },
 
+  /**
+   * Replaces the entire events log with a new one (used for editing deliveries).
+   * The caller is responsible for ensuring the new events form a valid log.
+   */
+  async putMatchState(
+    matchId: string,
+    events: unknown[],
+  ): Promise<{ state: MatchState; live: LiveScore }> {
+    assertScorer(matchId)
+    const { config } = await loadRow(matchId)
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ events, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    const state = applyEvents(config, events)
+    return { state, live: projectLiveScore(state) }
+  },
+
   async getCommentary(matchId: string): Promise<{ commentary: CommentaryLine[] }> {
     const { config, events } = await loadRow(matchId)
     return { commentary: computeCommentary(config, events) }
@@ -265,17 +290,17 @@ export const api = {
   },
 
   /**
-   * Deletes every match owned by the currently signed-in user. Returns the
-   * number of rows removed. Throws UNAUTHENTICATED when there is no session.
-   *
-   * The database policy is the real gate: this call only succeeds for matches
-   * whose config.ownerId equals auth.uid(). Watchers and anon users cannot
-   * delete anything.
+   * Deletes every match (admin only). Returns the number of rows removed.
+   * Throws UNAUTHENTICATED when there is no session, FORBIDDEN if not admin.
    */
   async deleteAllMyMatches(): Promise<number> {
     const { data: userData, error: userError } = await getSupabase().auth.getUser()
     if (userError || !userData.user) {
       throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
+    }
+    // Only admin can delete all matches
+    if (userData.user.email !== 'adityanaik.12d@gmail.com') {
+      throw new ApiRequestError('Only admin can delete all matches', 'FORBIDDEN')
     }
     const { data, error } = await getSupabase()
       .from('matches')
@@ -291,6 +316,10 @@ export const api = {
     const { data: userData, error: userError } = await getSupabase().auth.getUser()
     if (userError || !userData.user) {
       throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
+    }
+    // Only admin can delete matches
+    if (userData.user.email !== 'adityanaik.12d@gmail.com') {
+      throw new ApiRequestError('Only admin can delete matches', 'FORBIDDEN')
     }
     const { data, error } = await getSupabase()
       .from('matches')
@@ -426,6 +455,38 @@ export const api = {
     return { token: data.session.access_token, player }
   },
 
+  async signUpWithPassword(email: string, password: string, name: string): Promise<AuthResponse> {
+    const { data, error } = await getSupabase().auth.signUp({
+      email,
+      password,
+      options: { data: { name: name.trim() || 'Player' } },
+    })
+    if (error) {
+      throw new ApiRequestError(error.message, 'SIGNUP_FAILED')
+    }
+    // Email confirmation required: user created but no session yet
+    if (data.user && !data.session) {
+      throw new ApiRequestError(
+        'Account created! Check your email to confirm your address, then sign in.',
+        'EMAIL_CONFIRMATION_REQUIRED'
+      )
+    }
+    if (!data.user || !data.session) {
+      throw new ApiRequestError('Sign up failed', 'SIGNUP_FAILED')
+    }
+    const player = userToPlayer(data.user)
+    return { token: data.session.access_token, player }
+  },
+
+  async signInWithPassword(email: string, password: string): Promise<AuthResponse> {
+    const { data, error } = await getSupabase().auth.signInWithPassword({ email, password })
+    if (error || !data.session || !data.user) {
+      throw new ApiRequestError(error?.message ?? 'Invalid credentials', 'INVALID_CREDENTIALS')
+    }
+    const player = userToPlayer(data.user)
+    return { token: data.session.access_token, player }
+  },
+
   async getMe(): Promise<{ player: Player }> {
     const { data, error } = await getSupabase().auth.getUser()
     if (error || !data.user) {
@@ -444,5 +505,10 @@ export const api = {
 
   async getPlayerStats(_id: string): Promise<CareerStats> {
     throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+  },
+
+  async signOut(): Promise<void> {
+    const { error } = await getSupabase().auth.signOut()
+    if (error) throw new ApiRequestError(error.message, 'AUTH_ERROR')
   },
 }

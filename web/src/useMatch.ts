@@ -54,29 +54,42 @@ export function useMatch(matchId: string | null): UseMatchResult {
   // Scoring rights: the browser that created the match may score it, everyone
   // else is a watcher. The database has the last word when another device has
   // taken over the match.
-  useEffect(() => {
+  const checkScoringRights = useCallback(async () => {
     if (!matchId) {
       setCanScore(false)
       setResolved(false)
       return
     }
-    let alive = true
     setResolved(false)
-    resolveScorerStatus(matchId)
-      .then((status) => {
-        if (!alive) return
-        setCanScore(status.canScore)
-        setResolved(true)
-      })
-      .catch(() => {
-        if (!alive) return
-        setCanScore(ownsMatchLocally(matchId))
-        setResolved(true)
-      })
-    return () => {
-      alive = false
+    try {
+      const status = await resolveScorerStatus(matchId)
+      setCanScore(status.canScore)
+    } catch {
+      setCanScore(ownsMatchLocally(matchId))
+    } finally {
+      setResolved(true)
     }
   }, [matchId])
+
+  useEffect(() => {
+    checkScoringRights()
+  }, [checkScoringRights])
+
+  // Re-check scoring rights when auth state changes (e.g. session restored after page reload)
+  useEffect(() => {
+    let client: SupabaseClient
+    try {
+      client = getSupabase()
+    } catch {
+      return
+    }
+    const { data: sub } = client.auth.onAuthStateChange(() => {
+      checkScoringRights()
+    })
+    return () => {
+      sub.subscription.unsubscribe()
+    }
+  }, [checkScoringRights])
 
   // Realtime subscription: any UPDATE to this row triggers a refetch.
   useEffect(() => {

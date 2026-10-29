@@ -21,7 +21,15 @@ export function getSupabase(): SupabaseClient {
   }
   if (!client) {
     client = createClient(url, anonKey, {
-      auth: { persistSession: true, autoRefreshToken: true },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        storage: {
+          getItem: (key) => window.localStorage.getItem(key),
+          setItem: (key, value) => window.localStorage.setItem(key, value),
+          removeItem: (key) => window.localStorage.removeItem(key),
+        },
+      },
     })
   }
   return client

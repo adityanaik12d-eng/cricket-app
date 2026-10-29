@@ -11,8 +11,27 @@ export function projectLiveScore(state: MatchState): LiveScore {
   const striker = inn && inn.strikerId ? inn.batters[inn.strikerId] ?? null : null
   const nonStriker = inn && inn.nonStrikerId ? inn.batters[inn.nonStrikerId] ?? null : null
   const bowler = inn && inn.currentBowlerId ? inn.bowlers[inn.currentBowlerId] ?? null : null
-  const ballsRemaining = inn ? Math.max(0, totalBalls - inn.legalBalls) : totalBalls
-  const target = inn ? chaseTarget(state, inn) : null
+
+  // Check if this is a super over innings
+  const isSuperOver = state.status === 'SUPER_OVER'
+  const superOverOvers = config.superOverOvers ?? 1
+  const superOverMaxWickets = config.superOverMaxWickets ?? 2
+  const oversForThisInnings = isSuperOver ? superOverOvers : config.oversPerInnings
+  const totalBallsForInnings = oversToBalls(oversForThisInnings, ballsPerOver)
+  const ballsRemaining = inn ? Math.max(0, totalBallsForInnings - inn.legalBalls) : totalBallsForInnings
+
+  // Calculate target for super over
+  let target = inn ? chaseTarget(state, inn) : null
+  if (isSuperOver && inn && inn.index >= config.inningsCount) {
+    // This is a super over innings
+    const superOverInnings = state.innings.filter((i, idx) => idx >= config.inningsCount)
+    const firstSuperOverInnings = superOverInnings[0]
+    if (firstSuperOverInnings && inn.index > firstSuperOverInnings.index) {
+      // Second super over innings - target is first innings runs + 1
+      target = firstSuperOverInnings.runs + 1
+    }
+  }
+
   const requiredRunRate =
     inn && target !== null && ballsRemaining > 0
       ? round2((target - inn.runs) / (ballsRemaining / ballsPerOver))

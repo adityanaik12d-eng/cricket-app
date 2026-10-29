@@ -57,6 +57,8 @@ interface Props {
   events: MatchEvent[]
   /** 0-based innings index to show (matches `LiveScore.inningsIndex`). */
   innings: number
+  /** Called when user wants to edit a ball. Receives the ball's seq. */
+  onEdit?: (seq: number) => void
 }
 
 /**
@@ -64,7 +66,7 @@ interface Props {
  * first. Each chip is a button; tapping it reveals the delivery's detail line.
  * Only the newest chip animates in (transform/opacity only, reduced-motion safe).
  */
-export function OverTimeline({ config, events, innings }: Props) {
+export function OverTimeline({ config, events, innings, onEdit }: Props) {
   const overs = useMemo(
     () => projectTimeline(config, events).filter((over) => over.innings === innings),
     [config, events, innings],
@@ -111,7 +113,21 @@ export function OverTimeline({ config, events, innings }: Props) {
           </div>
         ))}
       </div>
-      {selectedBall && <p className="timeline-detail">{describeBall(config, selectedBall)}</p>}
+      {selectedBall && (
+        <div className="timeline-detail-wrapper">
+          <p className="timeline-detail">{describeBall(config, selectedBall)}</p>
+          {onEdit && (
+            <button
+              type="button"
+              className="btn ghost btn-sm"
+              onClick={() => onEdit(selectedBall.seq)}
+              aria-label={`Edit delivery ${selectedBall.label}`}
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }

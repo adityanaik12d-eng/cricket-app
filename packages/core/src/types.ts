@@ -14,6 +14,7 @@ export type MatchStatus =
   | 'TOSS'
   | 'IN_PROGRESS'
   | 'INNINGS_BREAK'
+  | 'SUPER_OVER'
   | 'COMPLETED'
   | 'ABANDONED'
   | 'TIED'
@@ -48,6 +49,12 @@ export interface MatchConfig {
    * by a signed-in user. Absent for anonymous (token-based) matches.
    */
   ownerId?: string
+  /** Superover configuration. If enabled and match ends in tie, a superover is played. */
+  superOverEnabled?: boolean
+  /** Overs per side in superover (default 1) */
+  superOverOvers?: number
+  /** Maximum wickets per side in superover (default 2) */
+  superOverMaxWickets?: number
 }
 
 interface EventBase {
@@ -166,6 +173,7 @@ export type MatchResult =
   | { kind: 'WINNER'; teamId: string; by: 'RUNS' | 'WICKETS'; amount: number }
   | { kind: 'TIE' }
   | { kind: 'ABANDONED'; reason: string | null }
+  | { kind: 'SUPER_OVER_WINNER'; teamId: string; by: 'RUNS' | 'WICKETS'; amount: number }
 
 export interface MatchState {
   config: MatchConfig
@@ -175,6 +183,13 @@ export interface MatchState {
   overrideResult: MatchResult | null
   lastSeq: number
   eventCount: number
+  /** Superover state: tracks if superover is active and which team batted first in superover */
+  superOverState?: {
+    active: boolean
+    firstBattingTeamId: string | null
+    firstInningsRuns: number | null
+    firstInningsWickets: number | null
+  }
 }
 
 export interface ThisOverBall {
