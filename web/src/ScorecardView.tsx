@@ -75,7 +75,7 @@ export interface BattingTableProps {
 /** The batting card: every row can be opened to show that batter's ball-by-ball. */
 export function BattingTable({ state, innings, events, expanded, onToggle }: BattingTableProps) {
   return (
-    <table className="card-table">
+    <table className="card-table scorecard-table">
       <thead>
         <tr>
           <th>Batter</th>
@@ -83,6 +83,7 @@ export function BattingTable({ state, innings, events, expanded, onToggle }: Bat
           <th className="num">B</th>
           <th className="num">4s</th>
           <th className="num">6s</th>
+          <th className="num">SR</th>
           <th>Dismissal</th>
         </tr>
       </thead>
@@ -92,6 +93,10 @@ export function BattingTable({ state, innings, events, expanded, onToggle }: Bat
           const open = expanded.has(key)
           const panelId = `batter-balls-${innings.index}-${b.position}`
           const balls = open ? projectBatterBalls(events, b.playerId, innings.index) : []
+          const sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(2) : '-'
+          const dismissalText = b.out
+            ? (b.dismissal ? b.dismissal.replace(/_/g, ' ') : 'out')
+            : 'not out'
           return (
             <Fragment key={b.playerId}>
               <tr>
@@ -104,23 +109,22 @@ export function BattingTable({ state, innings, events, expanded, onToggle }: Bat
                     onClick={() => onToggle(key)}
                   >
                     <span className="row-toggle-caret" aria-hidden="true">
-                      {open ? '▾' : '▸'}
+                      {open ? '\u25be' : '\u25b8'}
                     </span>
                     <span className="row-toggle-name">{playerName(state.config, b.playerId)}</span>
                     <span className="visually-hidden"> — ball-by-ball</span>
                   </button>
-                  {b.isStriker ? ' *' : b.isNonStriker ? ' †' : ''}
+                  {b.isStriker ? ' *' : b.isNonStriker ? ' \u2020' : ''}
                 </td>
                 <td className="num">{b.runs}</td>
                 <td className="num">{b.balls}</td>
                 <td className="num">{b.fours}</td>
                 <td className="num">{b.sixes}</td>
-                <td className="muted">
-                  {b.out ? (b.dismissal?.replace('_', ' ') ?? 'out') : 'not out'}
-                </td>
+                <td className="num muted">{sr}</td>
+                <td className="dismissal">{dismissalText}</td>
               </tr>
               <tr id={panelId} className="batter-balls-row" hidden={!open}>
-                <td className="batter-balls-cell" colSpan={6}>
+                <td className="batter-balls-cell" colSpan={7}>
                   {open ? <BatterBalls balls={balls} /> : null}
                 </td>
               </tr>
@@ -140,7 +144,7 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
   if (scorecard.innings.length === 0) {
     return (
       <section className="card">
-        <p className="muted">No innings yet — record the toss to start.</p>
+        <p className="muted">No innings yet - record the toss to start.</p>
       </section>
     )
   }
@@ -148,19 +152,20 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
   return (
     <div className="scorecards">
       {scorecard.innings.map((inn) => (
-        <section className="card" key={inn.index}>
-          <header className="innings-head">
-            <h2>
-              Innings {inn.index + 1} · {inn.battingTeamId}
-            </h2>
-            <span className="score">
-              {inn.runs}-{inn.wickets}
-            </span>
-            <span className="muted">
-              ({inn.oversText} ov) · RR {inn.runRate.toFixed(2)}
-              {inn.declared ? ' · declared' : ''}
-              {inn.closed ? ' · closed' : ''}
-            </span>
+        <section className="card innings-card" key={inn.index}>
+          <header className="innings-header">
+            <div className="innings-header-top">
+              <h2 className="innings-team">{inn.battingTeamId}</h2>
+              <div className="innings-scoreblock">
+                <span className="innings-total">{inn.runs}-{inn.wickets}</span>
+                <span className="innings-overs-text">({inn.oversText} ov)</span>
+              </div>
+            </div>
+            <div className="innings-meta">
+              <span>Run Rate: {inn.runRate.toFixed(2)}</span>
+              {inn.declared ? <span> • Declared</span> : null}
+              {inn.closed && !inn.declared ? <span> • Innings Complete</span> : null}
+            </div>
           </header>
 
           <BattingTable
@@ -171,18 +176,24 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
             onToggle={onToggle}
           />
 
-          <p className="extras">
-            Extras {inn.extras} ·{' '}
-            <strong>
-              Total {inn.runs} ({inn.wickets} {inn.wickets === 1 ? 'wkt' : 'wkts'}, {inn.oversText} ov)
-            </strong>
-          </p>
+          <div className="extras-row">
+            <span>Extras</span>
+            <span>{inn.extras}</span>
+          </div>
+          <div className="total-row">
+            <span>Total</span>
+            <span>
+              {inn.runs}/{inn.wickets} ({inn.oversText} ov)
+            </span>
+          </div>
 
-          <table className="card-table">
+          <h3 className="section-title">Bowling</h3>
+          <table className="card-table scorecard-table">
             <thead>
               <tr>
                 <th>Bowler</th>
                 <th className="num">O</th>
+                <th className="num">M</th>
                 <th className="num">R</th>
                 <th className="num">W</th>
                 <th className="num">Econ</th>
@@ -193,9 +204,10 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
                 <tr key={b.playerId}>
                   <td>
                     {playerName(state.config, b.playerId)}
-                    {b.isCurrentBowler ? ' •' : ''}
+                    {b.isCurrentBowler ? ' *' : ''}
                   </td>
                   <td className="num">{b.oversText}</td>
+                  <td className="num">0</td>
                   <td className="num">{b.runs}</td>
                   <td className="num">{b.wickets}</td>
                   <td className="num">{b.economy.toFixed(2)}</td>

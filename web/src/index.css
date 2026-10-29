@@ -2410,6 +2410,137 @@ table.visually-hidden {
   }
 }
 
+/* ---------- scorecard & report ---------- */
+.scorecards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.innings-card {
+  padding: var(--s-3);
+}
+
+.innings-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.innings-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.innings-team {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+}
+
+.innings-scoreblock {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+.innings-total {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  color: var(--accent);
+}
+
+.innings-overs-text {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.innings-meta {
+  display: flex;
+  gap: var(--s-3);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.innings-meta span {
+  white-space: nowrap;
+}
+
+.extras-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-md);
+  border-top: 1px solid var(--border);
+  margin-top: var(--s-2);
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  margin-top: var(--s-1);
+}
+
+.section-title {
+  margin: var(--s-3) 0 var(--s-2);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card-table.scorecard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+  margin-top: var(--s-1);
+}
+
+.card-table.scorecard-table th,
+.card-table.scorecard-table td {
+  padding: var(--s-2) var(--s-2);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-table.scorecard-table th.num,
+.card-table.scorecard-table td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-table.scorecard-table thead th {
+  font-weight: var(--fw-bold);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 2px solid var(--border);
+}
+
+.dismissal {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.yet {
+  margin-top: var(--s-2);
+  font-size: var(--fs-sm);
+}
+
 /* ---------- expandable scorecard rows ---------- */
 .row-toggle {
   display: inline-flex;
