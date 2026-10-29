@@ -1152,6 +1152,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           config={state.config}
           scorecard={bundle.scorecard}
           result={bundle.result}
+          events={bundle.events}
           onHome={handleHome}
         />
       )}

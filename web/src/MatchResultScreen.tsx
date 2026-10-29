@@ -1,16 +1,20 @@
-import type { MatchConfig, MatchResult, InningsCard, Scorecard } from '@cricket-app/core'
+import { applyEvents } from '@cricket-app/core'
+import type { MatchConfig, MatchResult, InningsCard, Scorecard, MatchEvent, MatchState } from '@cricket-app/core'
 import { formatWin, playerName, topBowler, topScorer } from './scoring'
 import { HomeIcon } from './ui/HomeIcon'
+
+import { ScorecardView } from './ScorecardView'
 
 interface Props {
   config: MatchConfig
   scorecard: Scorecard
   result: MatchResult
+  events?: MatchEvent[]
   onHome: () => void
 }
 
 /** Full-screen match result view shown when match is completed. */
-export function MatchResultScreen({ config, scorecard, result, onHome }: Props) {
+export function MatchResultScreen({ config, scorecard, result, events, onHome }: Props) {
 
   if (!result) return null
 
@@ -20,6 +24,8 @@ export function MatchResultScreen({ config, scorecard, result, onHome }: Props) 
 
   const winnerInnings = scorecard.innings.find((inn) => inn.battingTeamId === winnerTeamId && inn.closed)
   const loserInnings = scorecard.innings.find((inn) => inn.battingTeamId === loserTeamId && inn.closed)
+
+  const state = events && events.length > 0 ? applyEvents(config, events) : null
 
   return (
     <div className="result-screen">
@@ -104,6 +110,13 @@ export function MatchResultScreen({ config, scorecard, result, onHome }: Props) 
             </div>
           ))}
         </section>
+
+        {state && events && (
+          <section className="card">
+            <h2>Full Scorecard</h2>
+            <ScorecardView bundle={{ state, scorecard }} events={events} />
+          </section>
+        )}
       </main>
 
       <footer className="result-footer">
