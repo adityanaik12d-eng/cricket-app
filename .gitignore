@@ -13,3 +13,4 @@ cricket.db
 .vercel
 .env*
 ui-*.png
+.vercel-stage/
