@@ -2536,9 +2536,29 @@ table.visually-hidden {
   color: var(--muted);
 }
 
-.yet {
-  margin-top: var(--s-2);
+.fall-of-wickets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
   font-size: var(--fs-sm);
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  margin-top: var(--s-2);
+}
+
+.fow-item {
+  white-space: nowrap;
+}
+
+.fow-item::after {
+  content: ',';
+  margin-right: var(--s-1);
+}
+
+.fow-item:last-child::after {
+  content: '';
+  margin-right: 0;
 }
 
 /* ---------- expandable scorecard rows ---------- */
