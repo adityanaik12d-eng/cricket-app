@@ -1,0 +1,90 @@
+# Codemagic configuration for Cricket Scorer Capacitor app
+workflows:
+  android-debug:
+    name: Android Debug APK
+    max_build_duration: 60
+    instance_type: linux
+    environment:
+      vars:
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
+    scripts:
+      - name: Install Node.js 20
+        script: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+      - name: Install dependencies (root)
+        script: |
+          npm ci
+      - name: Install web dependencies
+        script: |
+          cd web
+          npm ci
+      - name: Build web app
+        script: |
+          cd web
+          npm run build
+      - name: Sync Capacitor Android
+        script: |
+          cd web
+          npx cap sync android
+      - name: Build Android Debug APK
+        script: |
+          cd web/android
+          ./gradlew assembleDebug --no-daemon
+    artifacts:
+      - web/android/app/build/outputs/apk/debug/app-debug.apk
+    publishing:
+      email:
+        recipients:
+          - adityanaik.12d@gmail.com  # Replace with your email
+
+  android-release:
+    name: Android Release AAB
+    max_build_duration: 60
+    instance_type: linux
+    environment:
+      vars:
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
+      # Add these in Codemagic UI > Environment variables (secure):
+      # KEYSTORE_PASSWORD
+      # KEY_ALIAS
+      # KEY_PASSWORD
+      # KEYSTORE_BASE64 (base64 encoded .jks file)
+    scripts:
+      - name: Install Node.js 20
+        script: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+      - name: Install dependencies (root)
+        script: |
+          npm ci
+      - name: Install web dependencies
+        script: |
+          cd web
+          npm ci
+      - name: Build web app
+        script: |
+          cd web
+          npm run build
+      - name: Sync Capacitor Android
+        script: |
+          cd web
+          npx cap sync android
+      - name: Setup keystore for release
+        script: |
+          echo $KEYSTORE_BASE64 | base64 --decode > web/android/app/release.keystore
+      - name: Build Android Release AAB
+        script: |
+          cd web/android
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=../app/release.keystore \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
+            --no-daemon
+    artifacts:
+      - web/android/app/build/outputs/bundle/release/app-release.aab
+    publishing:
+      email:
+        recipients:
+          - adityanaik.12d@gmail.com  # Replace with your email
