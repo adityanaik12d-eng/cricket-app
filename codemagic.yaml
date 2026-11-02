@@ -31,6 +31,10 @@ workflows:
         script: |
           cd web
           npm install @capacitor/cli --legacy-peer-deps
+      - name: Install Capacitor Android dependencies
+        script: |
+          cd web
+          npm install @capacitor/core @capacitor/android --legacy-peer-deps
       - name: Add Android platform
         script: |
           cd web
@@ -86,6 +90,10 @@ workflows:
         script: |
           cd web
           npm install @capacitor/cli --legacy-peer-deps
+      - name: Install Capacitor Android dependencies
+        script: |
+          cd web
+          npm install @capacitor/core @capacitor/android --legacy-peer-deps
       - name: Add Android platform
         script: |
           cd web
