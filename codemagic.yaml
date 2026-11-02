@@ -20,6 +20,10 @@ workflows:
         script: |
           cd web
           npm ci
+      - name: Build internal packages
+        script: |
+          npm run build -w @cricket-app/core
+          npm run build -w @cricket-app/shared
       - name: Build web app
         script: |
           cd web
@@ -64,6 +68,10 @@ workflows:
         script: |
           cd web
           npm ci
+      - name: Build internal packages
+        script: |
+          npm run build -w @cricket-app/core
+          npm run build -w @cricket-app/shared
       - name: Build web app
         script: |
           cd web
