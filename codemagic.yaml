@@ -27,6 +27,10 @@ workflows:
         script: |
           cd web
           npm run build
+      - name: Install Capacitor CLI
+        script: |
+          cd web
+          npm install @capacitor/cli --legacy-peer-deps
       - name: Sync Capacitor Android
         script: |
           cd web
@@ -74,6 +78,10 @@ workflows:
         script: |
           cd web
           npm run build
+      - name: Install Capacitor CLI
+        script: |
+          cd web
+          npm install @capacitor/cli --legacy-peer-deps
       - name: Sync Capacitor Android
         script: |
           cd web
