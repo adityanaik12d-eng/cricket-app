@@ -43,6 +43,11 @@ workflows:
         script: |
           cd web
           npx cap sync android
+      - name: Set Java 17 for Gradle
+        script: |
+          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
       - name: Build Android Debug APK
         script: |
           cd web/android
@@ -102,6 +107,11 @@ workflows:
         script: |
           cd web
           npx cap sync android
+      - name: Set Java 17 for Gradle
+        script: |
+          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
       - name: Setup keystore for release
         script: |
           echo $KEYSTORE_BASE64 | base64 --decode > web/android/app/release.keystore
