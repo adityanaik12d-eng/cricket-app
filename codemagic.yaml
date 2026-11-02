@@ -15,11 +15,11 @@ workflows:
           node --version
       - name: Install dependencies (root)
         script: |
-          npm ci
+          npm install --legacy-peer-deps
       - name: Install web dependencies
         script: |
           cd web
-          npm ci
+          npm install --legacy-peer-deps
       - name: Build internal packages
         script: |
           cd packages/core && npm run build && cd ../shared && npm run build
@@ -62,11 +62,11 @@ workflows:
           node --version
       - name: Install dependencies (root)
         script: |
-          npm ci
+          npm install --legacy-peer-deps
       - name: Install web dependencies
         script: |
           cd web
-          npm ci
+          npm install --legacy-peer-deps
       - name: Build internal packages
         script: |
           cd packages/core && npm run build && cd ../shared && npm run build
