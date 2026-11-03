@@ -43,14 +43,12 @@ workflows:
         script: |
           cd web
           npx cap sync android
-      - name: Install Java 21
+      - name: Build Android Debug APK
         script: |
           brew install openjdk@21
           export JAVA_HOME=$(/usr/libexec/java_home -v 21)
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
-      - name: Build Android Debug APK
-        script: |
           cd web/android
           ./gradlew assembleDebug --no-daemon
     artifacts:
@@ -108,17 +106,12 @@ workflows:
         script: |
           cd web
           npx cap sync android
-      - name: Install Java 21
+      - name: Build Android Release AAB
         script: |
           brew install openjdk@21
           export JAVA_HOME=$(/usr/libexec/java_home -v 21)
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
-      - name: Setup keystore for release
-        script: |
-          echo $KEYSTORE_BASE64 | base64 --decode > web/android/app/release.keystore
-      - name: Build Android Release AAB
-        script: |
           cd web/android
           ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file=../app/release.keystore \
