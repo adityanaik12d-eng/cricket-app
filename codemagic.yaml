@@ -46,11 +46,11 @@ workflows:
       - name: Patch Gradle for Java 17
         script: |
           cd web/android
-          find . -name "build.gradle" -exec sed -i 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/targetCompatibility = 21/targetCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/release = 21/release = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/21/17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/targetCompatibility = 21/targetCompatibility = 17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/release = 21/release = 17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/21/17/g' {} \;
           echo "Patched Gradle files for Java 17"
       - name: Set Java 17 for Gradle
         script: |
@@ -119,11 +119,11 @@ workflows:
       - name: Patch Gradle for Java 17
         script: |
           cd web/android
-          find . -name "build.gradle" -exec sed -i 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/targetCompatibility = 21/targetCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/release = 21/release = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
-          find . -name "build.gradle" -exec sed -i 's/21/17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/targetCompatibility = 21/targetCompatibility = 17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/release = 21/release = 17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
+          find . -name "build.gradle" -exec sed -i '' 's/21/17/g' {} \;
           echo "Patched Gradle files for Java 17"
       - name: Set Java 17 for Gradle
         script: |
