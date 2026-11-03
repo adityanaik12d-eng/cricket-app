@@ -51,7 +51,7 @@ workflows:
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
           cd web/android
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.java.home=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
     artifacts:
       - web/android/app/build/outputs/apk/debug/app-debug.apk
     publishing:
@@ -120,7 +120,8 @@ workflows:
             -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
-            --no-daemon
+            --no-daemon \
+            -Dorg.gradle.java.home=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
     artifacts:
       - web/android/app/build/outputs/bundle/release/app-release.aab
     publishing:
