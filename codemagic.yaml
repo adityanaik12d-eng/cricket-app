@@ -43,18 +43,10 @@ workflows:
         script: |
           cd web
           npx cap sync android
-      - name: Patch Gradle for Java 17
+      - name: Install Java 21
         script: |
-          cd web/android
-          find . -name "build.gradle" -exec sed -i '' 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/targetCompatibility = 21/targetCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/release = 21/release = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/21/17/g' {} \;
-          echo "Patched Gradle files for Java 17"
-      - name: Set Java 17 for Gradle
-        script: |
-          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          brew install openjdk@21
+          export JAVA_HOME=$(/usr/libexec/java_home -v 21)
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
       - name: Build Android Debug APK
@@ -116,18 +108,10 @@ workflows:
         script: |
           cd web
           npx cap sync android
-      - name: Patch Gradle for Java 17
+      - name: Install Java 21
         script: |
-          cd web/android
-          find . -name "build.gradle" -exec sed -i '' 's/sourceCompatibility = 21/sourceCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/targetCompatibility = 21/targetCompatibility = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/release = 21/release = 17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
-          find . -name "build.gradle" -exec sed -i '' 's/21/17/g' {} \;
-          echo "Patched Gradle files for Java 17"
-      - name: Set Java 17 for Gradle
-        script: |
-          export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+          brew install openjdk@21
+          export JAVA_HOME=$(/usr/libexec/java_home -v 21)
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
       - name: Setup keystore for release
