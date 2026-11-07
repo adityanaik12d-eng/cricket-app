@@ -24,6 +24,10 @@ describe('parseHash', () => {
     expect(parseHash('#/profile')).toEqual({ name: 'profile' })
   })
 
+  it('parses #/admin', () => {
+    expect(parseHash('#/admin')).toEqual({ name: 'admin' })
+  })
+
   it('falls back to home for unknown routes', () => {
     expect(parseHash('#/nonsense')).toEqual({ name: 'home' })
     expect(parseHash('#/match')).toEqual({ name: 'home' })

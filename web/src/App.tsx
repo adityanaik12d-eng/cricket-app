@@ -6,6 +6,10 @@ import { SignupScreen } from './SignupScreen'
 import { ProfileScreen } from './ProfileScreen'
 import { HomeScreen } from './HomeScreen'
 import { SettingsScreen } from './SettingsScreen'
+import { StandingsScreen } from './StandingsScreen'
+import { TournamentsScreen } from './TournamentsScreen'
+import { TournamentDetailScreen } from './TournamentDetailScreen'
+import { DLSScreen } from './DLSScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
 import { rememberMatch } from './myMatches'
@@ -15,9 +19,57 @@ import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, reset
 import { ThemeToggle } from './ui/ThemeToggle'
 import { initTheme } from './ui/theme'
 import { withViewTransition } from './ui/viewTransition'
+import { isCreatorAdminEmail } from './admin'
 
 // Reflect the stored theme before first paint (no-op outside the browser).
 initTheme()
+
+function AdminGate() {
+  const { data: { session } } = useState(() => getSupabase().auth.getSession())
+  const [user, setUser] = useState(session?.user ?? null)
+
+  useEffect(() => {
+    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, s) => {
+      setUser(s?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (!user) {
+    return (
+      <main className="card" style={{ maxWidth: 400, margin: '40px auto' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: 16 }}>Admin Portal</h2>
+        <p className="muted" style={{ textAlign: 'center', marginBottom: 24 }}>Sign in as the creator admin to access this page.</p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button className="btn accent" onClick={() => window.location.hash = '#/signin'}>Sign In</button>
+          <button className="btn ghost" onClick={() => window.location.hash = '#/'}>Home</button>
+        </div>
+      </main>
+    )
+  }
+
+  if (!isCreatorAdminEmail(user.email)) {
+    return (
+      <main className="card" style={{ maxWidth: 400, margin: '40px auto' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: 16 }}>Access Denied</h2>
+        <p className="muted" style={{ textAlign: 'center', marginBottom: 24 }}>This area is restricted to the creator admin only.</p>
+        <button className="btn ghost wide" onClick={() => window.location.hash = '#/'}>Back to Home</button>
+      </main>
+    )
+  }
+
+  return (
+    <main className="card" style={{ maxWidth: 800, margin: '24px auto' }}>
+      <h2 style={{ marginBottom: 16 }}>Admin Portal</h2>
+      <p className="muted" style={{ marginBottom: 24 }}>Admin portal UI coming in Task 9.</p>
+      <div style={{ padding: 16, background: 'var(--ms-surface)', borderRadius: 8, fontFamily: 'monospace', fontSize: 14 }}>
+        <div>Signed in as: <strong>{user.email}</strong></div>
+        <div>User ID: <strong>{user.id}</strong></div>
+      </div>
+      <button className="btn ghost" onClick={() => window.location.hash = '#/'} style={{ marginTop: 16 }}>Back to Home</button>
+    </main>
+  )
+}
 
 function slug(text: string): string {
   return (
@@ -115,7 +167,32 @@ export function App() {
             <ThemeToggle />
           </div>
         </header>
-        <SettingsScreen onBack={() => { window.location.hash = '#/profile' }} />
+        <SettingsScreen onBack={() => { window.location.hash = '#/' }} />
+      </div>
+    )
+  }
+  if (route.name === 'standings') {
+    return <StandingsScreen onBack={() => { window.location.hash = '#/' }} />
+  }
+  if (route.name === 'tournaments') {
+    return <TournamentsScreen onBack={() => { window.location.hash = '#/' }} onOpen={(id) => { window.location.hash = `#/tournament/${id}` }} />
+  }
+  if (route.name === 'tournament') {
+    return <TournamentDetailScreen tournamentId={route.tournamentId} onBack={() => { window.location.hash = '#/tournaments' }} />
+  }
+  if (route.name === 'dls') {
+    return <DLSScreen onBack={() => { window.location.hash = '#/' }} />
+  }
+  if (route.name === 'admin') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
+        </header>
+        <AdminGate />
       </div>
     )
   }
@@ -136,6 +213,7 @@ function SetupFlow() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [toss, setToss] = useState<TossDraft | null>(null)
+  const [wizardStep, setWizardStep] = useState<1 | 2>(1)
 
   const [lineupA, setLineupA] = useState<LineupEntry[]>([])
   const [lineupB, setLineupB] = useState<LineupEntry[]>([])
@@ -422,70 +500,68 @@ function SetupFlow() {
           <button className="btn ghost" onClick={() => (window.location.hash = '#/')}>Back</button>
         </div>
       </header>
-      <main className="card setup-card">
-        <h2>New match</h2>
+      <main className="card setup-card ms-wizard">
+        <div className="ms-wizard-head">
+          <div>
+            <h2 style={{ margin: 0 }}>New match</h2>
+            <p className="muted" style={{ margin: '4px 0 0' }}>Set up teams, then add lineups.</p>
+          </div>
+        </div>
+        <div className="ms-stepper" aria-label="Setup steps">
+          <button type="button" className={`ms-step ${wizardStep === 1 ? 'active' : wizardStep > 1 ? 'done' : ''}`} onClick={() => setWizardStep(1)}>
+            <span className="ms-step-num">1</span><span>Match details</span>
+          </button>
+          <button type="button" className={`ms-step ${wizardStep === 2 ? 'active' : ''}`} onClick={() => { if (teamA.trim() && teamB.trim()) setWizardStep(2); }}>
+            <span className="ms-step-num">2</span><span>Lineups</span>
+          </button>
+        </div>
         <form onSubmit={(e) => void createMatch(e)}>
-          <label>
-            Team A
-            <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
-          </label>
-          <label>
-            Team B
-            <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
-          </label>
-          <div className="field-row">
-            <label>
-              Overs
-              <input
-                type="number"
-                min={1}
-                max={90}
-                value={overs}
-                onChange={(e) => setOvers(Number(e.target.value) || 20)}
-              />
-            </label>
-            <label>
-              Players
-              <input
-                type="number"
-                min={2}
-                max={15}
-                value={players}
-                onChange={(e) => setPlayers(Number(e.target.value) || 11)}
-              />
-            </label>
-          </div>
-          <div className="field-row">
-            <label>
-              <input type="checkbox" checked={superOverEnabled} onChange={(e) => setSuperOverEnabled(e.target.checked)} />
-              Enable Superover (for tied matches)
-            </label>
-          </div>
-          {superOverEnabled && (
-            <div className="field-row">
+          {wizardStep === 1 && (
+            <div className="ms-reveal">
               <label>
-                Superover Overs
-                <input
-                  type="number"
-                  min={1}
-                  max={3}
-                  value={superOverOvers}
-                  onChange={(e) => setSuperOverOvers(Number(e.target.value) || 1)}
-                />
+                Team A
+                <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
               </label>
               <label>
-                Superover Max Wickets
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={superOverMaxWickets}
-                  onChange={(e) => setSuperOverMaxWickets(Number(e.target.value) || 2)}
-                />
+                Team B
+                <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
               </label>
+              <div className="field-row">
+                <label>
+                  Overs
+                  <input type="number" min={1} max={90} value={overs} onChange={(e) => setOvers(Number(e.target.value) || 20)} />
+                </label>
+                <label>
+                  Players
+                  <input type="number" min={2} max={15} value={players} onChange={(e) => setPlayers(Number(e.target.value) || 11)} />
+                </label>
+              </div>
+              <div className="field-row">
+                <label className="checkbox-inline">
+                  <input type="checkbox" checked={superOverEnabled} onChange={(e) => setSuperOverEnabled(e.target.checked)} />
+                  Enable Superover (for tied matches)
+                </label>
+              </div>
+              {superOverEnabled && (
+                <div className="field-row">
+                  <label>
+                    Superover Overs
+                    <input type="number" min={1} max={3} value={superOverOvers} onChange={(e) => setSuperOverOvers(Number(e.target.value) || 1)} />
+                  </label>
+                  <label>
+                    Superover Max Wickets
+                    <input type="number" min={1} max={10} value={superOverMaxWickets} onChange={(e) => setSuperOverMaxWickets(Number(e.target.value) || 2)} />
+                  </label>
+                </div>
+              )}
+              <button className="btn accent wide" type="button" onClick={() => { if (!teamA.trim() || !teamB.trim()) { setError('Enter both team names.'); return; } setError(null); setWizardStep(2); }}>
+                Next: Lineups
+              </button>
             </div>
           )}
 
+          {wizardStep === 2 && (
+            <div className="ms-reveal">
           <div className="lineup-section">
             <div className="lineup-head">
               <h3>Team A Lineup ({lineupA.length})</h3>
@@ -504,38 +580,17 @@ function SetupFlow() {
               ))}
             </div>
             <div className="mode-toggle">
-              <button
-                className={modeA === 'name' ? 'tab active' : 'tab'}
-                type="button"
-                onClick={() => setModeA('name')}
-              >
-                By name
-              </button>
-              <button
-                className={modeA === 'number' ? 'tab active' : 'tab'}
-                type="button"
-                onClick={() => setModeA('number')}
-              >
-                By number
-              </button>
+              <button className={modeA === 'name' ? 'tab active' : 'tab'} type="button" onClick={() => setModeA('name')}>By name</button>
+              <button className={modeA === 'number' ? 'tab active' : 'tab'} type="button" onClick={() => setModeA('number')}>By number</button>
             </div>
             {modeA === 'name' ? (
               <div className="add-row">
                 <input value={nameA} onChange={(e) => setNameA(e.target.value)} placeholder="Player name" />
-                <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>
-                  Add
-                </button>
+                <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>Add</button>
               </div>
             ) : (
               <div className="add-col">
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={numA}
-                  onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Mobile number (min 4 digits)"
-                />
+                <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numA} onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
                 {searchingA && <p className="muted">Searching...</p>}
                 {resultsA.length > 0 && (
                   <div className="suggestions">
@@ -549,22 +604,11 @@ function SetupFlow() {
                 {numA.length >= 4 && !searchingA && resultsA.length === 0 && (
                   <div className="create-new">
                     <p className="muted">No results for '{numA}'</p>
-                    <button className="btn ghost" type="button" onClick={() => setShowCreateA((v) => !v)}>
-                      Add '{numA}' as new player
-                    </button>
+                    <button className="btn ghost" type="button" onClick={() => setShowCreateA((v) => !v)}>Add '{numA}' as new player</button>
                     {showCreateA && (
                       <div className="add-row">
-                        <input
-                          value={newNameA}
-                          onChange={(e) => setNewNameA(e.target.value)}
-                          placeholder="Player name"
-                        />
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => void createNewA()}
-                          disabled={creatingA || !newNameA.trim()}
-                        >
+                        <input value={newNameA} onChange={(e) => setNewNameA(e.target.value)} placeholder="Player name" />
+                        <button className="btn" type="button" onClick={() => void createNewA()} disabled={creatingA || !newNameA.trim()}>
                           {creatingA ? 'Creating...' : 'Create'}
                         </button>
                       </div>
@@ -578,53 +622,28 @@ function SetupFlow() {
           <div className="lineup-section">
             <div className="lineup-head">
               <h3>Team B Lineup ({lineupB.length})</h3>
-              <button className="btn ghost" type="button" onClick={quickFillB}>
-                Quick fill
-              </button>
+              <button className="btn ghost" type="button" onClick={quickFillB}>Quick fill</button>
             </div>
             <div className="chip-row">
               {lineupB.map((e) => (
                 <span key={e.id} className="chip">
                   {e.name}
-                  <button className="chip-x" type="button" onClick={() => removeB(e.id)} aria-label="remove">
-                    ×
-                  </button>
+                  <button className="chip-x" type="button" onClick={() => removeB(e.id)} aria-label="remove">×</button>
                 </span>
               ))}
             </div>
             <div className="mode-toggle">
-              <button
-                className={modeB === 'name' ? 'tab active' : 'tab'}
-                type="button"
-                onClick={() => setModeB('name')}
-              >
-                By name
-              </button>
-              <button
-                className={modeB === 'number' ? 'tab active' : 'tab'}
-                type="button"
-                onClick={() => setModeB('number')}
-              >
-                By number
-              </button>
+              <button className={modeB === 'name' ? 'tab active' : 'tab'} type="button" onClick={() => setModeB('name')}>By name</button>
+              <button className={modeB === 'number' ? 'tab active' : 'tab'} type="button" onClick={() => setModeB('number')}>By number</button>
             </div>
             {modeB === 'name' ? (
               <div className="add-row">
                 <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="Player name" />
-                <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>
-                  Add
-                </button>
+                <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>Add</button>
               </div>
             ) : (
               <div className="add-col">
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={numB}
-                  onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Mobile number (min 4 digits)"
-                />
+                <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numB} onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
                 {searchingB && <p className="muted">Searching...</p>}
                 {resultsB.length > 0 && (
                   <div className="suggestions">
@@ -638,22 +657,11 @@ function SetupFlow() {
                 {numB.length >= 4 && !searchingB && resultsB.length === 0 && (
                   <div className="create-new">
                     <p className="muted">No results for '{numB}'</p>
-                    <button className="btn ghost" type="button" onClick={() => setShowCreateB((v) => !v)}>
-                      Add '{numB}' as new player
-                    </button>
+                    <button className="btn ghost" type="button" onClick={() => setShowCreateB((v) => !v)}>Add '{numB}' as new player</button>
                     {showCreateB && (
                       <div className="add-row">
-                        <input
-                          value={newNameB}
-                          onChange={(e) => setNewNameB(e.target.value)}
-                          placeholder="Player name"
-                        />
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => void createNewB()}
-                          disabled={creatingB || !newNameB.trim()}
-                        >
+                        <input value={newNameB} onChange={(e) => setNewNameB(e.target.value)} placeholder="Player name" />
+                        <button className="btn" type="button" onClick={() => void createNewB()} disabled={creatingB || !newNameB.trim()}>
                           {creatingB ? 'Creating...' : 'Create'}
                         </button>
                       </div>
@@ -666,9 +674,14 @@ function SetupFlow() {
 
           {error && <p className="error">{error}</p>}
 
-          <button className="btn accent wide" type="submit" disabled={busy}>
-            {busy ? 'Creating…' : 'Create match'}
-          </button>
+          <div className="wizard-actions">
+            <button className="btn ghost" type="button" onClick={() => setWizardStep(1)}>Back</button>
+            <button className="btn accent wide" type="submit" disabled={busy} style={{ flex: 1 }}>
+              {busy ? 'Creating...' : 'Create match'}
+            </button>
+          </div>
+            </div>
+          )}
         </form>
       </main>
     </div>

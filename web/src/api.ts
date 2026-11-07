@@ -4,6 +4,7 @@ import { getSupabase } from './supabase'
 import { MatchError, appendEvent, buildConfig, computeBundle, computeCommentary, summarizeRows, withoutLastEvent } from './match'
 import type { MatchBundle, MatchSummary } from './match'
 import { hashScorerToken, isScorerMatch, readScorerToken, sha256Hex } from './ownership'
+import { isCreatorAdminEmail } from './admin'
 
 export type { MatchBundle }
 
@@ -72,7 +73,7 @@ export interface AuthResponse {
   player: Player
 }
 
-const UNAVAILABLE = 'Sign-in and shared player profiles are not part of the online scorer yet.'
+// Removed UNAVAILABLE constant as it's no longer used for getPlayerStats
 
 function toApiError(err: unknown, fallback: string): ApiRequestError {
   if (err instanceof ApiRequestError) return err
@@ -127,13 +128,17 @@ async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: 
 /**
  * Maps a Supabase Auth user to the app's Player shape. The profile lives in
  * the user's metadata; fields the user has not set get sensible defaults.
+ * Mobile number is prioritized from user_metadata.mobile or user.phone,
+ * falling back to email for backward compatibility.
  */
 function userToPlayer(user: { id: string; email?: string | null; phone?: string | null; created_at: string; user_metadata?: Record<string, unknown> }): Player {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>
-  const email = (user.email ?? '').trim()
+  const mobile = (typeof meta.mobile === 'string' && meta.mobile.trim()
+    ? meta.mobile.trim()
+    : user.phone) ?? user.email ?? 'Unknown'
   return {
     id: user.id,
-    mobile: email,
+    mobile,
     name: typeof meta.name === 'string' && meta.name.trim() ? meta.name.trim() : 'Player',
     role: meta.role === 'BATSMAN' || meta.role === 'BOWLER' || meta.role === 'KEEPER' || meta.role === 'ALL_ROUNDER' ? meta.role : 'BATSMAN',
     batting_hand: meta.batting_hand === 'LHB' ? 'LHB' : 'RHB',
@@ -299,7 +304,7 @@ export const api = {
       throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
     }
     // Only admin can delete all matches
-    if (userData.user.email !== 'adityanaik.12d@gmail.com') {
+    if (!isCreatorAdminEmail(userData.user.email)) {
       throw new ApiRequestError('Only admin can delete all matches', 'FORBIDDEN')
     }
     const { data, error } = await getSupabase()
@@ -318,7 +323,7 @@ export const api = {
       throw new ApiRequestError('Sign in to manage your matches', 'UNAUTHENTICATED')
     }
     // Only admin can delete matches
-    if (userData.user.email !== 'adityanaik.12d@gmail.com') {
+    if (!isCreatorAdminEmail(userData.user.email)) {
       throw new ApiRequestError('Only admin can delete matches', 'FORBIDDEN')
     }
     const { data, error } = await getSupabase()
@@ -438,7 +443,7 @@ export const api = {
     return { token: data.session.access_token, player }
   },
 
-  async register(email: string, otp: string, name: string): Promise<AuthResponse> {
+  async register(email: string, otp: string, name: string, mobile?: string): Promise<AuthResponse> {
     const { data, error } = await getSupabase().auth.verifyOtp({
       email,
       token: otp,
@@ -447,20 +452,26 @@ export const api = {
     if (error || !data.session || !data.user) {
       throw new ApiRequestError(error?.message ?? 'Verification failed', 'OTP_MISMATCH')
     }
+    const updateData: Record<string, unknown> = { name: name.trim() || 'Player' }
+    if (mobile?.trim()) updateData.mobile = mobile.trim()
     const { data: updated, error: updateError } = await getSupabase().auth.updateUser({
-      data: { name: name.trim() || 'Player' },
+      data: updateData,
     })
     if (updateError) throw new ApiRequestError(updateError.message, 'AUTH_ERROR')
     const player = userToPlayer(updated?.user ?? data.user)
     return { token: data.session.access_token, player }
   },
 
-  async signUpWithPassword(email: string, password: string, name: string): Promise<AuthResponse> {
-    const { data, error } = await getSupabase().auth.signUp({
+  async signUpWithPassword(email: string, password: string, name: string, mobile?: string): Promise<AuthResponse> {
+    const signupData: { email: string; password: string; options: { data: Record<string, unknown> } } = {
       email,
       password,
       options: { data: { name: name.trim() || 'Player' } },
-    })
+    }
+    if (mobile?.trim()) {
+      signupData.options.data.mobile = mobile.trim()
+    }
+    const { data, error } = await getSupabase().auth.signUp(signupData)
     if (error) {
       throw new ApiRequestError(error.message, 'SIGNUP_FAILED')
     }
@@ -504,7 +515,26 @@ export const api = {
   },
 
   async getPlayerStats(_id: string): Promise<CareerStats> {
-    throw new ApiRequestError(UNAVAILABLE, 'UNAVAILABLE')
+    // Stats are currently unavailable; return a zeroed-out object instead of throwing an error
+    return {
+      matches: 0,
+      runs: 0,
+      balls: 0,
+      fours: 0,
+      sixes: 0,
+      highest: 0,
+      notOuts: 0,
+      wickets: 0,
+      oversBowled: '0.0',
+      runsConceded: 0,
+      bestBowling: '0/0',
+      catches: 0,
+      stumpings: 0,
+      runOuts: 0,
+      batting: { innings: 0, outCount: 0, average: 0, strikeRate: 0 },
+      bowling: { innings: 0, economy: 0, average: 0 },
+      fielding: { dismissals: 0 },
+    }
   },
 
   async signOut(): Promise<void> {
