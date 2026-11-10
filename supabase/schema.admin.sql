@@ -1,5 +1,5 @@
--- Admin portal: profiles (1:1 auth.users) + audit log. Run after schema.sql.
--- Safe to re-run where IF NOT EXISTS / DROP POLICY IF EXISTS used.
+-- Admin portal schema: profiles (1:1 auth.users) + audit log.
+-- Run after supabase/schema.sql in Supabase SQL Editor. Safe to re-run.
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -19,20 +19,27 @@ create index if not exists profiles_name_idx on public.profiles (lower(name));
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end; $$;
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at before update on public.profiles
 for each row execute function public.set_updated_at();
 
 alter table public.profiles enable row level security;
-drop policy if exists "profiles_select_own" on public.profiles;
-create policy "profiles_select_own" on public.profiles for select
+
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+create policy "profiles_select_own_or_admin" on public.profiles for select
   using (auth.uid() = id or auth.email() = 'adityanaik.12d@gmail.com');
-drop policy if exists "profiles_update_own" on public.profiles;
-create policy "profiles_update_own" on public.profiles for update
+
+drop policy if exists "profiles_update_own_or_admin" on public.profiles;
+create policy "profiles_update_own_or_admin" on public.profiles for update
   using (auth.uid() = id or auth.email() = 'adityanaik.12d@gmail.com')
   with check (auth.uid() = id or auth.email() = 'adityanaik.12d@gmail.com');
+
 -- Inserts/privileged admin edits are performed by service-role Edge Functions.
 
 create table if not exists public.admin_audit_log (
@@ -45,16 +52,25 @@ create table if not exists public.admin_audit_log (
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
 create index if not exists admin_audit_log_created_idx on public.admin_audit_log (created_at desc);
+
 alter table public.admin_audit_log enable row level security;
+
 drop policy if exists "admin_audit_select_creator" on public.admin_audit_log;
 create policy "admin_audit_select_creator" on public.admin_audit_log for select
   using (auth.email() = 'adityanaik.12d@gmail.com');
+
 -- Inserts via service-role Edge Functions only.
 
--- Best-effort backfill (safe if auth schema readable in SQL editor context; skip if restricted).
--- Run manually if needed:
--- insert into public.profiles (id,email,name,mobile,role)
--- select id,email,raw_user_meta_data->>'name',coalesce(raw_user_meta_data->>'mobile',phone),raw_user_meta_data->>'role'
+-- Best-effort backfill from existing auth.users metadata (run manually if desired).
+-- insert into public.profiles (id, email, name, mobile, role)
+-- select id, email, raw_user_meta_data->>'name',
+--        coalesce(raw_user_meta_data->>'mobile', phone),
+--        raw_user_meta_data->>'role'
 -- from auth.users
--- on conflict (id) do update set email=excluded.email, name=coalesce(public.profiles.name,excluded.name);
+-- on conflict (id) do update set
+--   email = excluded.email,
+--   name = coalesce(public.profiles.name, excluded.name),
+--   mobile = coalesce(public.profiles.mobile, excluded.mobile),
+--   role = coalesce(public.profiles.role, excluded.role);

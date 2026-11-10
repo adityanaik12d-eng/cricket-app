@@ -12,6 +12,7 @@ import { TournamentDetailScreen } from './TournamentDetailScreen'
 import { DLSScreen } from './DLSScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
+import { getSupabase } from './supabase'
 import { rememberMatch } from './myMatches'
 import { createScorerToken, storeScorerToken } from './ownership'
 import type { CreateMatchBody, Player } from './api'
@@ -20,20 +21,34 @@ import { ThemeToggle } from './ui/ThemeToggle'
 import { initTheme } from './ui/theme'
 import { withViewTransition } from './ui/viewTransition'
 import { isCreatorAdminEmail } from './admin'
+import { AdminPortalScreen } from './AdminPortalScreen'
 
 // Reflect the stored theme before first paint (no-op outside the browser).
 initTheme()
 
 function AdminGate() {
-  const { data: { session } } = useState(() => getSupabase().auth.getSession())
-  const [user, setUser] = useState(session?.user ?? null)
+  const [user, setUser] = useState<{ id: string; email: string | null } | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const { data: { subscription } } = getSupabase().auth.onAuthStateChange((_event, s) => {
-      setUser(s?.user ?? null)
+    const sb = getSupabase()
+    sb.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null)
+      setLoading(false)
+    })
+    const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => {
+      setUser(s?.user ? { id: s.user.id, email: s.user.email ?? null } : null)
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  if (loading) {
+    return (
+      <main className="card" style={{ maxWidth: 400, margin: '40px auto' }}>
+        <p className="muted" style={{ textAlign: 'center' }}>Loading...</p>
+      </main>
+    )
+  }
 
   if (!user) {
     return (
@@ -58,17 +73,7 @@ function AdminGate() {
     )
   }
 
-  return (
-    <main className="card" style={{ maxWidth: 800, margin: '24px auto' }}>
-      <h2 style={{ marginBottom: 16 }}>Admin Portal</h2>
-      <p className="muted" style={{ marginBottom: 24 }}>Admin portal UI coming in Task 9.</p>
-      <div style={{ padding: 16, background: 'var(--ms-surface)', borderRadius: 8, fontFamily: 'monospace', fontSize: 14 }}>
-        <div>Signed in as: <strong>{user.email}</strong></div>
-        <div>User ID: <strong>{user.id}</strong></div>
-      </div>
-      <button className="btn ghost" onClick={() => window.location.hash = '#/'} style={{ marginTop: 16 }}>Back to Home</button>
-    </main>
-  )
+  return <AdminPortalScreen />
 }
 
 function slug(text: string): string {
