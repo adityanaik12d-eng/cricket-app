@@ -133,7 +133,7 @@ export function App() {
             <ThemeToggle />
           </div>
         </header>
-        <SigninScreen onDone={() => { window.location.hash = '#/profile' }} />
+        <SigninScreen onDone={() => { window.location.hash = '#/'; }} />
       </div>
     )
   }
@@ -146,7 +146,7 @@ export function App() {
             <ThemeToggle />
           </div>
         </header>
-        <SignupScreen onDone={() => { window.location.hash = '#/profile' }} />
+        <SignupScreen onDone={() => { window.location.hash = '#/'; }} />
       </div>
     )
   }
@@ -219,6 +219,9 @@ function SetupFlow() {
   const [busy, setBusy] = useState(false)
   const [toss, setToss] = useState<TossDraft | null>(null)
   const [wizardStep, setWizardStep] = useState<1 | 2>(1)
+  const [coinFlipping, setCoinFlipping] = useState(false)
+  const [coinSide, setCoinSide] = useState<'heads' | 'tails'>('heads')
+  const [tossWinner, setTossWinner] = useState<string | null>(null)
 
   const [lineupA, setLineupA] = useState<LineupEntry[]>([])
   const [lineupB, setLineupB] = useState<LineupEntry[]>([])
@@ -239,6 +242,19 @@ function SetupFlow() {
   const [newNameB, setNewNameB] = useState('')
   const [creatingA, setCreatingA] = useState(false)
   const [creatingB, setCreatingB] = useState(false)
+
+  // Coin flip effect
+  useEffect(() => {
+    if (!coinFlipping) return
+    // Randomly pick winner after animation
+    const timeout = setTimeout(() => {
+      const winner = Math.random() > 0.5 ? toss?.teamAId : toss?.teamBId
+      setTossWinner(winner ?? '')
+      setCoinSide(Math.random() > 0.5 ? 'heads' : 'tails')
+      setCoinFlipping(false)
+    }, 1500)
+    return () => clearTimeout(timeout)
+  }, [coinFlipping, toss])
 
   function takenIdsA(): string[] {
     return lineupA.map((e) => e.id)
@@ -467,27 +483,42 @@ function SetupFlow() {
             <ThemeToggle />
           </div>
         </header>
-        <main className="card setup-card">
-          <h2>Toss</h2>
-          <p className="muted">
-            {toss.teamAId} vs {toss.teamBId} · {toss.oversPerInnings} overs
-          </p>
-          <div className="toss-grid">
-            {[toss.teamAId, toss.teamBId].map((team) => (
-              <div key={team} className="toss-team">
-                <h3>{team}</h3>
-                <div className="btn-row">
-                  <button className="btn accent" disabled={busy} onClick={() => void recordToss(team, 'BAT')}>
-                    Bat
-                  </button>
-                  <button className="btn" disabled={busy} onClick={() => void recordToss(team, 'BOWL')}>
-                    Bowl
-                  </button>
-                </div>
-              </div>
-            ))}
+        <main className="card setup-card toss-screen">
+          <div className="toss-header">
+            <div className="toss-ribbon">TOSS</div>
+            <h2>Coin Toss</h2>
+            <p className="muted">{toss.teamAId} vs {toss.teamBId} · {toss.oversPerInnings} overs</p>
           </div>
-          <button className="btn ghost" onClick={() => setToss(null)}>
+          
+          <div className="coin-flip" onClick={() => !busy && setCoinFlipping(true)}>
+            <div className={`coin ${coinSide} ${coinFlipping ? 'flipping' : ''}`}>
+              <div className="coin-face heads">
+                <span className="coin-icon">🏏</span>
+                <span className="coin-label">HEADS</span>
+              </div>
+              <div className="coin-face tails">
+                <span className="coin-icon">🏏</span>
+                <span className="coin-label">TAILS</span>
+              </div>
+            </div>
+            <p className="coin-prompt">{coinFlipping ? 'Flipping...' : 'Tap coin to flip'}</p>
+          </div>
+
+          {!coinFlipping && tossWinner && (
+            <div className="toss-result">
+              <p className="muted">Winner: <strong>{tossWinner}</strong></p>
+              <div className="btn-row">
+                <button className="btn accent" disabled={busy} onClick={() => void recordToss(tossWinner, 'BAT')}>
+                  Bat
+                </button>
+                <button className="btn secondary" disabled={busy} onClick={() => void recordToss(tossWinner, 'BOWL')}>
+                  Bowl
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button className="btn ghost" onClick={() => { setToss(null); setCoinFlipping(false); setTossWinner(null); setCoinSide('heads'); }}>
             Back
           </button>
           {error && <p className="error">{error}</p>}
@@ -505,16 +536,17 @@ function SetupFlow() {
           <button className="btn ghost" onClick={() => (window.location.hash = '#/')}>Back</button>
         </div>
       </header>
-      <main className="card setup-card ms-wizard">
-        <div className="ms-wizard-head">
+      <main className="card setup-card ms-wizard scorebook-cover">
+        <div className="ms-wizard-head cover-header">
+          <div className="cover-ribbon">NEW MATCH</div>
           <div>
-            <h2 style={{ margin: 0 }}>New match</h2>
-            <p className="muted" style={{ margin: '4px 0 0' }}>Set up teams, then add lineups.</p>
+            <h2 style={{ margin: 0 }}>Scorebook Cover</h2>
+            <p className="muted" style={{ margin: '4px 0 0' }}>Fill in the match details</p>
           </div>
         </div>
-        <div className="ms-stepper" aria-label="Setup steps">
+        <div className="ms-stepper cover-stepper" aria-label="Setup steps">
           <button type="button" className={`ms-step ${wizardStep === 1 ? 'active' : wizardStep > 1 ? 'done' : ''}`} onClick={() => setWizardStep(1)}>
-            <span className="ms-step-num">1</span><span>Match details</span>
+            <span className="ms-step-num">1</span><span>Match Details</span>
           </button>
           <button type="button" className={`ms-step ${wizardStep === 2 ? 'active' : ''}`} onClick={() => { if (teamA.trim() && teamB.trim()) setWizardStep(2); }}>
             <span className="ms-step-num">2</span><span>Lineups</span>
@@ -522,43 +554,45 @@ function SetupFlow() {
         </div>
         <form onSubmit={(e) => void createMatch(e)}>
           {wizardStep === 1 && (
-            <div className="ms-reveal">
-              <label>
-                Team A
-                <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
-              </label>
-              <label>
-                Team B
-                <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
-              </label>
-              <div className="field-row">
-                <label>
-                  Overs
-                  <input type="number" min={1} max={90} value={overs} onChange={(e) => setOvers(Number(e.target.value) || 20)} />
+            <div className="ms-reveal cover-page">
+              <div className="cover-fields">
+                <label className="form-field">
+                  <span className="form-label">Team A</span>
+                  <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
                 </label>
-                <label>
-                  Players
-                  <input type="number" min={2} max={15} value={players} onChange={(e) => setPlayers(Number(e.target.value) || 11)} />
+                <label className="form-field">
+                  <span className="form-label">Team B</span>
+                  <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
                 </label>
-              </div>
-              <div className="field-row">
-                <label className="checkbox-inline">
-                  <input type="checkbox" checked={superOverEnabled} onChange={(e) => setSuperOverEnabled(e.target.checked)} />
-                  Enable Superover (for tied matches)
-                </label>
-              </div>
-              {superOverEnabled && (
                 <div className="field-row">
-                  <label>
-                    Superover Overs
-                    <input type="number" min={1} max={3} value={superOverOvers} onChange={(e) => setSuperOverOvers(Number(e.target.value) || 1)} />
+                  <label className="form-field">
+                    <span className="form-label">Overs</span>
+                    <input type="number" min={1} max={90} value={overs} onChange={(e) => setOvers(Number(e.target.value) || 20)} />
                   </label>
-                  <label>
-                    Superover Max Wickets
-                    <input type="number" min={1} max={10} value={superOverMaxWickets} onChange={(e) => setSuperOverMaxWickets(Number(e.target.value) || 2)} />
+                  <label className="form-field">
+                    <span className="form-label">Players</span>
+                    <input type="number" min={2} max={15} value={players} onChange={(e) => setPlayers(Number(e.target.value) || 11)} />
                   </label>
                 </div>
-              )}
+                <div className="field-row">
+                  <label className="checkbox-inline">
+                    <input type="checkbox" checked={superOverEnabled} onChange={(e) => setSuperOverEnabled(e.target.checked)} />
+                    Enable Superover (for tied matches)
+                  </label>
+                </div>
+                {superOverEnabled && (
+                  <div className="field-row">
+                    <label className="form-field">
+                      <span className="form-label">Superover Overs</span>
+                      <input type="number" min={1} max={3} value={superOverOvers} onChange={(e) => setSuperOverOvers(Number(e.target.value) || 1)} />
+                    </label>
+                    <label className="form-field">
+                      <span className="form-label">Superover Max Wickets</span>
+                      <input type="number" min={1} max={10} value={superOverMaxWickets} onChange={(e) => setSuperOverMaxWickets(Number(e.target.value) || 2)} />
+                    </label>
+                  </div>
+                )}
+              </div>
               <button className="btn accent wide" type="button" onClick={() => { if (!teamA.trim() || !teamB.trim()) { setError('Enter both team names.'); return; } setError(null); setWizardStep(2); }}>
                 Next: Lineups
               </button>
@@ -566,125 +600,125 @@ function SetupFlow() {
           )}
 
           {wizardStep === 2 && (
-            <div className="ms-reveal">
-          <div className="lineup-section">
-            <div className="lineup-head">
-              <h3>Team A Lineup ({lineupA.length})</h3>
-              <button className="btn ghost" type="button" onClick={quickFillA}>
-                Quick fill
-              </button>
-            </div>
-            <div className="chip-row">
-              {lineupA.map((e) => (
-                <span key={e.id} className="chip">
-                  {e.name}
-                  <button className="chip-x" type="button" onClick={() => removeA(e.id)} aria-label="remove">
-                    ×
+            <div className="ms-reveal cover-page">
+              <div className="lineup-section">
+                <div className="lineup-head">
+                  <h3>Team A Lineup ({lineupA.length})</h3>
+                  <button className="btn ghost" type="button" onClick={quickFillA}>
+                    Quick fill
                   </button>
-                </span>
-              ))}
-            </div>
-            <div className="mode-toggle">
-              <button className={modeA === 'name' ? 'tab active' : 'tab'} type="button" onClick={() => setModeA('name')}>By name</button>
-              <button className={modeA === 'number' ? 'tab active' : 'tab'} type="button" onClick={() => setModeA('number')}>By number</button>
-            </div>
-            {modeA === 'name' ? (
-              <div className="add-row">
-                <input value={nameA} onChange={(e) => setNameA(e.target.value)} placeholder="Player name" />
-                <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>Add</button>
-              </div>
-            ) : (
-              <div className="add-col">
-                <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numA} onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
-                {searchingA && <p className="muted">Searching...</p>}
-                {resultsA.length > 0 && (
-                  <div className="suggestions">
-                    {resultsA.map((p) => (
-                      <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryA(p)}>
-                        {p.name} · {p.role} · {p.mobile}
+                </div>
+                <div className="chip-row">
+                  {lineupA.map((e) => (
+                    <span key={e.id} className="chip removable">
+                      {e.name}
+                      <button className="chip-remove" type="button" onClick={() => removeA(e.id)} aria-label="remove">
+                        ×
                       </button>
-                    ))}
+                    </span>
+                  ))}
+                </div>
+                <div className="paper-tabs" role="tablist">
+                  <button role="tab" className={modeA === 'name' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('name')}>By name</button>
+                  <button role="tab" className={modeA === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('number')}>By number</button>
+                </div>
+                {modeA === 'name' ? (
+                  <div className="add-row">
+                    <input value={nameA} onChange={(e) => setNameA(e.target.value)} placeholder="Player name" />
+                    <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>Add</button>
                   </div>
-                )}
-                {numA.length >= 4 && !searchingA && resultsA.length === 0 && (
-                  <div className="create-new">
-                    <p className="muted">No results for '{numA}'</p>
-                    <button className="btn ghost" type="button" onClick={() => setShowCreateA((v) => !v)}>Add '{numA}' as new player</button>
-                    {showCreateA && (
-                      <div className="add-row">
-                        <input value={newNameA} onChange={(e) => setNewNameA(e.target.value)} placeholder="Player name" />
-                        <button className="btn" type="button" onClick={() => void createNewA()} disabled={creatingA || !newNameA.trim()}>
-                          {creatingA ? 'Creating...' : 'Create'}
-                        </button>
+                ) : (
+                  <div className="add-col">
+                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numA} onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
+                    {searchingA && <p className="muted">Searching...</p>}
+                    {resultsA.length > 0 && (
+                      <div className="suggestions">
+                        {resultsA.map((p) => (
+                          <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryA(p)}>
+                            {p.name} · {p.role} · {p.mobile}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {numA.length >= 4 && !searchingA && resultsA.length === 0 && (
+                      <div className="create-new">
+                        <p className="muted">No results for '{numA}'</p>
+                        <button className="btn ghost" type="button" onClick={() => setShowCreateA((v) => !v)}>Add '{numA}' as new player</button>
+                        {showCreateA && (
+                          <div className="add-row">
+                            <input value={newNameA} onChange={(e) => setNewNameA(e.target.value)} placeholder="Player name" />
+                            <button className="btn" type="button" onClick={() => void createNewA()} disabled={creatingA || !newNameA.trim()}>
+                              {creatingA ? 'Creating...' : 'Create'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          <div className="lineup-section">
-            <div className="lineup-head">
-              <h3>Team B Lineup ({lineupB.length})</h3>
-              <button className="btn ghost" type="button" onClick={quickFillB}>Quick fill</button>
-            </div>
-            <div className="chip-row">
-              {lineupB.map((e) => (
-                <span key={e.id} className="chip">
-                  {e.name}
-                  <button className="chip-x" type="button" onClick={() => removeB(e.id)} aria-label="remove">×</button>
-                </span>
-              ))}
-            </div>
-            <div className="mode-toggle">
-              <button className={modeB === 'name' ? 'tab active' : 'tab'} type="button" onClick={() => setModeB('name')}>By name</button>
-              <button className={modeB === 'number' ? 'tab active' : 'tab'} type="button" onClick={() => setModeB('number')}>By number</button>
-            </div>
-            {modeB === 'name' ? (
-              <div className="add-row">
-                <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="Player name" />
-                <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>Add</button>
-              </div>
-            ) : (
-              <div className="add-col">
-                <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numB} onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
-                {searchingB && <p className="muted">Searching...</p>}
-                {resultsB.length > 0 && (
-                  <div className="suggestions">
-                    {resultsB.map((p) => (
-                      <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryB(p)}>
-                        {p.name} · {p.role} · {p.mobile}
-                      </button>
-                    ))}
+              <div className="lineup-section">
+                <div className="lineup-head">
+                  <h3>Team B Lineup ({lineupB.length})</h3>
+                  <button className="btn ghost" type="button" onClick={quickFillB}>Quick fill</button>
+                </div>
+                <div className="chip-row">
+                  {lineupB.map((e) => (
+                    <span key={e.id} className="chip removable">
+                      {e.name}
+                      <button className="chip-remove" type="button" onClick={() => removeB(e.id)} aria-label="remove">×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="paper-tabs" role="tablist">
+                  <button role="tab" className={modeB === 'name' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('name')}>By name</button>
+                  <button role="tab" className={modeB === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('number')}>By number</button>
+                </div>
+                {modeB === 'name' ? (
+                  <div className="add-row">
+                    <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="Player name" />
+                    <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>Add</button>
                   </div>
-                )}
-                {numB.length >= 4 && !searchingB && resultsB.length === 0 && (
-                  <div className="create-new">
-                    <p className="muted">No results for '{numB}'</p>
-                    <button className="btn ghost" type="button" onClick={() => setShowCreateB((v) => !v)}>Add '{numB}' as new player</button>
-                    {showCreateB && (
-                      <div className="add-row">
-                        <input value={newNameB} onChange={(e) => setNewNameB(e.target.value)} placeholder="Player name" />
-                        <button className="btn" type="button" onClick={() => void createNewB()} disabled={creatingB || !newNameB.trim()}>
-                          {creatingB ? 'Creating...' : 'Create'}
-                        </button>
+                ) : (
+                  <div className="add-col">
+                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numB} onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
+                    {searchingB && <p className="muted">Searching...</p>}
+                    {resultsB.length > 0 && (
+                      <div className="suggestions">
+                        {resultsB.map((p) => (
+                          <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryB(p)}>
+                            {p.name} · {p.role} · {p.mobile}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {numB.length >= 4 && !searchingB && resultsB.length === 0 && (
+                      <div className="create-new">
+                        <p className="muted">No results for '{numB}'</p>
+                        <button className="btn ghost" type="button" onClick={() => setShowCreateB((v) => !v)}>Add '{numB}' as new player</button>
+                        {showCreateB && (
+                          <div className="add-row">
+                            <input value={newNameB} onChange={(e) => setNewNameB(e.target.value)} placeholder="Player name" />
+                            <button className="btn" type="button" onClick={() => void createNewB()} disabled={creatingB || !newNameB.trim()}>
+                              {creatingB ? 'Creating...' : 'Create'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {error && <p className="error">{error}</p>}
+              {error && <p className="error">{error}</p>}
 
-          <div className="wizard-actions">
-            <button className="btn ghost" type="button" onClick={() => setWizardStep(1)}>Back</button>
-            <button className="btn accent wide" type="submit" disabled={busy} style={{ flex: 1 }}>
-              {busy ? 'Creating...' : 'Create match'}
-            </button>
-          </div>
+              <div className="wizard-actions">
+                <button className="btn ghost" type="button" onClick={() => setWizardStep(1)}>Back</button>
+                <button className="btn accent wide" type="submit" disabled={busy} style={{ flex: 1 }}>
+                  {busy ? 'Creating...' : 'Create match'}
+                </button>
+              </div>
             </div>
           )}
         </form>

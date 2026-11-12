@@ -1,0 +1,562 @@
+
+Here is the comprehensive product and technical specification based on the CricHeroes application screens provided.
+Part 1: Detailed Screen-by-Screen Breakdown
+Screen 1: Match Officials Marketplace ("Find match officials")
+Screen Name/Purpose: Official Finder & Hiring Detail Modal (OfficialHiringModal). Connects tournament organizers with qualified umpires, scorers, and commentators.
+Key UI Components Visible:
+Overlay modal card over the tournament view.
+Header with action icon (Share/Export).
+Title: "Looking for an umpire".
+Detail key-value fields: Tournament Name (1st CHAMPION TROPHY), Requester Name (KASIF ALI), Ground Location (Dwarka Sec-6), Need Type (Tournament), Number of days (5+), Matches per day (5+), Fee/Rate (Per Day (INR) 1100).
+Bottom CTA buttons: "Go To Tournament" (secondary text action) and "Contact" (primary filled teal button).
+Bottom Tab Navigation bar: Home, Looking (highlighted active), My Cricket, Community, Store.
+Data Displayed: Organizer requirements, ground location, match commitments, daily compensation rate (INR 1100), contact triggers.
+Interactions/Flows:
+Tap "Contact" 
+→
+→
+ Opens in-app dialer/chat or direct WhatsApp intent.
+Tap "Go To Tournament" 
+→
+→
+ Navigates directly to the tournament dashboard.
+Tap outside/scrim 
+→
+→
+ Dismisses detail modal to return to the marketplace feed.
+Visual Design Patterns:
+Brand red (#D32F2F / #E53935) used for header state, badge indicators, and active navigation icons.
+Deep Teal (#00897B / #00796B) for conversion CTAs (Contact button).
+Clean, rounded card corners (16px radius) with soft drop shadow.
+Screen 2: Tournament Schedule Method Picker ("Auto match schedule")
+Screen Name/Purpose: Schedule Method Selector Dialog (ScheduleTypePickerModal). Allows organizers to choose between automated round-robin/knockout generation or manual fixture creation.
+Key UI Components Visible:
+Centered modal dialog with a close icon (✕) in the upper-right corner.
+Title: "How do you want to schedule?".
+Two equal-sized selection cards:
+MANUAL (Coin/Start icon).
+AUTO (Calendar with clock badge icon).
+Blurred/dimmed background showing underlying tournament tabs (About, Info, Matches, Points Table, Sponsors).
+Data Displayed: Fixture scheduling pathways available for the selected tournament.
+Interactions/Flows:
+Tap MANUAL 
+→
+→
+ Navigates to custom fixture builder where matches, dates, and venues are mapped individually.
+Tap AUTO 
+→
+→
+ Opens automated generator wizard (configuring groups, round-robin loops, dates, ground allocation).
+Tap ✕ 
+→
+→
+ Closes modal and leaves tournament in draft schedule state.
+Visual Design Patterns:
+High-contrast segmented tiles with neutral grey backgrounds (#F5F5F5).
+Distinctive typography using bold sans-serif labels.
+Screen 3: Smart NRR Qualification Calculator ("Smart NRR Calculator")
+Screen Name/Purpose: What-If Net Run Rate Scenario Calculator (SmartNRRCalculatorModal). Helps teams simulate scenarios required to qualify for playoffs.
+Key UI Components Visible:
+Top red navigation bar with back arrow and title: "Net Run Rate Calculator".
+Section heading: "How to qualify for next round?".
+Dropdown selects: "Select Tournament", "Select Team".
+Embedded mini standings table: Team Name, NRR, Pts.
+Simulation parameter form: "Next match is against which team?", "The match is of how many overs?", "Select Approach".
+Data Displayed: Current tournament standings, baseline NRR (0.0), points (0.0), dynamic target constraints (overs, opponent target scores).
+Interactions/Flows:
+Select opponent and total match overs 
+→
+→
+ Unlocks target scenario selector (e.g., "Batting First: Win by X runs" or "Chasing: Chase target in Y overs").
+Dynamic recalculation on form field blur/change.
+Visual Design Patterns:
+Clear form hierarchy: instructional labels, grey border radius input containers, tabular summary of standings.
+Screen 4: Tournament Standings & Points Table ("Points Table")
+Screen Name/Purpose: Tournament Standings View (TournamentPointsTableScreen). Tracks league progression, wins, losses, tie-breakers, and qualification states.
+Key UI Components Visible:
+Horizontal top sub-navigation tabs: Matches, Leaderboard, Points Table (active with red underline), Stats, Sponsors.
+Explanatory link: "How is NRR Calculated?" (teal link).
+Group section header: GROUP A (League Matches) & GROUP B (League Matches).
+Data table with sticky column header: Teams, M (Matches), W (Wins), L (Losses), Tied, NR (No Result), Pts (Points), NRR (Net Run Rate).
+Accordion chevron (∨) per row for drill-down breakdown.
+Data Displayed:
+Team records (e.g., Medimax UCA: M:4, W:4, L:0, Pts:8, NRR: +1.738).
+Highlighting positive NRRs in green/teal.
+Interactions/Flows:
+Tap row chevron 
+→
+→
+ Expands match-by-match run differential (Runs Scored/Overs vs Runs Conceded/Overs).
+Tap team name 
+→
+→
+ Navigates to Team Tournament Profile.
+Tap "How is NRR Calculated?" 
+→
+→
+ Opens formula explainer sheet.
+Visual Design Patterns:
+Alternating row zebra shading/clean row borders; high numerical tabular density with right-aligned values; green positive NRR values (#00897B).
+Screen 5: Rain Interruption Target Revision ("DLS method")
+Screen Name/Purpose: Rain Interruption / Target Revision Configurator (DLSCalculatorDialog). Calculates revised targets and overs using Duckworth-Lewis-Stern or VJD methods.
+Key UI Components Visible:
+Modal dialog titled "Revise Target (First Innings)".
+Radio selection 1: "Apply in-built DLS method" (with subtext *Based on DLS 5.0).
+Numeric input field: "Enter overs lost for this innings: [ 6 ]".
+Radio selection 2: "Apply VJD or any other method".
+Footer actions: "Cancel" (flat grey button) and "Ok" (solid teal action button).
+Data Displayed: Calculation standard version (DLS 5.0), overs reduced parameter (6 overs).
+Interactions/Flows:
+Select DLS vs VJD radio toggle 
+→
+→
+ Changes input fields between overs lost and manual par-score table entries.
+Tap "Ok" 
+→
+→
+ Re-calculates match target score, maximum overs per bowler, and updates the live match state.
+Visual Design Patterns:
+Standard material design radio selections, centered input box, contextual inline helper text.
+Screen 6: Tournament Player Leaderboard ("Leaderboard")
+Screen Name/Purpose: Tournament Statistical Leaders Screen (TournamentLeaderboardScreen).
+Key UI Components Visible:
+Primary category tabs: Bat (active white pill), Bowl, Field, MVP.
+Secondary filter dropdowns: All Teams (team filter) and Most Runs (metric filter).
+Ranked player list items: Rank (01, 02), Player Avatar with PRO badge overlay, Player Name, Team Name (parenthesized), Metrics row: Inn (Innings), Runs, Avg (Average), SR (Strike Rate).
+Data Displayed:
+Hemil Modi (Jaguars): Rank 01, Inn: 5, Runs: 220, Avg: 44.00, SR: 201.83.
+V Jay Bharwad (Blue Sentinels XI): Rank 02, Inn: 6, Runs: 210, Avg: 70.00, SR: 168.00.
+Interactions/Flows:
+Tap sub-tabs (Bat/Bowl/Field/MVP) 
+→
+→
+ Reloads leaderboard metric dropdown and list.
+Tap metric dropdown 
+→
+→
+ Switches between Most Runs, Highest Score, Most Sixes, Most Fours, Strike Rate.
+Tap player row 
+→
+→
+ Navigates to Player Tournament Statistics profile.
+Visual Design Patterns:
+Prominent rank numbers (01, 02) in large medium-grey type.
+Gold/Teal PRO subscription badge pinned on avatars.
+Dense, high-legibility key-value pairs formatted horizontally.
+Screen 7: Automated Player of the Match ("Automated player of the match")
+Screen Name/Purpose: Automated Player of the Match Modal (PlayerOfTheMatchCard). Algorithmic MVP calculation awarding top match performer.
+Key UI Components Visible:
+Card title: "Heroes of the match".
+Large hero image featuring the awarded player holding trophies.
+Overlay badges: Video play icon (top-left), Share icon (top-right), NEWS AI icon badge.
+Title badge: "Player of the match".
+Player identity: Name (Viral Patel), Team Name (Galaxy 11).
+Match performance summary: 55*(35) 6 4s 2 6s | 4.0-0-12-2 (Runs*(Balls), boundaries, Bowling figures: Overs-Maidens-Runs-Wickets).
+Computed rating: 9.79 MVP (prominently right-aligned).
+Footer: "Sponsored By METAL SPORTS".
+Data Displayed: Comprehensive all-round performance data, algorithmic MVP rating out of 10.0, sponsorship attribution.
+Interactions/Flows:
+Tap play icon 
+→
+→
+ Plays automated AI video highlight clip.
+Tap share icon 
+→
+→
+ Opens native system share sheet with auto-generated social graphic.
+Tap player name 
+→
+→
+ Opens player profile.
+Visual Design Patterns:
+Rich media card: full-width photo, crisp data bar with bold scores, custom sponsor logo placement, high-contrast MVP score.
+Screen 8: Full Match Scorecard ("Scorecard")
+Screen Name/Purpose: Live / Completed Innings Scorecard View (MatchScorecardTab).
+Key UI Components Visible:
+Sub-navigation tabs: Info, Summary, Scorecard (active red tab indicator), Comms, Squads.
+Team score headers:
+Blue Sentinels XI: 189/5 (20.0 Ov) (collapsed accordion).
+Eleven XI: 102/10 (15.4 Ov) (expanded accordion).
+Batting statistics table header: Batters, R, B, 4s, 6s, SR, Min..
+Player batting entry: Batsman name with role badge (Vrishbh K Javeri (wk)), dismissal string (lbw b YASH .R. VYAS), numeric metrics (36, 26, 2, 4, 138.46, 32).
+Subsequent rows with dismissals (c †Prince Patel b Alok Barot, run out Alok Barot).
+Sponsor footer container (Sponsored By METAL SPORTS).
+Data Displayed: Complete batting breakdown, dismissal method, bowler attribution, boundary count, strike rate, minutes spent at crease, total team score and run rate context.
+Interactions/Flows:
+Tap team header accordion 
+→
+→
+ Collapses/expands that team's innings (batting, bowling, fall of wickets, extras).
+Tap player name 
+→
+→
+ Opens match-level player performance modal.
+Horizontal swipe left/right 
+→
+→
+ Cycles between Summary, Scorecard, and Comms (ball-by-ball commentary).
+Visual Design Patterns:
+Standard scorecard tabular hierarchy: bold blue/teal player names, grey secondary dismissal text, right-aligned mono-spaced figures.
+Screen 9: Tournament Organizer Profile ("Organiser profile")
+Screen Name/Purpose: Verified Organizer Public Profile (OrganizerProfileModal).
+Key UI Components Visible:
+Header with back arrow and share icon.
+Circular avatar with badge icons.
+Name and role: "Sandeep Devnath Jadhav (Tournament Organiser)".
+Direct action CTA: "Message" (teal button with message chat icon).
+Trust and reputation rating: 4.9 ★★★★★ (76 reviews).
+Bottom CTA banner: "Looking For Your Own App?".
+Data Displayed: Organizer identity, verification badge, community rating out of 5 stars, review volume (76).
+Interactions/Flows:
+Tap "Message" 
+→
+→
+ Opens 1-on-1 organizer chat channel.
+Tap star rating 
+→
+→
+ Navigates to user review list and feedback breakdown.
+Tap share 
+→
+→
+ Generates deep-link to organizer tournament portfolio.
+Visual Design Patterns:
+Clean profile card header with dark translucent backdrop, gold star rating (#FFA000), clear call-to-action button.
+Screens 10, 11, 12 & 13: Tournament & Squad Marketing Banners
+Screen Name/Purpose: Automated Social Media Asset & Banner Studio (BannerStudioEngine).
+Screen 10: Match Day Fixture Graphic (MatchBanner).
+Screen 11: League Schedule Fixture List Graphic (OverallScheduleBanner).
+Screen 12: Schedule Export Format Selector (ScheduleTypeSelector).
+Screen 13: Team Playing XI Poster (SquadBanner).
+Key UI Components Visible:
+Screen 10: Square match poster with team crests (Jaguars (K.O) vs SVCC), tournament logo (Super League), match duration (20 - over match), date & time badge (Sunday, November 30 | 08:15 AM), CricHeroes watermark.
+Screen 11: Vertical long poster listing multiple fixtures per date and venue (Shivay The Crickiting Hub, Ahmedabad) with match timings and team badges.
+Screen 12: 2x2 grid picker: Overall Schedule, Groupwise, Datewise, Teamwise.
+Screen 13: Visual Playing XI layout showing circular profile photos of all 11 players with role badges (bat, ball, wicketkeeping gloves).
+Data Displayed: Teams, fixtures, date/time, venue, team rosters with role badges, branding and sponsors.
+Interactions/Flows:
+Tap format in selector 
+→
+→
+ Auto-populates data into selected theme template.
+Tap "Download/Share" 
+→
+→
+ Exports high-resolution 1080x1080 PNG or 1080x1920 Instagram Story format.
+Visual Design Patterns:
+Gradient backgrounds (blue-to-yellow sports branding, Indian tricolor gradients), high-contrast badges, dynamic auto-layout of player nodes.
+Screen 14: Tournament Registration Form ("Organise any tournament")
+Screen Name/Purpose: Tournament Onboarding & Category Setup Wizard (TournamentCreateScreen).
+Key UI Components Visible:
+Red header: "Add A Tournament".
+Logo upload trigger with camera icon badge.
+Input fields: Tournament Name (Ahmedabad premier league), City (Ahmedabad), Ground (SGVP AHEMDABAD chip/tag), Organizer Name (CricHeroes Official).
+Bottom sheet / picker overlay: "Tournament Category*".
+Category selectable pill buttons: OPEN, CORPORATE, COMMUNITY, SCHOOL, OTHER, SERIES, COLLEGE, UNIVERSITY.
+Primary action button: "Register".
+Data Displayed: Tournament metadata, selected grounds, categorized audience segment.
+Interactions/Flows:
+Select category pill 
+→
+→
+ Toggles active state styling (solid background); configures tournament rules and privacy defaults.
+Tap "Register" 
+→
+→
+ Validates mandatory inputs and initializes tournament workspace.
+Visual Design Patterns:
+Clean, rounded text input fields with floating labels; pill chips for multi-choice category selections.
+Screen 15: Team & Player Matchmaking Feed ("Find teams")
+Screen Name/Purpose: Matchmaking & Availability Community Feed (LookingMarketplaceFeed).
+Key UI Components Visible:
+Top action header: "What are you looking for today?" with actions + Post and You.
+Feed cards with author avatar, PRO badge, formatted description: "Gunjesh Kumar is an Organizer and is looking for a Team for their Tournament".
+Tagged constraints: Date (13 Dec 2025), Day Type (Weekend), Ground (Open ground).
+Timestamp (2 hours ago), Match ball type indicator (Red Leather Ball icon).
+Floating CTA button: "Contact" with WhatsApp logo.
+Bottom Navigation Bar with active red Looking tab.
+Data Displayed: Tournament dates, ball type (red/white/tennis), venue type, user verification status, posting recency.
+Interactions/Flows:
+Tap + Post 
+→
+→
+ Opens vacancy creator (looking for team, player, umpire, scorer, commentator).
+Tap "Contact" 
+→
+→
+ Opens WhatsApp direct conversation with pre-filled match inquiry text.
+Pull-to-refresh 
+→
+→
+ Loads latest classifieds.
+Visual Design Patterns:
+Card-based layout with clean vertical white space, light grey divider borders, WhatsApp brand green accent for direct contact.
+Part 2: Consolidated Feature Specification
+🎯 Core Features to Replicate
+Feature	Description	Priority	Data Requirements	UI Complexity
+Live Match Scorecard	Ball-by-ball live scoring, batsman/bowler tables, extras, fall of wickets, run rates.	Must	Innings state, ball events, player match stats, dismissals.	High
+Tournament Standings & Points Table	Multi-group league table with auto-calculated Net Run Rate (NRR), wins/losses, tie-breakers.	Must	Team fixtures, match results, runs scored/conceded, overs faced/bowled.	Medium
+Automated Fixture Scheduler	Manual & automated fixture generation (round-robin, knockout, multi-stage) with ground assignment.	Must	Participating teams, date ranges, grounds, slots per day, group allocations.	High
+DLS / Target Revision Engine	Rain interruption target and over recalculation using standard DLS 5.0 and VJD algorithms.	Should	Overs completed, wickets lost, target score, overs lost, par table.	Medium
+Smart NRR Scenario Simulator	What-if calculator indicating exact runs to score or overs to chase to qualify for next round.	Should	Current points table, remaining fixtures, target margins.	Medium
+Automated MVP & POTM	Algorithmic Player of the Match determination with automated graphical card generation.	Should	Batsman/bowler/fielder match metrics, weighted MVP formula.	Low
+Social Banner & Poster Studio	Canvas-based dynamic generation of match day fixtures, team rosters, and schedule posters.	Nice	Team logos, player headshots, match time, venue strings, predefined templates.	High
+Match Officials & Team Marketplace	Classifieds board to find and hire umpires, scorers, grounds, and opponent teams with WhatsApp integration.	Nice	Listing posts, user geolocation, contact info, date/rate requirements.	Medium
+Part 3: Data Models & TypeScript Interfaces
+code
+TypeScript
+// 1. MATCH & TOURNAMENT CONTEXT
+export type MatchStatus = 'upcoming' | 'live' | 'innings_break' | 'completed' | 'abandoned';
+export type BallType = 'leather_red' | 'leather_white' | 'tennis';
+export type TournamentCategory = 'OPEN' | 'CORPORATE' | 'COMMUNITY' | 'SCHOOL' | 'COLLEGE' | 'UNIVERSITY' | 'SERIES' | 'OTHER';
+
+export interface TournamentContext {
+  id: string;
+  name: string;
+  city: string;
+  groundIds: string[];
+  category: TournamentCategory;
+  organizer: {
+    id: string;
+    name: string;
+    isVerified: boolean;
+    rating: number;
+    reviewCount: number;
+  };
+  groups: {
+    id: string;
+    name: string;
+    teamIds: string[];
+  }[];
+}
+
+// 2. BALL-BY-BALL EVENT STREAM
+export type DismissalType = 'bowled' | 'caught' | 'lbw' | 'run_out' | 'stumped' | 'hit_wicket' | 'retired_hurt';
+
+export interface BallEvent {
+  matchId: string;
+  inningsNumber: 1 | 2;
+  overNumber: number; // 0-indexed (e.g. 0 to 19)
+  ballNumber: number; // legal ball count within over (1 to 6)
+  bowlerId: string;
+  strikerId: string;
+  nonStrikerId: string;
+  runsBat: number;
+  extras: {
+    wides?: number;
+    noBalls?: number;
+    byes?: number;
+    legByes?: number;
+    penalty?: number;
+  };
+  isLegalDelivery: boolean;
+  isBoundaryFour: boolean;
+  isBoundarySix: boolean;
+  dismissal?: {
+    type: DismissalType;
+    dismissedPlayerId: string;
+    fielderId?: string;
+    bowlerId?: string;
+    commentaryText: string;
+  };
+  timestamp: string;
+}
+
+// 3. PLAYER PERFORMANCE & METRICS
+export interface BattingScorecardRow {
+  playerId: string;
+  playerName: string;
+  isCaptain?: boolean;
+  isWicketKeeper?: boolean;
+  dismissalDescription: string; // e.g. "c †Prince Patel b Alok Barot"
+  runs: number;
+  ballsFaced: number;
+  fours: number;
+  sixes: number;
+  strikeRate: number;
+  minutesAtCrease: number;
+}
+
+export interface BowlingScorecardRow {
+  playerId: string;
+  playerName: string;
+  overs: number; // Formatted as decimal overs (e.g. 3.4)
+  maidens: number;
+  runsConceded: number;
+  wickets: number;
+  economy: number;
+  dots: number;
+  noBalls: number;
+  wides: number;
+}
+
+export interface FieldingStats {
+  catches: number;
+  stumpings: number;
+  runOutsDirect: number;
+  runOutsAssisted: number;
+}
+
+// 4. PARTNERSHIP PROGRESSION
+export interface Partnership {
+  wicketNumber: number;
+  playerOneId: string;
+  playerOneRuns: number;
+  playerOneBalls: number;
+  playerTwoId: string;
+  playerTwoRuns: number;
+  playerTwoBalls: number;
+  totalRuns: number;
+  totalBalls: number;
+}
+
+// 5. INNINGS & MATCH STATE
+export interface TeamInningsSummary {
+  teamId: string;
+  teamName: string;
+  runs: number;
+  wickets: number;
+  oversCompleted: number; // e.g. 15.4
+  maxOvers: number;
+  extrasTotal: number;
+  runRate: number;
+  requiredRunRate?: number;
+  battingRoster: BattingScorecardRow[];
+  bowlingRoster: BowlingScorecardRow[];
+  partnerships: Partnership[];
+  fallOfWickets: {
+    wicketNumber: number;
+    score: number;
+    overs: number;
+    dismissedPlayerName: string;
+  }[];
+}
+
+export interface MatchState {
+  id: string;
+  tournamentId: string;
+  status: MatchStatus;
+  scheduledStartTime: string;
+  groundName: string;
+  toss: {
+    wonByTeamId: string;
+    electedTo: 'bat' | 'bowl';
+  };
+  innings: [TeamInningsSummary, TeamInningsSummary?];
+  currentInningsIndex: 0 | 1;
+  dlsState?: {
+    isApplied: boolean;
+    method: 'DLS_5_0' | 'VJD';
+    oversLost: number;
+    revisedTarget: number;
+    revisedOvers: number;
+  };
+  mvpAward?: {
+    playerId: string;
+    playerName: string;
+    teamName: string;
+    points: number;
+    statHighlights: string; // "55*(35) | 4.0-0-12-2"
+  };
+}
+
+// 6. TOURNAMENT STANDINGS & NRR
+export interface GroupStandingRow {
+  teamId: string;
+  teamName: string;
+  matchesPlayed: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  nrr: number;
+  runsScoredTotal: number;
+  oversFacedTotal: number;
+  runsConcededTotal: number;
+  oversBowledTotal: number;
+}
+Part 4: Component Architecture (React / Next.js)
+code
+Code
+components/
+├── match/
+│   ├── MatchContainer.tsx                  # Root live match shell (WebSocket subscriber)
+│   ├── MatchHeader.tsx                     # Score summaries & innings switchers
+│   ├── tabs/
+│   │   ├── MatchInfoTab.tsx                # Umpires, venue, toss info
+│   │   ├── MatchSummaryTab.tsx             # Worm chart, run-rate bar chart, key moments
+│   │   ├── MatchScorecardTab.tsx           # Batting, Bowling, FoW tables
+│   │   │   ├── BattingTable.tsx            # Sticky headers, dismissal subtitle
+│   │   │   ├── BowlingTable.tsx            # Overs, Maidens, Wickets, Economy
+│   │   │   └── ExtrasAndTotals.tsx         # Extras breakdown, Total line
+│   │   ├── CommentaryTab.tsx               # Virtualized ball-by-ball list
+│   │   └── SquadsTab.tsx                   # Playing XIs and Bench
+│   └── modals/
+│       ├── DLSCalculatorModal.tsx          # DLS target revision configuration
+│       └── PlayerOfTheMatchModal.tsx       # POTM / MVP celebration dialog
+├── tournament/
+│   ├── TournamentTabs.tsx                  # Matches, Leaderboard, Standings, Sponsors
+│   ├── PointsTable.tsx                     # League group tables with NRR badges
+│   ├── SmartNRRCalculator.tsx              # What-If qualification projection wizard
+│   ├── LeaderboardGrid.tsx                 # Most Runs, Wickets, MVP lists
+│   └── ScheduleGenerator.tsx               # Manual vs Auto tournament fixture creation
+├── banners/
+│   ├── BannerStudioContainer.tsx           # Canvas/SVG layout engine
+│   ├── MatchFixturePoster.tsx              # Match preview social asset
+│   ├── TournamentSchedulePoster.tsx        # Multi-fixture tournament calendar
+│   └── PlayingXIPoster.tsx                 # Team roster badge layout
+└── marketplace/
+    ├── LookingFeed.tsx                     # Team & official classifieds list
+    ├── OfficialRequirementModal.tsx        # Post for umpire/scorer
+    └── OrganizerProfileCard.tsx            # Rating, reviews, and messaging gateway
+Part 5: Key UX Patterns to Adopt
+Real-Time Update Indicators:
+Subtle pulse animation (green dot) in the scorecard tab when a live ball event lands.
+Transient highlight on the batter/bowler row currently active on the delivery.
+Pull-to-Refresh & Optimistic Commentary:
+Commentary utilizes optimistic client updates during manual ball entry, instantly verified via incoming server-ack.
+Standard pull-to-refresh on tournament standings and classified feeds with background data fetch.
+Offline/Cached State Handling:
+Scoring engine operations persist into local IndexedDB storage before network synchronization to safeguard against field connectivity drops.
+Read-only users receive an offline banner indicating cached timestamp ("Viewing cached scorecard from 2 mins ago").
+Share / Deep-Linking System:
+Deep-linking schema for exact match states:
+Ball-specific: /matches/[id]?innings=1&over=14&ball=3
+Tab-specific: /matches/[id]?tab=scorecard
+Integrated native Web Share API with auto-fallback to pre-populated WhatsApp URL strings (https://wa.me/?text=...).
+Theme Support & Sports Accessibility:
+High-contrast elements adhering to light/dark themes.
+Standardized cricket status colors:
+Green (#2E7D32): Boundary Fours, positive Net Run Rate.
+Purple / Gold (#7B1FA2 / #FBC02D): Boundary Sixes, MVP highlights.
+Red (#D32F2F): Wickets, dismissals, primary brand badges.
+Teal (#00897B): Interactive CTAs (Message, Contact, Ok).
+Part 6: Technical Considerations
+1. WebSocket vs. Polling for Live Updates
+Hybrid SSE / WebSocket Architecture:
+Match Scorers (Bidirectional): WebSocket connection with TLS to guarantee fast delivery of ball submissions and immediate conflict rejection.
+Viewers (Unidirectional): Server-Sent Events (SSE) or Redis-backed WebSockets channeled through a global CDN edge. Matches falling into non-live states fallback to standard HTTP stale-while-revalidate polling at 60-second intervals.
+2. State Management Strategy
+Use Zustand or Redux Toolkit:
+matchStore: Holds current live ball events, active bowler/batsmen, current partnership, and live scorecard.
+tournamentStore: Holds league standings, filtered leaders, and schedule trees.
+Local UI preferences (active sub-tabs, filter selections) persisted in localStorage.
+3. Caching Strategy
+Edge Caching: Cache completed scorecard API routes at the CDN edge with Cache-Control: public, s-maxage=31536000, immutable.
+Live State Invalidation: Live matches utilize an in-memory Redis layer with pub/sub that broadcasts state deltas (ball diffs) rather than refetching the entire match payload on every delivery.
+4. Performance with 100+ Balls in Commentary
+DOM Virtualization: Implement @tanstack/react-virtual for the ball-by-ball commentary list to guarantee 60fps rendering across mid-range mobile devices regardless of the total over count (e.g. 50-over ODIs with 600+ events).
+Memoize each delivery row component using React.memo keyed by the unique ballId.
+Part 7: Responsive Breakpoints
+Breakpoint	Target Devices	Layout Adaptation
+Mobile (< 640px) (Primary)	iOS & Android devices	Full-bleed mobile views; bottom navigation bar; swipeable sub-tabs; bottom sheets for dialogs (DLS, Category Picker).
+Tablet (640px - 1024px)	iPads, Android tablets	Centered container (max-w-xl); dialogs transition from full-screen/bottom-sheet to centered modal windows; two-column grid for banner studios.
+Desktop (> 1024px)	Web viewers, match desks	Two-column split view: Left pane displays live virtual pitch, wagon wheel, and commentary; Right pane holds full detailed batting/bowling scorecard with live NRR impact table.
+1m40.5s
+User 12:58 PM
+create a pdf fiile of this
+Model 12:58 PM
+ThinkingThoughts
+Expand to view model thoughts
+

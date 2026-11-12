@@ -10,47 +10,47 @@ import {
 } from './theme'
 
 describe('resolveTheme', () => {
-  it('honours an explicit light preference even on a dark OS', () => {
-    expect(resolveTheme('light', true)).toBe('light')
+  it('honours an explicit paper preference even on a dark OS', () => {
+    expect(resolveTheme('paper', true)).toBe('paper')
   })
 
-  it('honours an explicit dark preference even on a light OS', () => {
-    expect(resolveTheme('dark', false)).toBe('dark')
+  it('honours an explicit floodlight preference even on a light OS', () => {
+    expect(resolveTheme('floodlight', false)).toBe('floodlight')
   })
 
-  it('follows the OS when the preference is system', () => {
-    expect(resolveTheme('system', true)).toBe('dark')
-    expect(resolveTheme('system', false)).toBe('light')
+  it('follows the OS when the preference is auto', () => {
+    expect(resolveTheme('auto', true)).toBe('floodlight')
+    expect(resolveTheme('auto', false)).toBe('paper')
   })
 })
 
 describe('nextTheme', () => {
-  it('cycles system → light → dark → system', () => {
-    expect(nextTheme('system')).toBe('light')
-    expect(nextTheme('light')).toBe('dark')
-    expect(nextTheme('dark')).toBe('system')
+  it('cycles paper → floodlight → auto → paper', () => {
+    expect(nextTheme('paper')).toBe('floodlight')
+    expect(nextTheme('floodlight')).toBe('auto')
+    expect(nextTheme('auto')).toBe('paper')
   })
 
   it('is a closed 3-cycle', () => {
-    expect(nextTheme(nextTheme(nextTheme('system')))).toBe('system')
+    expect(nextTheme(nextTheme(nextTheme('paper')))).toBe('paper')
   })
 })
 
 describe('THEME_LABEL', () => {
   it('labels every theme', () => {
-    expect(Object.keys(THEME_LABEL).sort()).toEqual(['dark', 'light', 'system'])
+    expect(Object.keys(THEME_LABEL).sort()).toEqual(['auto', 'floodlight', 'paper'])
   })
 })
 
 describe('DOM / storage guards (node environment)', () => {
   it('never throws when there is no browser', () => {
-    expect(() => applyTheme('dark')).not.toThrow()
-    expect(() => applyTheme('system')).not.toThrow()
-    expect(() => storeTheme('light')).not.toThrow()
+    expect(() => applyTheme('floodlight')).not.toThrow()
+    expect(() => applyTheme('auto')).not.toThrow()
+    expect(() => storeTheme('paper')).not.toThrow()
     expect(() => initTheme()).not.toThrow()
   })
 
-  it('defaults to system without storage', () => {
-    expect(readStoredTheme()).toBe('system')
+  it('defaults to auto without storage', () => {
+    expect(readStoredTheme()).toBe('auto')
   })
 })

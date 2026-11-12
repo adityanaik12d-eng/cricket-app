@@ -11,7 +11,7 @@ export function roleLabel(role: string): string {
 
 export type ProfilePatch = Partial<
   Pick<Player, 'name' | 'role' | 'batting_hand' | 'bowling_style' | 'location'>
->
+> & { mobile?: string }
 
 export function validateProfilePatch(
   patch: ProfilePatch,
@@ -31,11 +31,15 @@ export function validateProfilePatch(
   if ('bowling_style' in patch && patch.bowling_style != null && patch.bowling_style.trim().length === 0) {
     return { ok: false, error: 'Bowling style cannot be blank' }
   }
+  if ('mobile' in patch && patch.mobile != null && patch.mobile.trim().length === 0) {
+    return { ok: false, error: 'Mobile number cannot be blank' }
+  }
   const value: ProfilePatch = {}
   if (patch.name !== undefined) value.name = patch.name.trim()
   if (patch.role !== undefined) value.role = patch.role
   if (patch.batting_hand !== undefined) value.batting_hand = patch.batting_hand
   if ('bowling_style' in patch) value.bowling_style = patch.bowling_style
   if ('location' in patch) value.location = patch.location === null ? null : (patch.location ?? undefined)
+  if ('mobile' in patch) value.mobile = patch.mobile?.trim()
   return { ok: true, value }
 }

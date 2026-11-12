@@ -52,21 +52,21 @@ export function SettingsScreen({ onBack }: { onBack: () => void }): React.ReactE
 
   if (!player) {
     return (
-      <div className="card">
+      <div className="card empty-state">
         {error ? (
           <>
             <p className="error">{error}</p>
-            <a className="btn" href="#/signin">Sign in</a>
+            <a className="btn accent" href="#/signin">Sign in</a>
           </>
         ) : (
-          <p className="muted">Loading…</p>
+          <p className="empty-state-text">Loading…</p>
         )}
       </div>
     )
   }
 
   return (
-    <div className="card">
+    <div className="card settings-card">
       <div className="profile-header">
         <button className="btn ghost home-btn" onClick={onBack} aria-label="Back">
           <HomeIcon />
@@ -79,7 +79,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }): React.ReactE
 
       <div className="settings-section">
         <h3>Profile</h3>
-        <p className="muted">{player.email}</p>
+        <p className="muted">Mobile: {player.mobile}</p>
         <div className="career-strip">
           <div><strong>{stats?.matches ?? 0}</strong><span>Matches</span></div>
           <div><strong>{stats?.runs ?? 0}</strong><span>Runs</span></div>
@@ -113,26 +113,43 @@ export function SettingsScreen({ onBack }: { onBack: () => void }): React.ReactE
         </div>
 
         <h3>Bowling style</h3>
-        <input
-          defaultValue={player.bowling_style ?? ''}
-          placeholder="e.g. Right-arm medium"
-          onBlur={(e) => {
-            const value = e.target.value.trim()
-            if (value !== (player.bowling_style ?? '')) {
-              void save({ bowling_style: value.length > 0 ? value : null })
-            }
-          }}
-        />
+        <div className="form-field">
+          <input
+            defaultValue={player.bowling_style ?? ''}
+            placeholder="e.g. Right-arm medium"
+            onBlur={(e) => {
+              const value = e.target.value.trim()
+              if (value !== (player.bowling_style ?? '')) {
+                void save({ bowling_style: value.length > 0 ? value : null })
+              }
+            }}
+          />
+        </div>
 
         <h3>Location</h3>
-        <input
-          defaultValue={player.location ?? ''}
-          placeholder="City"
-          onBlur={(e) => {
-            const value = e.target.value.trim()
-            if (value !== (player.location ?? '')) void save({ location: value.length > 0 ? value : null })
-          }}
-        />
+        <div className="form-field">
+          <input
+            defaultValue={player.location ?? ''}
+            placeholder="City"
+            onBlur={(e) => {
+              const value = e.target.value.trim()
+              if (value !== (player.location ?? '')) void save({ location: value.length > 0 ? value : null })
+            }}
+          />
+        </div>
+
+        <h3>Mobile number</h3>
+        <div className="form-field">
+          <input
+            type="tel"
+            defaultValue={player.mobile ?? ''}
+            placeholder="Mobile number"
+            onBlur={(e) => {
+              const value = e.target.value.trim()
+              if (value && value !== player.mobile) void save({ mobile: value })
+            }}
+          />
+        </div>
 
         {notice && <p className="success">{notice}</p>}
         {error && <p className="error">{error}</p>}
@@ -141,7 +158,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }): React.ReactE
       <div className="settings-section">
         <h3>Account</h3>
         <button
-          className="btn ghost danger"
+          className="btn ghost danger wide"
           onClick={() => {
             clearToken()
             window.location.hash = '#/signin'

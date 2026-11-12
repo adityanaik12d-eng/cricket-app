@@ -95,7 +95,24 @@ export function MatchCharts({ config, events }: { config: MatchConfig; events: M
 
   return (
     <section className="card charts" aria-label="Match charts">
-      <h2>Charts</h2>
+      <header className="charts-header">
+        <h2>Charts</h2>
+        <div className="charts-controls">
+          <div className="chart-innings-toggle" role="group" aria-label="Choose the innings for Manhattan chart">
+            {data.charts.map((chart, index) => (
+              <button
+                key={chart.innings}
+                type="button"
+                className={index === selected ? 'chip active' : 'chip'}
+                aria-pressed={index === selected}
+                onClick={() => setSelected(index)}
+              >
+                Innings {index + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
 
       <div className="chart-summary-grid">
         {data.charts.map((chart, index) => {
@@ -117,45 +134,33 @@ export function MatchCharts({ config, events }: { config: MatchConfig; events: M
         })}
       </div>
 
-      <LineChart
-        title="Worm"
-        ariaLabel={`Worm chart: runs after every over for ${data.charts.length} innings`}
-        series={wormSeries}
-        unit="runs"
-        xLabel="Over"
-      />
+      <div className="charts-grid">
+        <LineChart
+          title="Worm"
+          ariaLabel={`Worm chart: runs after every over for ${data.charts.length} innings`}
+          series={wormSeries}
+          unit="runs"
+          xLabel="Over"
+        />
 
-      <div className="chart-innings-toggle" role="group" aria-label="Choose the innings the Manhattan chart shows">
-        {data.charts.map((chart, index) => (
-          <button
-            key={chart.innings}
-            type="button"
-            className={index === selected ? 'chip active' : 'chip'}
-            aria-pressed={index === selected}
-            onClick={() => setSelected(index)}
-          >
-            Innings {index + 1}
-          </button>
-        ))}
+        <BarChart
+          title="Manhattan"
+          ariaLabel={`Manhattan chart: runs per over for innings ${selected + 1}`}
+          bars={(manhattan?.bars ?? []).map((bar) => ({
+            label: bar.label,
+            segments: manhattanSegments(bar.runs, bar.boundaries),
+          }))}
+          unit="runs"
+        />
+
+        <LineChart
+          title="Run rate"
+          ariaLabel={`Run rate chart: runs per over for ${data.charts.length} innings`}
+          series={runRateSeries}
+          unit="per over"
+          xLabel="Over"
+        />
       </div>
-
-      <BarChart
-        title="Manhattan"
-        ariaLabel={`Manhattan chart: runs per over for innings ${selected + 1}`}
-        bars={(manhattan?.bars ?? []).map((bar) => ({
-          label: bar.label,
-          segments: manhattanSegments(bar.runs, bar.boundaries),
-        }))}
-        unit="runs"
-      />
-
-      <LineChart
-        title="Run rate"
-        ariaLabel={`Run rate chart: runs per over for ${data.charts.length} innings`}
-        series={runRateSeries}
-        unit="per over"
-        xLabel="Over"
-      />
     </section>
   )
 }

@@ -11,7 +11,12 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@cricket-app/shared/*": ["../packages/shared/src/*"],
+      "@cricket-app/core/*": ["../packages/core/src/*"]
+    }
   },
   "include": ["src", "vite.config.ts"]
 }

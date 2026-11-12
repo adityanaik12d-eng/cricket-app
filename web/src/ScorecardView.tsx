@@ -10,6 +10,7 @@ import type {
 } from '@cricket-app/core'
 import { projectBatterBalls, projectPartnerships, effectiveEvents } from '@cricket-app/core'
 import { formatWin, playerName } from './scoring'
+import { formatBowlerFigures } from './scoring'
 
 /** Splits the effective event log into per-innings arrays, mirroring projectTimeline's innings detection. */
 function splitEventsByInnings(events: MatchEvent[]): MatchEvent[][] {
@@ -247,69 +248,71 @@ export function BattingTable({ state, innings, events, expanded, onToggle }: Bat
   const inningsBatterIds = new Set(innings.batting.map((b) => b.playerId))
 
   return (
-    <table className="card-table scorecard-table">
-      <thead>
-        <tr>
-          <th>Batter</th>
-          <th className="num">R</th>
-          <th className="num">B</th>
-          <th className="num">4s</th>
-          <th className="num">6s</th>
-          <th className="num">SR</th>
-          <th>Dismissal</th>
-        </tr>
-      </thead>
-      <tbody>
-        {innings.batting.map((b) => {
-          const key = batterRowKey(innings.index, b.position)
-          const open = expanded.has(key)
-          const panelId = `batter-balls-${innings.index}-${b.position}`
-          const balls = open ? projectBatterBalls(events, b.playerId, innings.index) : []
-          const sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(2) : '-'
-          let dismissalText: string
-          if (!b.out) {
-            dismissalText = 'not out'
-          } else if (inningsBatterIds.has(b.playerId) && dismissalMap.has(b.playerId)) {
-            dismissalText = dismissalMap.get(b.playerId)!
-          } else {
-            dismissalText = b.dismissal ? b.dismissal.replace(/_/g, ' ').toLowerCase() : 'out'
-          }
-          return (
-            <Fragment key={b.playerId}>
-              <tr>
-                <td>
-                  <button
-                    type="button"
-                    className="row-toggle"
-                    aria-expanded={open}
-                    aria-controls={panelId}
-                    onClick={() => onToggle(key)}
-                  >
-                    <span className="row-toggle-caret" aria-hidden="true">
-                      {open ? '\u25be' : '\u25b8'}
-                    </span>
-                    <span className="row-toggle-name">{playerName(state.config, b.playerId)}</span>
-                    <span className="visually-hidden"> — ball-by-ball</span>
-                  </button>
-                  {b.isStriker ? ' *' : b.isNonStriker ? ' \u2020' : ''}
-                </td>
-                <td className="num">{b.runs}</td>
-                <td className="num">{b.balls}</td>
-                <td className="num">{b.fours}</td>
-                <td className="num">{b.sixes}</td>
-                <td className="num muted">{sr}</td>
-                <td className="dismissal">{dismissalText}</td>
-              </tr>
-              <tr id={panelId} className="batter-balls-row" hidden={!open}>
-                <td className="batter-balls-cell" colSpan={7}>
-                  {open ? <BatterBalls balls={balls} /> : null}
-                </td>
-              </tr>
-            </Fragment>
-          )
-        })}
-      </tbody>
-    </table>
+    <div className="table-wrap">
+      <table className="ledger-table">
+        <thead>
+          <tr>
+            <th>Batter</th>
+            <th className="num">R</th>
+            <th className="num">B</th>
+            <th className="num">4s</th>
+            <th className="num">6s</th>
+            <th className="num">SR</th>
+            <th>Dismissal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {innings.batting.map((b) => {
+            const key = batterRowKey(innings.index, b.position)
+            const open = expanded.has(key)
+            const panelId = `batter-balls-${innings.index}-${b.position}`
+            const balls = open ? projectBatterBalls(events, b.playerId, innings.index) : []
+            const sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(2) : '-'
+            let dismissalText: string
+            if (!b.out) {
+              dismissalText = 'not out'
+            } else if (inningsBatterIds.has(b.playerId) && dismissalMap.has(b.playerId)) {
+              dismissalText = dismissalMap.get(b.playerId)!
+            } else {
+              dismissalText = b.dismissal ? b.dismissal.replace(/_/g, ' ').toLowerCase() : 'out'
+            }
+            return (
+              <Fragment key={b.playerId}>
+                <tr>
+                  <td>
+                    <button
+                      type="button"
+                      className="row-toggle"
+                      aria-expanded={open}
+                      aria-controls={panelId}
+                      onClick={() => onToggle(key)}
+                    >
+                      <span className="row-toggle-caret" aria-hidden="true">
+                        {open ? '\u25be' : '\u25b8'}
+                      </span>
+                      <span className="row-toggle-name">{playerName(state.config, b.playerId)}</span>
+                      <span className="visually-hidden"> — ball-by-ball</span>
+                    </button>
+                    {b.isStriker ? ' *' : b.isNonStriker ? ' \u2020' : ''}
+                  </td>
+                  <td className="num">{b.runs}</td>
+                  <td className="num">{b.balls}</td>
+                  <td className="num">{b.fours}</td>
+                  <td className="num">{b.sixes}</td>
+                  <td className="num muted">{sr}</td>
+                  <td className="dismissal">{dismissalText}</td>
+                </tr>
+                <tr id={panelId} className="batter-balls-row" hidden={!open}>
+                  <td className="batter-balls-cell" colSpan={7}>
+                    {open ? <BatterBalls balls={balls} /> : null}
+                  </td>
+                </tr>
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -332,14 +335,43 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
 
   if (scorecard.innings.length === 0) {
     return (
-      <section className="card">
-        <p className="muted">No innings yet - record the toss to start.</p>
+      <section className="card empty-state">
+        <p className="empty-state-text">No innings yet - record the toss to start.</p>
       </section>
     )
   }
 
+  // Current innings for header display
+  const currentInnings = scorecard.innings[scorecard.innings.length - 1]
+  const currentRuns = currentInnings.runs ?? 0
+  const currentWickets = currentInnings.wickets ?? 0
+  const currentOvers = currentInnings.oversText ?? '0'
+  const currentRunRate = typeof currentInnings.runRate === 'number' ? currentInnings.runRate : 0
+  const battingTeam = currentInnings.battingTeamId ?? 'Batting'
+
   return (
     <div className="scorecards">
+      {/* Score Header - Shows current match status above scorecard */}
+      <header className="scorecard-header card">
+        <div className="scorecard-header-row">
+          <div className="scorecard-score">
+            <span className="scorecard-runs">{currentRuns}-{currentWickets}</span>
+            <span className="scorecard-overs">({currentOvers} ov)</span>
+          </div>
+          <div className="scorecard-meta">
+            <span>CRR {currentRunRate.toFixed(2)}</span>
+            {currentInnings.target != null && (
+              <span>
+                Target {currentInnings.target} · Need {Math.max(0, currentInnings.target - currentRuns)} off {currentInnings.ballsRemaining ?? 0}
+                {currentInnings.requiredRunRate != null && ` · RRR ${currentInnings.requiredRunRate.toFixed(2)}`}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="scorecard-teams">
+          <span className="scorecard-batting">{battingTeam} batting</span>
+        </div>
+      </header>
       {scorecard.innings.map((inn, idx) => {
         const innEvents = inningsEvents[idx] ?? []
         const maidens = computeMaidens(innEvents, state.config.ballsPerOver)
@@ -415,37 +447,39 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
             )}
 
             <h3 className="section-title">Bowling</h3>
-            <table className="card-table scorecard-table">
-              <thead>
-                <tr>
-                  <th>Bowler</th>
-                  <th className="num">O</th>
-                  <th className="num">M</th>
-                  <th className="num">R</th>
-                  <th className="num">W</th>
-                  <th className="num">Econ</th>
-                  <th className="num">WD</th>
-                  <th className="num">NB</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inn.bowling.map((b) => (
-                  <tr key={b.playerId}>
-                    <td>
-                      {playerName(state.config, b.playerId)}
-                      {b.isCurrentBowler ? ' *' : ''}
-                    </td>
-                    <td className="num">{b.oversText}</td>
-                    <td className="num">{innEvents.length > 0 ? (maidens.get(b.playerId) ?? 0) : 0}</td>
-                    <td className="num">{b.runs}</td>
-                    <td className="num">{b.wickets}</td>
-                    <td className="num">{b.economy.toFixed(2)}</td>
-                    <td className="num">{b.wides}</td>
-                    <td className="num">{b.noBalls}</td>
+            <div className="table-wrap">
+              <table className="ledger-table">
+                <thead>
+                  <tr>
+                    <th>Bowler</th>
+                    <th className="num">O</th>
+                    <th className="num">M</th>
+                    <th className="num">R</th>
+                    <th className="num">W</th>
+                    <th className="num">Econ</th>
+                    <th className="num">WD</th>
+                    <th className="num">NB</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {inn.bowling.map((b) => (
+                    <tr key={b.playerId}>
+                      <td>
+                        {playerName(state.config, b.playerId)}
+                        {b.isCurrentBowler ? ' *' : ''}
+                      </td>
+                      <td className="num">{b.oversText}</td>
+                      <td className="num">{innEvents.length > 0 ? (maidens.get(b.playerId) ?? 0) : 0}</td>
+                      <td className="num">{b.runs}</td>
+                      <td className="num">{b.wickets}</td>
+                      <td className="num">{b.economy.toFixed(2)}</td>
+                      <td className="num">{b.wides}</td>
+                      <td className="num">{b.noBalls}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {inn.yetToBat.length > 0 && (
               <p className="muted yet">

@@ -9,6 +9,7 @@ export function SigninScreen({ onDone }: { onDone: () => void }): React.ReactEle
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [name, setName] = useState('')
+  const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
   const [devOtp, setDevOtp] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +43,7 @@ export function SigninScreen({ onDone }: { onDone: () => void }): React.ReactEle
     setBusy(true)
     try {
       const res = register
-        ? await api.register(email.trim(), otp, name.trim())
+        ? await api.register(email.trim(), otp, name.trim(), mobile.trim())
         : await api.verifyOtp(email.trim(), otp)
       setToken(res.token)
       onDone()
@@ -102,103 +103,136 @@ export function SigninScreen({ onDone }: { onDone: () => void }): React.ReactEle
   }
 
   return (
-    <div className="card">
-      <h2>Sign in</h2>
+    <div className="shell" style={{ maxWidth: 420, margin: '40px auto' }}>
+      <div className="card ms-auth-card">
+        <div className="ms-auth-hero">
+          <h2>Sign in to your scorebook</h2>
+          <p>Welcome back. Use OTP or password to continue.</p>
+        </div>
 
-      {step === 'email' && (
-        <div className="form-stack">
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-          <button onClick={() => void requestOtp()} disabled={busy}>
-            Send OTP
+        {step === 'email' && (
+          <div className="form-stack">
+            <label>
+              Email address
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </label>
+            <button className="btn btn-primary wide" onClick={() => void requestOtp()} disabled={busy}>
+              Send OTP
+            </button>
+          </div>
+        )}
+
+        {step === 'otp' && (
+          <div className="form-stack">
+            {devOtp && <p className="muted">Dev OTP: <strong>{devOtp}</strong></p>}
+            <label>
+              6-digit OTP
+              <input
+                inputMode="numeric"
+                placeholder="123456"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                autoComplete="one-time-code"
+              />
+            </label>
+            <button className="btn btn-primary wide" onClick={() => void submitOtp(false)} disabled={busy}>
+              Verify
+            </button>
+            <button className="btn btn-secondary wide" onClick={() => setStep('email')} disabled={busy}>
+              Change email
+            </button>
+          </div>
+        )}
+
+        {step === 'register' && (
+          <div className="form-stack">
+            {devOtp && <p className="muted">Dev OTP: <strong>{devOtp}</strong></p>}
+            <label>
+              6-digit OTP
+              <input
+                inputMode="numeric"
+                placeholder="123456"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                autoComplete="one-time-code"
+              />
+            </label>
+            <label>
+              Your name
+              <input
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+              />
+            </label>
+            <label>
+              Mobile number (required)
+              <input
+                type="tel"
+                placeholder="+91 98765 43210"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                autoComplete="tel"
+              />
+            </label>
+            <button className="btn btn-primary wide" onClick={() => void submitOtp(true)} disabled={busy || name.trim().length === 0 || mobile.trim().length === 0}>
+              Create profile
+            </button>
+            <button className="btn btn-secondary wide" onClick={() => setStep('email')} disabled={busy}>
+              Change email
+            </button>
+          </div>
+        )}
+
+        {step === 'password' && (
+          <div className="form-stack">
+            <label>
+              Email address
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </label>
+            <button className="btn btn-primary wide" onClick={() => void signInWithPassword()} disabled={busy}>
+              Sign in
+            </button>
+            <button className="btn btn-secondary wide" onClick={showOtpFlow} disabled={busy}>
+              Use OTP instead
+            </button>
+          </div>
+        )}
+
+        <div className="auth-links">
+          <button className="btn btn-ghost wide" onClick={showPasswordSignin} disabled={busy}>
+            Sign in with password
+          </button>
+          <button className="btn btn-ghost wide" onClick={() => (window.location.hash = '#/signup')} disabled={busy}>
+            Create account
           </button>
         </div>
-      )}
 
-      {step === 'otp' && (
-        <div className="form-stack">
-          {devOtp && <p className="muted">Dev OTP: <strong>{devOtp}</strong></p>}
-          <input
-            inputMode="numeric"
-            placeholder="6-digit OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            autoComplete="one-time-code"
-          />
-          <button onClick={() => void submitOtp(false)} disabled={busy}>
-            Verify
-          </button>
-          <button className="ghost" onClick={() => setStep('email')} disabled={busy}>
-            Change email
-          </button>
-        </div>
-      )}
-
-      {step === 'register' && (
-        <div className="form-stack">
-          {devOtp && <p className="muted">Dev OTP: <strong>{devOtp}</strong></p>}
-          <input
-            inputMode="numeric"
-            placeholder="6-digit OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            autoComplete="one-time-code"
-          />
-          <input
-            placeholder="Your name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="name"
-          />
-          <button onClick={() => void submitOtp(true)} disabled={busy || name.trim().length === 0}>
-            Create profile
-          </button>
-          <button className="ghost" onClick={() => setStep('email')} disabled={busy}>
-            Change email
-          </button>
-        </div>
-      )}
-
-      {step === 'password' && (
-        <div className="form-stack">
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-          <button onClick={() => void signInWithPassword()} disabled={busy}>
-            Sign in
-          </button>
-          <button className="ghost" onClick={showOtpFlow} disabled={busy}>
-            Use OTP instead
-          </button>
-        </div>
-      )}
-
-      <div className="auth-links">
-        <button className="ghost" onClick={showPasswordSignin} disabled={busy}>
-          Sign in with password
-        </button>
-        <button className="ghost" onClick={() => (window.location.hash = '#/signup')} disabled={busy}>
-          Create account
-        </button>
+        {error && <p className="error">{error}</p>}
       </div>
-
-      {error && <p className="error">{error}</p>}
     </div>
   )
 }

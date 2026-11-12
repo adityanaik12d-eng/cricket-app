@@ -40,7 +40,7 @@ export function playerName(config: MatchConfig, id: string): string {
   return config.playerRefs?.[id]?.name ?? id
 }
 
-const FIELDERS_REQUIRED: ReadonlySet<Dismissal> = new Set(['CAUGHT', 'STUMPED', 'RUN_OUT', 'OBSTRUCTING'])
+const FIELDERS_REQUIRED: ReadonlySet<Dismissal> = new Set(['CAUGHT', 'STUMPED', 'RUN_OUT', 'OBSTRUCTING_THE_FIELD'])
 
 /** Dismissals credited to a fielder; the scorer must pick who. The rest are bowler/umpire decisions. */
 export function requiresFielder(dismissal: Dismissal): boolean {
@@ -175,7 +175,7 @@ export function formatWin(result: MatchResult & { kind: 'WINNER' | 'SUPER_OVER_W
 export function formatBowlerFigures(balls: number, runs: number, wickets: number): string {
   const over = Math.floor(balls / 6)
   const inOver = balls % 6
-  return `${over}.${inOver}-${runs}-${wickets}`
+  return `${over}.${inOver} - ${runs} - ${wickets}`
 }
 
 /** The headline result line, or null while the match is still going. */

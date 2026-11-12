@@ -50,28 +50,28 @@ export function AdminPortalScreen({ onBack }: AdminPortalScreenProps) {
   }, [tab, loadUsers, loadAudit])
 
   return (
-    <div className="shell">
-      <header className="topbar">
+    <div className="shell admin-shell">
+      <header className="topbar admin-topbar">
         <h1>Admin Portal</h1>
         <div className="topbar-actions">
           <button className="btn ghost" onClick={() => { if (onBack) onBack(); else window.location.hash = '#/' }}>Back</button>
           <ThemeToggle />
         </div>
       </header>
-      <main className="card setup-card" style={{ maxWidth: 960, margin: '0 auto' }}>
-        <div className="ms-stepper" style={{ marginBottom: 16 }}>
-          <button type="button" className={`ms-step ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>
-            <span className="ms-step-num">1</span><span>Users</span>
+      <main className="admin-main">
+        <div className="card admin-tabs" role="tablist" aria-label="Admin sections">
+          <button role="tab" className={`admin-tab ${tab === 'users' ? 'active' : ''}`} type="button" onClick={() => setTab('users')}>
+            Users
           </button>
-          <button type="button" className={`ms-step ${tab === 'create' ? 'active' : ''}`} onClick={() => setTab('create')}>
-            <span className="ms-step-num">2</span><span>Create</span>
+          <button role="tab" className={`admin-tab ${tab === 'create' ? 'active' : ''}`} type="button" onClick={() => setTab('create')}>
+            Create
           </button>
-          <button type="button" className={`ms-step ${tab === 'audit' ? 'active' : ''}`} onClick={() => setTab('audit')}>
-            <span className="ms-step-num">3</span><span>Audit</span>
+          <button role="tab" className={`admin-tab ${tab === 'audit' ? 'active' : ''}`} type="button" onClick={() => setTab('audit')}>
+            Audit
           </button>
         </div>
 
-        {error && <p className="error" style={{ marginBottom: 12 }}>{error}</p>}
+        {error && <div className="card banner warn" style={{ marginTop: 'var(--space-4)' }}>{error}</div>}
 
         {tab === 'users' && (
           <UsersTab
@@ -103,18 +103,20 @@ function UsersTab({
   onRefresh: () => void
 }) {
   return (
-    <div>
-      <div className="field-row" style={{ alignItems: 'center' }}>
-        <label style={{ flex: 1 }}>
-          Search
-          <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="name, email, mobile..." />
-        </label>
+    <div className="users-tab">
+      <div className="users-tab-header">
+        <div className="field-row">
+          <label style={{ flex: 1, minWidth: 200 }}>
+            Search
+            <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="name, email, mobile..." />
+          </label>
+        </div>
         <button className="btn ghost" type="button" onClick={onRefresh} disabled={loading}>Refresh</button>
       </div>
       {loading && <p className="muted">Loading users...</p>}
       {!loading && users.length === 0 && <p className="muted">No users found.</p>}
-      <div style={{ overflowX: 'auto', marginTop: 8 }}>
-        <table className="points-table" style={{ minWidth: 720 }}>
+      <div className="table-wrap">
+        <table className="points-table">
           <thead>
             <tr>
               <th>Email</th>
@@ -127,7 +129,7 @@ function UsersTab({
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} style={{ cursor: 'pointer' }} onClick={() => onSelect(u)}>
+              <tr key={u.id} onClick={() => onSelect(u)}>
                 <td>{u.email}</td>
                 <td>{u.name || '-'}</td>
                 <td>{u.role || '-'}</td>
@@ -327,8 +329,8 @@ function CreateUserTab({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="ms-reveal" style={{ maxWidth: 560 }}>
-      <p className="muted" style={{ marginTop: 0 }}>Create a new auth account. If password is empty, an invite email is sent.</p>
+    <form onSubmit={(e) => void submit(e)} className="create-user-form">
+      <p className="muted">Create a new auth account. If password is empty, an invite email is sent.</p>
       {err && <p className="error">{err}</p>}
       {msg && <p className="muted" style={{ color: 'var(--ms-accent, #0B3D2E)' }}>{msg}</p>}
       <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
@@ -346,7 +348,7 @@ function CreateUserTab({ onCreated }: { onCreated: () => void }) {
           <option value="ALL_ROUNDER">All Rounder</option>
         </select>
       </label>
-      <button className="btn accent wide" type="submit" disabled={busy} style={{ marginTop: 12 }}>
+      <button className="btn accent wide" type="submit" disabled={busy}>
         {busy ? 'Creating...' : 'Create user'}
       </button>
     </form>
@@ -355,11 +357,11 @@ function CreateUserTab({ onCreated }: { onCreated: () => void }) {
 
 function AuditTab({ entries, loading }: { entries: AdminAuditEntry[]; loading: boolean }) {
   return (
-    <div>
+    <div className="audit-tab">
       {loading && <p className="muted">Loading audit log...</p>}
       {!loading && entries.length === 0 && <p className="muted">No audit entries.</p>}
-      <div style={{ overflowX: 'auto' }}>
-        <table className="points-table" style={{ minWidth: 720 }}>
+      <div className="table-wrap">
+        <table className="points-table">
           <thead>
             <tr>
               <th>When</th>

@@ -26,7 +26,7 @@ const DISMISSAL_LABEL: Record<string, string> = {
   RUN_OUT: 'run out',
   STUMPED: 'stumped',
   HIT_WICKET: 'hit wicket',
-  OBSTRUCTING: 'obstructing the field',
+  OBSTRUCTING_THE_FIELD: 'obstructing the field',
 }
 
 function runs(n: number): string {

@@ -2,13 +2,22 @@
   "name": "cricket-app",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*", "web", "server"],
-  "engines": { "node": ">=20.11" },
+  "workspaces": [
+    "packages/*",
+    "web",
+    "server"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "build": "npm run build -w @cricket-app/core && npm run build -w @cricket-app/web",
     "dev": "echo \"Run both in separate terminals: npm run dev -w @cricket-app/server  |  npm run dev -w @cricket-app/web\"",
     "start": "npm run start -w @cricket-app/server",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
   }
 }

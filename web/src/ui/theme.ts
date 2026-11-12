@@ -1,59 +1,66 @@
-export type Theme = 'system' | 'light' | 'dark'
+/**
+ * Living Scorebook Theme System
+ * Three themes: Paper (day), Floodlight (night), Auto (system)
+ */
+export type Theme = 'paper' | 'floodlight' | 'auto';
 
-const STORAGE_KEY = 'cricket-app:theme'
+const STORAGE_KEY = 'cricket-app:theme';
 
 /** Human-facing label for each theme preference. */
 export const THEME_LABEL: Record<Theme, string> = {
-  system: 'Auto',
-  light: 'Light',
-  dark: 'Dark',
+  paper: 'Paper (Day)',
+  floodlight: 'Floodlight (Night)',
+  auto: 'Auto (System)',
+};
+
+/** Pick the concrete theme for a stored preference. */
+export function resolveTheme(preference: Theme, prefersDark: boolean): 'paper' | 'floodlight' {
+  if (preference === 'paper') return 'paper';
+  if (preference === 'floodlight') return 'floodlight';
+  return prefersDark ? 'floodlight' : 'paper';
 }
 
-/** Pick the concrete light/dark scheme for a stored preference. */
-export function resolveTheme(preference: Theme, prefersDark: boolean): 'light' | 'dark' {
-  if (preference === 'light') return 'light'
-  if (preference === 'dark') return 'dark'
-  return prefersDark ? 'dark' : 'light'
-}
-
-/** Cycle system → light → dark → system. */
+/** Cycle paper -> floodlight -> auto. */
 export function nextTheme(current: Theme): Theme {
-  if (current === 'system') return 'light'
-  if (current === 'light') return 'dark'
-  return 'system'
+  if (current === 'paper') return 'floodlight';
+  if (current === 'floodlight') return 'auto';
+  return 'paper';
 }
 
-/** Read the persisted preference; defaults to `system` when unavailable. */
+/** Read the persisted preference; defaults to `auto`. */
 export function readStoredTheme(): Theme {
-  if (typeof localStorage === 'undefined') return 'system'
+  if (typeof localStorage === 'undefined') return 'auto';
   try {
-    const value = localStorage.getItem(STORAGE_KEY)
-    if (value === 'light' || value === 'dark' || value === 'system') return value
+    const value = localStorage.getItem(STORAGE_KEY);
+    if (value === 'paper' || value === 'floodlight' || value === 'auto') return value;
   } catch {
     /* storage can be blocked (private mode) — fall through */
   }
-  return 'system'
+  return 'auto';
 }
 
 /** Persist the preference; a no-op when storage is unavailable. */
 export function storeTheme(theme: Theme): void {
-  if (typeof localStorage === 'undefined') return
+  if (typeof localStorage === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, theme)
+    localStorage.setItem(STORAGE_KEY, theme);
   } catch {
     /* ignore quota / blocked storage */
   }
 }
 
-/** Reflect the preference on <html> so CSS can react. `system` clears the override. */
+/** Reflect the preference on <html> so CSS can react. `auto` clears the override. */
 export function applyTheme(theme: Theme): void {
-  if (typeof document === 'undefined') return
-  const root = document.documentElement
-  if (theme === 'system') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', theme)
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (theme === 'auto') {
+    root.removeAttribute('data-theme');
+  } else {
+    root.setAttribute('data-theme', theme);
+  }
 }
 
 /** Apply the persisted theme at startup (before first paint when possible). */
 export function initTheme(): void {
-  applyTheme(readStoredTheme())
+  applyTheme(readStoredTheme());
 }

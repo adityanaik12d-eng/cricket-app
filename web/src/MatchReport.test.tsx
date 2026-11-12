@@ -69,8 +69,14 @@ describe('MatchReport', () => {
     expect(html).toContain('Match abandoned: Rain')
   })
 
-  it('says the match is in progress before anything has happened', () => {
+  it('shows waiting for toss when match has no events', () => {
     const html = renderToStaticMarkup(<MatchReport bundle={computeBundle('m1', config, [])} commentary={[]} />)
+    expect(html).toContain('Match created — waiting for toss')
+  })
+
+  it('shows in progress when toss recorded but no balls', () => {
+    const events = [toss]
+    const html = renderToStaticMarkup(<MatchReport bundle={computeBundle('m1', config, events)} commentary={[]} />)
     expect(html).toContain('Match in progress.')
   })
 })

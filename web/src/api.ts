@@ -107,8 +107,21 @@ function withScorerToken<T extends { setHeader: (name: string, value: string) =>
  * policy is the real gate; this keeps the mistake out of the request and
  * gives the UI a clear message.
  */
-function assertScorer(matchId: string): void {
+async function assertScorer(matchId: string): Promise<void> {
+  // Fast path: check local token
   if (isScorerMatch(matchId)) return
+
+  // Fallback: check if the current user is the owner of the match
+  try {
+    const { data: userData } = await getSupabase().auth.getUser()
+    if (userData.user) {
+      const ownerId = await api.readMatchOwner(matchId)
+      if (ownerId === userData.user.id) return
+    }
+  } catch {
+    // Auth not available, fall through to error
+  }
+
   throw new ApiRequestError('This match is being scored on another device', 'NOT_SCORER')
 }
 
@@ -196,7 +209,7 @@ export const api = {
     matchId: string,
     payload: unknown,
   ): Promise<{ seq: number; state: MatchState; live: LiveScore }> {
-    assertScorer(matchId)
+    await assertScorer(matchId)
     const { config, events } = await loadRow(matchId)
     let appended: ReturnType<typeof appendEvent>
     try {
@@ -259,7 +272,7 @@ export const api = {
     matchId: string,
     events: unknown[],
   ): Promise<{ state: MatchState; live: LiveScore }> {
-    assertScorer(matchId)
+    await assertScorer(matchId)
     const { config } = await loadRow(matchId)
     const { error } = await withScorerToken(
       getSupabase()
@@ -290,6 +303,24 @@ export const api = {
       ? query.in('id', opts.ids)
       : query.order('updated_at', { ascending: false }).limit(limit)
     const { data, error } = await shaped
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return summarizeRows((data ?? []) as { id: string; config: unknown; events: unknown }[])
+  },
+
+  /**
+   * Matches owned by the currently signed-in user. Used so "Your matches"
+   * survives across browsers/devices (localStorage is per-browser only).
+   * Returns [] when not signed in.
+   */
+  async listOwnedMatches(): Promise<MatchSummary[]> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) return []
+    const { data, error } = await getSupabase()
+      .from('matches')
+      .select('id, config, events, updated_at')
+      .filter('config->>ownerId', 'eq', userData.user.id)
+      .order('updated_at', { ascending: false })
+      .limit(50)
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     return summarizeRows((data ?? []) as { id: string; config: unknown; events: unknown }[])
   },

@@ -20,15 +20,19 @@ export function getSupabase(): SupabaseClient {
     )
   }
   if (!client) {
+    // SSR-safe storage: only use localStorage in browser environment
+    const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined'
     client = createClient(url, anonKey, {
       auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storage: {
-          getItem: (key) => window.localStorage.getItem(key),
-          setItem: (key, value) => window.localStorage.setItem(key, value),
-          removeItem: (key) => window.localStorage.removeItem(key),
-        },
+        persistSession: isBrowser,
+        autoRefreshToken: isBrowser,
+        storage: isBrowser
+          ? {
+              getItem: (key) => window.localStorage.getItem(key),
+              setItem: (key, value) => window.localStorage.setItem(key, value),
+              removeItem: (key) => window.localStorage.removeItem(key),
+            }
+          : undefined,
       },
     })
   }

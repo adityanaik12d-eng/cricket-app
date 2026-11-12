@@ -21,6 +21,7 @@ import { WagonWheel } from './ui/WagonWheel'
 import { Beehive } from './ui/Beehive'
 import { WatcherView } from './ui/WatcherView'
 import { SettingsScreen } from './SettingsScreen'
+import { PressureChart } from './ui/PressureChart'
 
 const DISMISSALS: Dismissal[] = [
   'BOWLED',
@@ -29,8 +30,12 @@ const DISMISSALS: Dismissal[] = [
   'RUN_OUT',
   'STUMPED',
   'HIT_WICKET',
-  'OBSTRUCTING',
+  'OBSTRUCTING_THE_FIELD',
 ]
+
+function dismissalLabel(d: Dismissal): string {
+  return d === 'HIT_WICKET' ? 'Hit wicket' : d === 'OBSTRUCTING_THE_FIELD' ? 'Obstructing the field' : d.replace('_', ' ')
+}
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK', 'SUPER_OVER'])
 
@@ -583,7 +588,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   function selectDismissal(d: Dismissal): void {
     setSelectedDismissal(d)
-    setFielderPick(d === 'STUMPED' || d === 'OBSTRUCTING' ? (teamIds.bowling[0] ?? '') : '')
+    setFielderPick(d === 'STUMPED' || d === 'OBSTRUCTING_THE_FIELD' ? (teamIds.bowling[0] ?? '') : '')
   }
 
   function cancelWicket(): void {
@@ -648,32 +653,35 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
       {!bundle.result || state.status !== 'COMPLETED' && state.status !== 'TIED' && state.status !== 'ABANDONED' ? (
         <>
-        {watching ? (
-          <button className={activeTab === 'watch' ? 'tab active' : 'tab'} onClick={() => setTab('watch')}>
-            Watch
+        <div className="paper-tabs match-tabs" role="tablist" aria-label="Match views">
+          {watching ? (
+            <button role="tab" className={activeTab === 'watch' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('watch')}>
+              Watch
+            </button>
+          ) : (
+            <button role="tab" className={activeTab === 'scoring' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('scoring')}>
+              Scoring
+            </button>
+          )}
+          <button role="tab" className={activeTab === 'report' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('report')}>
+            Report
           </button>
-        ) : (
-          <button className={activeTab === 'scoring' ? 'tab active' : 'tab'} onClick={() => setTab('scoring')}>
-            Scoring
+          <button role="tab" className={activeTab === 'scorecard' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('scorecard')}>
+            Scorecard
           </button>
-        )}
-        <button className={activeTab === 'report' ? 'tab active' : 'tab'} onClick={() => setTab('report')}>
-          Report
-        </button>
-        <button className={activeTab === 'scorecard' ? 'tab active' : 'tab'} onClick={() => setTab('scorecard')}>
-          Scorecard
-        </button>
-        <button className={activeTab === 'wheel' ? 'tab active' : 'tab'} onClick={() => setTab('wheel')}>
-          Wheel
-        </button>
-        <button className={activeTab === 'charts' ? 'tab active' : 'tab'} onClick={() => setTab('charts')}>
-          Charts
-        </button>
-        {signedIn && (
-          <button className={activeTab === 'settings' ? 'tab active' : 'tab'} onClick={() => setTab('settings')}>
-            Settings
+          <button role="tab" className={activeTab === 'wheel' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('wheel')}>
+            Wheel
           </button>
-        )}
+          <button role="tab" className={activeTab === 'charts' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('charts')}>
+            Charts
+          </button>
+          {signedIn && (
+            <button role="tab" className={activeTab === 'settings' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setTab('settings')}>
+              Settings
+            </button>
+          )}
+        </div>
+
         {activeTab === 'scoring' ? (
         <>
           <section className="card live-card" ref={stickyRef}>
@@ -702,32 +710,63 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               <div className="player">
                 <span className="muted">Strike</span>
                 <strong>{live.striker ? playerName(state.config, live.striker.playerId) : '—'}</strong>
-                <span>
+                <span className="player-runs">
                   {live.striker ? `${live.striker.runs} (${live.striker.balls})` : ''}
                 </span>
               </div>
               <div className="player">
                 <span className="muted">Non-strike</span>
                 <strong>{live.nonStriker ? playerName(state.config, live.nonStriker.playerId) : '—'}</strong>
-                <span>
+                <span className="player-runs">
                   {live.nonStriker ? `${live.nonStriker.runs} (${live.nonStriker.balls})` : ''}
                 </span>
               </div>
               <div className="player">
                 <span className="muted">Bowler</span>
                 <strong>{playerName(state.config, live.bowler?.playerId ?? bowlerPick) || '—'}</strong>
-                <span>
+                <span className="player-runs">
                   {live.bowler
-                    ? formatBowlerFigures(live.bowler.balls, live.bowler.runs, live.bowler.wickets)
+                    ? `${formatBowlerFigures(live.bowler.balls, live.bowler.runs, live.bowler.wickets)}`
                     : ''}
                 </span>
               </div>
             </div>
           </section>
 
-          <OverTimeline config={state.config} events={bundle.events} innings={live.inningsIndex} onEdit={handleEditBall} />
+          <section className="card over-ribbon" aria-label="Over by over">
+            <div className="over-label">Current Over</div>
+            <div className="over-balls">
+              {(() => {
+                const events = bundle.events.filter((e): e is BallEvent => e.type === 'BALL' && e.over === live.over);
+                if (events.length === 0) {
+                  return <span className="muted">No balls in this over yet</span>;
+                }
+                return events.map((e, idx) => {
+                  let className = 'ball-mark';
+                  if (e.extras === 'WIDE') className += ' wide';
+                  else if (e.extras === 'NO_BALL') className += ' noball';
+                  else if (e.extras === 'BYE') className += ' bye';
+                  else if (e.extras === 'LEG_BYE') className += ' legbye';
+                  else if (e.wicket) className += ' wicket';
+                  else if (e.runs === 4) className += ' run-4';
+                  else if (e.runs === 6) className += ' run-6';
+                  else if (e.runs > 0) className += ` run-${e.runs}`;
+                  else className += ' dot';
+                  return <span key={e.seq} className={className}>{e.runs === 0 ? '●' : e.runs}</span>;
+                });
+              })()}
+            </div>
+          </section>
 
-          <section className="card pad">
+          {/* Match Tide - Pressure Indicator */}
+          <section className="card match-tide" aria-label="Match pressure">
+            <div className="tide-label pressure">Pressure</div>
+            <div className="tide-label calm">Calm</div>
+            <div className="tide-watermark">TIDE</div>
+            <PressureChart live={live} events={bundle.events} />
+          </section>
+
+          <section className="scoring-pad">
             <button
               type="button"
               className={`btn ${placementMode ? 'accent' : 'ghost'} placement-toggle`}
@@ -738,8 +777,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             </button>
 
             {(live.bowler == null || inningsNotStarted) && (
-              <label className="bowler-select">
-                Bowler
+              <label className="form-field">
+                <span className="form-label">Bowler</span>
                 <select
                   value={bowlerPick}
                   onChange={(e) => setBowlerPick(e.target.value)}
@@ -761,7 +800,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   {[0, 1, 2, 3, 4, 6].map((r) => (
                     <button
                       key={r}
-                      className="btn pad-btn"
+                      className={`pad-btn ${r === 4 || r === 6 ? 'highlight' : ''}`}
                       disabled={!padEnabled}
                       onClick={() => void submitBall('RUNS', r)}
                     >
@@ -773,14 +812,14 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   {EXTRA_GROUPS.map((group) => (
                     <button
                       key={group.kind}
-                      className="btn pad-btn"
+                      className="extras-btn"
                       disabled={!padEnabled}
                       onClick={() => setExtraKind(group.kind)}
                     >
                       {group.label}
                     </button>
                   ))}
-                  <button className="btn pad-btn danger" disabled={!padEnabled} onClick={startWicket}>
+                  <button className="pad-btn wicket-btn btn-hold" disabled={!padEnabled} onClick={startWicket}>
                     W
                   </button>
                 </div>
@@ -808,7 +847,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                       </>
                     )}
                     <button
-                      className="btn pad-btn"
+                      className="pad-btn"
                       onClick={() => submitBall('WICKET', 0, selectedDismissal, fielderPick)}
                       disabled={busy || (requiresFielder(selectedDismissal) && !fielderPick)}
                     >
@@ -824,11 +863,11 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                       {DISMISSALS.map((d) => (
                         <button
                           key={d}
-                          className="btn pad-btn"
+                          className="pad-btn"
                           disabled={busy}
                           onClick={() => void selectDismissal(d)}
                         >
-                          {d.replace('_', ' ')}
+                          {dismissalLabel(d)}
                         </button>
                       ))}
                     </div>
@@ -1020,7 +1059,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 >
                   <option value="">Select…</option>
                   {teamIds.bowling
-                    .filter((p) => p !== live?.bowler?.playerId)
+                    .filter((p) => p !== live?.lastOverBowlerId)
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -1111,7 +1150,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   >
                     <option value="">Select dismissal</option>
                     {DISMISSALS.map((d) => (
-                      <option key={d} value={d}>{d.replace('_', ' ')}</option>
+                      <option key={d} value={d}>{dismissalLabel(d)}</option>
                     ))}
                   </select>
                 </div>

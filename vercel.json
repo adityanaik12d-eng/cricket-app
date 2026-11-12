@@ -1,6 +1,7 @@
 {
-  "buildCommand": "npm run build -w @cricket-app/web",
+  "buildCommand": "npm run build -w @cricket-app/core && npm run build -w @cricket-app/shared && npm run build -w @cricket-app/web",
   "outputDirectory": "web/dist",
+  "installCommand": "npm ci",
   "framework": "vite",
   "rewrites": [
     {
