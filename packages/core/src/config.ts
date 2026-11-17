@@ -15,6 +15,7 @@ export const DEFAULT_MATCH_CONFIG = {
   superOverEnabled: false,
   superOverOvers: 1,
   superOverMaxWickets: 2,
+  singleBatter: false,
 } as const
 
 type DefaultKey = keyof typeof DEFAULT_MATCH_CONFIG
@@ -62,8 +63,9 @@ export function validateMatchConfig(config: MatchConfig): ValidationResult {
 
   // Minimum squad: need at least maxWickets + 1 players (all out + 1 not out)
   // But for short formats, maxWickets may be capped by player count
+  // In single batter mode, only maxWickets players needed (one batter only, no non-striker)
   const effectiveMaxWickets = Math.min(config.maxWickets, Math.max(1, config.lineups.A.length - 1, config.lineups.B.length - 1))
-  const minSquad = effectiveMaxWickets + 1
+  const minSquad = config.singleBatter ? effectiveMaxWickets : effectiveMaxWickets + 1
   const teamAPlayers = config.lineups.A
   const teamBPlayers = config.lineups.B
   if (teamAPlayers.length < minSquad) {

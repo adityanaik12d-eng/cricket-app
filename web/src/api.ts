@@ -35,6 +35,8 @@ export interface CreateMatchBody {
   superOverEnabled?: boolean
   superOverOvers?: number
   superOverMaxWickets?: number
+  singleBatter?: boolean
+  maxWickets?: number
 }
 
 export interface Player {
@@ -270,7 +272,7 @@ export const api = {
    */
   async putMatchState(
     matchId: string,
-    events: unknown[],
+    events: MatchEvent[],
   ): Promise<{ state: MatchState; live: LiveScore }> {
     await assertScorer(matchId)
     const { config } = await loadRow(matchId)

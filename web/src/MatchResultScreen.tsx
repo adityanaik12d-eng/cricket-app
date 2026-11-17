@@ -247,7 +247,7 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
                     {inn.bowling.map((b) => (
                       <div className="poster-batter" key={b.playerId}>
                         <span className="poster-batter-name">{playerName(config, b.playerId)}</span>
-                        <span className="poster-batter-stats">{b.oversText}-{b.maidens ?? 0}-{b.runs}-{b.wickets} (Econ {b.economy.toFixed(2)})</span>
+                        <span className="poster-batter-stats">{b.oversText}-{b.runs}-{b.wickets} (Econ {b.economy.toFixed(2)})</span>
                       </div>
                     ))}
                   </div>

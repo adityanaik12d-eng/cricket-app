@@ -3,12 +3,13 @@ import type {
   BatterBall,
   CommentaryLine,
   InningsCard,
+  LiveScore,
   MatchConfig,
   MatchEvent,
   MatchState,
   Scorecard,
 } from '@cricket-app/core'
-import { projectBatterBalls, projectPartnerships, effectiveEvents } from '@cricket-app/core'
+import { projectBatterBalls, projectLiveScore, projectPartnerships, effectiveEvents } from '@cricket-app/core'
 import { formatWin, playerName } from './scoring'
 import { formatBowlerFigures } from './scoring'
 
@@ -333,6 +334,9 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
     }
   }, [state.config, events])
 
+  // Live score for current innings (target, ballsRemaining, requiredRunRate)
+  const live = useMemo(() => projectLiveScore(state), [state])
+
   if (scorecard.innings.length === 0) {
     return (
       <section className="card empty-state">
@@ -342,7 +346,7 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
   }
 
   // Current innings for header display
-  const currentInnings = scorecard.innings[scorecard.innings.length - 1]
+  const currentInnings = scorecard.innings[scorecard.innings.length - 1]!
   const currentRuns = currentInnings.runs ?? 0
   const currentWickets = currentInnings.wickets ?? 0
   const currentOvers = currentInnings.oversText ?? '0'
@@ -360,10 +364,10 @@ export function ScorecardView({ bundle, commentary, events }: Props) {
           </div>
           <div className="scorecard-meta">
             <span>CRR {currentRunRate.toFixed(2)}</span>
-            {currentInnings.target != null && (
+            {live.target != null && (
               <span>
-                Target {currentInnings.target} · Need {Math.max(0, currentInnings.target - currentRuns)} off {currentInnings.ballsRemaining ?? 0}
-                {currentInnings.requiredRunRate != null && ` · RRR ${currentInnings.requiredRunRate.toFixed(2)}`}
+                Target {live.target} · Need {Math.max(0, live.target - currentRuns)} off {live.ballsRemaining ?? 0}
+                {live.requiredRunRate != null && ` · RRR ${live.requiredRunRate.toFixed(2)}`}
               </span>
             )}
           </div>

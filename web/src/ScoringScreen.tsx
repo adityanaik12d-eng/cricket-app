@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import type { CommentaryLine, DeliveryCelebration, Dismissal, LiveScore, MatchState, BallEvent } from '@cricket-app/core'
+import type { CommentaryLine, CorrectionEvent, DeliveryCelebration, Dismissal, LiveScore, MatchState, BallEvent } from '@cricket-app/core'
 import { editDeliveryFromLog } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
@@ -7,7 +7,7 @@ import { clearToken } from './token'
 import { MatchReport } from './MatchReport'
 import { ScorecardView } from './ScorecardView'
 import { MatchResultScreen } from './MatchResultScreen'
-import { EXTRA_GROUPS, buildBallPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, buildBatterReplacedPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
 import { ExtrasSheet } from './ExtrasSheet'
 import { matchShareUrl } from './share'
@@ -30,11 +30,11 @@ const DISMISSALS: Dismissal[] = [
   'RUN_OUT',
   'STUMPED',
   'HIT_WICKET',
-  'OBSTRUCTING_THE_FIELD',
+  'OBSTRUCTING',
 ]
 
 function dismissalLabel(d: Dismissal): string {
-  return d === 'HIT_WICKET' ? 'Hit wicket' : d === 'OBSTRUCTING_THE_FIELD' ? 'Obstructing the field' : d.replace('_', ' ')
+  return d === 'HIT_WICKET' ? 'Hit wicket' : d === 'OBSTRUCTING' ? 'Obstructing the field' : d.replace('_', ' ')
 }
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK', 'SUPER_OVER'])
@@ -75,14 +75,17 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [dismissedPlayerId, setDismissedPlayerId] = useState<string | null>(null)
   const [showNextBowlerModal, setShowNextBowlerModal] = useState(false)
   const [showSuperOverTeamSelectModal, setShowSuperOverTeamSelectModal] = useState(false)
-  const [superOverAcknowledged, setSuperOverAcknowledged] = useState<Set<number>>(new Set())
+  const [superOverAcknowledged, setSuperOverAcknowledged] = useState<Set<string>>(new Set())
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showBatterReplaceModal, setShowBatterReplaceModal] = useState(false)
+  const [replaceSlot, setReplaceSlot] = useState<'striker' | 'nonStriker'>('striker')
+  const [outgoingPlayerId, setOutgoingPlayerId] = useState<string | null>(null)
   const [editTargetSeq, setEditTargetSeq] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<{
     kind: BallKind
     runs: number
     dismissal?: Dismissal
-    fielderId?: string
+    fielderId?: string | undefined
   } | null>(null)
   const prevOverBallRef = useRef<{ over: number; ball: number } | null>(null)
 
@@ -307,7 +310,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   // Show match start modal when innings hasn't started and match is in a batting status
   // but only if the user hasn't already confirmed the innings start
   useEffect(() => {
-    if (inningsNotStarted && BATTING_STATUSES.has(live?.status) && !inningsStartConfirmed) {
+    const status = live?.status
+    if (inningsNotStarted && status && BATTING_STATUSES.has(status) && !inningsStartConfirmed) {
       setShowMatchStartModal(true)
     } else {
       setShowMatchStartModal(false)
@@ -349,6 +353,38 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   function handleStartNextOver(): void {
     // Actually set the bowler and close modal - this "starts" the next over
     setShowNextBowlerModal(false)
+  }
+
+  function openBatterReplaceModal(slot: 'striker' | 'nonStriker'): void {
+    const playerId = slot === 'striker' ? live?.striker?.playerId : live?.nonStriker?.playerId
+    if (!playerId) return
+    setReplaceSlot(slot)
+    setOutgoingPlayerId(playerId)
+    setShowBatterReplaceModal(true)
+  }
+
+  async function handleBatterReplace(incomingPlayerId: string): Promise<void> {
+    if (!outgoingPlayerId || !live || !state) return
+    setBusy(true)
+    setPadError(null)
+    try {
+      const payload = buildBatterReplacedPayload(outgoingPlayerId, incomingPlayerId, replaceSlot)
+      const posted = await api.postEvent(matchId, payload)
+      // The engine doesn't produce a celebration for batter replacement
+      setShowBatterReplaceModal(false)
+      setOutgoingPlayerId(null)
+      // Update local picks if needed
+      if (replaceSlot === 'striker') {
+        setStrikerPick(incomingPlayerId)
+      } else {
+        setNonStrikerPick(incomingPlayerId)
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Failed to replace batter')
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Commentary is only shown on the scorecard tab; fetch it on demand and
@@ -588,7 +624,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   function selectDismissal(d: Dismissal): void {
     setSelectedDismissal(d)
-    setFielderPick(d === 'STUMPED' || d === 'OBSTRUCTING_THE_FIELD' ? (teamIds.bowling[0] ?? '') : '')
+    setFielderPick(d === 'STUMPED' ? (teamIds.bowling[0] ?? '') : '')
   }
 
   function cancelWicket(): void {
@@ -822,6 +858,32 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   <button className="pad-btn wicket-btn btn-hold" disabled={!padEnabled} onClick={startWicket}>
                     W
                   </button>
+                  {(() => {
+                  const showReplace = state.config.singleBatter || live?.striker || live?.nonStriker
+                  if (!showReplace) return null
+                  return (
+                    <>
+                      {live?.striker && (
+                        <button
+                          className="pad-btn replace-btn"
+                          disabled={!padEnabled}
+                          onClick={() => openBatterReplaceModal('striker')}
+                        >
+                          Replace Striker
+                        </button>
+                      )}
+                      {live?.nonStriker && (
+                        <button
+                          className="pad-btn replace-btn"
+                          disabled={!padEnabled}
+                          onClick={() => openBatterReplaceModal('nonStriker')}
+                        >
+                          Replace Non-striker
+                        </button>
+                      )}
+                    </>
+                  )
+                })()}
                 </div>
               </>
             ) : (
@@ -1025,8 +1087,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 >
                   <option value="">Select…</option>
                   {teamIds.batting
-                    .filter((p) => !live?.batters?.[p]?.out && p !== dismissedPlayerId)
-                    .filter((p) => p !== (live?.striker?.playerId === dismissedPlayerId ? live?.nonStriker?.playerId : live?.striker?.playerId))
+                    .filter((p) => p !== dismissedPlayerId && p !== live?.striker?.playerId && p !== live?.nonStriker?.playerId)
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -1059,7 +1120,10 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 >
                   <option value="">Select…</option>
                   {teamIds.bowling
-                    .filter((p) => p !== live?.lastOverBowlerId)
+                    .filter((p) => {
+                      const currentInnings = bundle?.state.innings[bundle.state.innings.length - 1]
+                      return p !== currentInnings?.lastOverBowlerId
+                    })
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -1100,6 +1164,55 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               <button className="btn accent" onClick={() => { setShowSuperOverTeamSelectModal(false); setSuperOverAcknowledged(prev => new Set(prev).add('first-super-over')); }}>
                 Start Superover
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBatterReplaceModal && outgoingPlayerId && (
+        <div className="modal-overlay" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Replace Batter</h2>
+            <p className="muted">
+              {playerName(state.config, outgoingPlayerId)} will be replaced at {replaceSlot}.
+            </p>
+            <div className="modal-fields">
+              <label>
+                New Batter
+                <select
+                  value={replaceSlot === 'striker' ? strikerPick : nonStrikerPick}
+                  onChange={(e) => {
+                    if (replaceSlot === 'striker') setStrikerPick(e.target.value)
+                    else setNonStrikerPick(e.target.value)
+                  }}
+                >
+                  <option value="">Select…</option>
+                  {teamIds.batting
+                    .filter((p) => p !== outgoingPlayerId)
+                    .filter((p) => {
+                      const currentInnings = bundle?.state.innings[bundle.state.innings.length - 1]
+                      const batter = currentInnings?.batters[p]
+                      return !batter?.out && !batter?.retiredNotOut
+                    })
+                    .filter((p) => p !== (replaceSlot === 'striker' ? live?.nonStriker?.playerId : live?.striker?.playerId))
+                    .map((p) => (
+                      <option key={p} value={p}>
+                        {playerName(state.config, p)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            {padError && <p className="error">{padError}</p>}
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); }}>
+                Cancel
+              </button>
+              {(replaceSlot === 'striker' ? strikerPick : nonStrikerPick) && (
+                <button className="btn accent" onClick={() => handleBatterReplace(replaceSlot === 'striker' ? strikerPick : nonStrikerPick!)} disabled={busy}>
+                  Replace
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1186,7 +1299,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         </div>
       )}
 
-      {bundle?.result && (state.status === 'COMPLETED' || state.status === 'TIED' || state.status === 'ABANDONED' || state.status === 'SUPER_OVER_WINNER') && (
+      {bundle?.result && (state.status === 'COMPLETED' || state.status === 'TIED' || state.status === 'ABANDONED') && (
         <MatchResultScreen
           config={state.config}
           scorecard={bundle.scorecard}

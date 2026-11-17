@@ -54,6 +54,7 @@ export function projectLiveScore(state: MatchState): LiveScore {
     declared: inn ? inn.declared : false,
     powerplay,
     ballsRemaining,
+    over,
     thisOver: (inn ? inn.thisOver ?? [] : []) as ThisOverBall[],
     striker,
     nonStriker,

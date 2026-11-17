@@ -51,6 +51,7 @@ const EVENT_TYPES: ReadonlySet<string> = new Set([
   'PENALTY',
   'END_MATCH',
   'CORRECTION',
+  'BATTER_REPLACED',
 ])
 
 /** Turns the raw setup input into a validated engine config, filling in defaults. */

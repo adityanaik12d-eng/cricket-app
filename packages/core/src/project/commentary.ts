@@ -1,4 +1,4 @@
-import type { BallEvent, CommentaryLine, Dismissal, MatchConfig, MatchEvent } from '../types.js'
+import type { BallEvent, BatterReplacedEvent, CommentaryLine, Dismissal, MatchConfig, MatchEvent } from '../types.js'
 import { effectiveEvents } from '../apply.js'
 
 function name(config: MatchConfig, id: string | null | undefined): string {
@@ -100,6 +100,18 @@ export function projectCommentary(config: MatchConfig, events: MatchEvent[]): Co
           ? 'Match tied'
           : `Match abandoned${e.outcome.reason ? `: ${e.outcome.reason}` : ''}`
       lines.push({ seq: e.seq, kind: 'END', over: null, text })
+      continue
+    }
+    if (e.type === 'BATTER_REPLACED') {
+      const outgoing = name(config, e.outgoingPlayerId)
+      const incoming = name(config, e.incomingPlayerId)
+      const slot = e.slot === 'striker' ? 'striker' : 'non-striker'
+      lines.push({
+        seq: e.seq,
+        kind: 'INNINGS',
+        over: null,
+        text: `${outgoing} replaced by ${incoming} at ${slot} (retired not out)`,
+      })
       continue
     }
     if (e.type !== 'BALL') continue

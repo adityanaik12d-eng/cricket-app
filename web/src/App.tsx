@@ -215,6 +215,8 @@ function SetupFlow() {
   const [superOverEnabled, setSuperOverEnabled] = useState(false)
   const [superOverOvers, setSuperOverOvers] = useState(1)
   const [superOverMaxWickets, setSuperOverMaxWickets] = useState(2)
+  const [singleBatter, setSingleBatter] = useState(false)
+  const [maxWickets, setMaxWickets] = useState(10)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [toss, setToss] = useState<TossDraft | null>(null)
@@ -424,8 +426,10 @@ function SetupFlow() {
   async function createMatch(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setError(null)
-    // Minimum 2 players per side (striker + non-striker). Allow fewer for short formats.
-    const minPlayers = Math.max(2, Math.min(11, overs + 1))
+    // Minimum players per side
+    // Normal mode: maxWickets + 1 (all out + 1 not out)
+    // Single batter mode: maxWickets (one batter only, no non-striker)
+    const minPlayers = singleBatter ? maxWickets : Math.max(2, Math.min(11, overs + 1))
     if (lineupA.length < minPlayers || lineupB.length < minPlayers) {
       setError(`Each side must have at least ${minPlayers} players for a ${overs}-over match`)
       return
@@ -445,6 +449,8 @@ function SetupFlow() {
         powerplayOvers: Math.min(6, overs),
         superOverEnabled,
         ...(superOverEnabled ? { superOverOvers, superOverMaxWickets } : {}),
+        singleBatter,
+        maxWickets,
       }
       const token = createScorerToken()
       const created = await api.createMatch(body, token)
@@ -592,6 +598,18 @@ function SetupFlow() {
                     </label>
                   </div>
                 )}
+                <div className="field-row">
+                  <label className="form-field">
+                    <span className="form-label">Max Wickets</span>
+                    <input type="number" min={1} max={10} value={maxWickets} onChange={(e) => setMaxWickets(Number(e.target.value) || 10)} />
+                  </label>
+                </div>
+                <div className="field-row">
+                  <label className="checkbox-inline">
+                    <input type="checkbox" checked={singleBatter} onChange={(e) => setSingleBatter(e.target.checked)} />
+                    Single batter mode (one batter faces all balls)
+                  </label>
+                </div>
               </div>
               <button className="btn accent wide" type="button" onClick={() => { if (!teamA.trim() || !teamB.trim()) { setError('Enter both team names.'); return; } setError(null); setWizardStep(2); }}>
                 Next: Lineups

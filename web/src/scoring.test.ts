@@ -22,6 +22,7 @@ function liveFixture(partial: Partial<LiveScore> = {}): LiveScore {
     declared: false,
     powerplay: false,
     ballsRemaining: 9,
+    over: 2,
     thisOver: [],
     striker: null,
     nonStriker: null,
@@ -246,13 +247,13 @@ describe('requiresFielder', () => {
     expect(requiresFielder('CAUGHT')).toBe(true)
     expect(requiresFielder('RUN_OUT')).toBe(true)
     expect(requiresFielder('STUMPED')).toBe(true)
-    expect(requiresFielder('OBSTRUCTING')).toBe(true)
   })
 
   it('is false for bowler and umpire dismissals', () => {
     expect(requiresFielder('BOWLED')).toBe(false)
     expect(requiresFielder('LBW')).toBe(false)
     expect(requiresFielder('HIT_WICKET')).toBe(false)
+    expect(requiresFielder('OBSTRUCTING')).toBe(false)
   })
 })
 
@@ -402,6 +403,7 @@ describe('requirementText', () => {
     declared: false,
     powerplay: false,
     ballsRemaining: 24,
+    over: 16,
     thisOver: [],
     striker: null,
     nonStriker: null,

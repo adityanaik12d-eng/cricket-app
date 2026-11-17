@@ -242,6 +242,28 @@ describe('withoutLastEvent', () => {
     expect(computeBundle('m1', config, [toss, ball]).live.runs).toBe(4)
     expect(computeBundle('m1', config, withoutLastEvent([toss, ball])).live.runs).toBe(0)
   })
+
+  it('drops a BATTER_REPLACED event', () => {
+    const toss = buildEvent('m1', 1, { type: 'TOSS', winnerTeamId: 'india', winnerDecision: 'BAT' }, 'e1', NOW)
+    const replaced = buildEvent(
+      'm1',
+      2,
+      {
+        type: 'BATTER_REPLACED',
+        outgoingPlayerId: 'a1',
+        incomingPlayerId: 'a3',
+        slot: 'striker',
+      },
+      'e2',
+      NOW,
+    )
+    expect(withoutLastEvent([toss, replaced])).toEqual([toss])
+  })
+
+  it('does not drop toss even when last event is BATTER_REPLACED', () => {
+    const toss = buildEvent('m1', 1, { type: 'TOSS', winnerTeamId: 'india', winnerDecision: 'BAT' }, 'e1', NOW)
+    expect(withoutLastEvent([toss])).toEqual([toss])
+  })
 })
 
 const CONFIG_INPUT = {

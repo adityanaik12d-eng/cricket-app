@@ -40,7 +40,7 @@ export function playerName(config: MatchConfig, id: string): string {
   return config.playerRefs?.[id]?.name ?? id
 }
 
-const FIELDERS_REQUIRED: ReadonlySet<Dismissal> = new Set(['CAUGHT', 'STUMPED', 'RUN_OUT', 'OBSTRUCTING_THE_FIELD'])
+const FIELDERS_REQUIRED: ReadonlySet<Dismissal> = new Set(['CAUGHT', 'STUMPED', 'RUN_OUT'])
 
 /** Dismissals credited to a fielder; the scorer must pick who. The rest are bowler/umpire decisions. */
 export function requiresFielder(dismissal: Dismissal): boolean {
@@ -175,7 +175,7 @@ export function formatWin(result: MatchResult & { kind: 'WINNER' | 'SUPER_OVER_W
 export function formatBowlerFigures(balls: number, runs: number, wickets: number): string {
   const over = Math.floor(balls / 6)
   const inOver = balls % 6
-  return `${over}.${inOver} - ${runs} - ${wickets}`
+  return `${over}.${inOver}-${runs}-${wickets}`
 }
 
 /** The headline result line, or null while the match is still going. */
@@ -217,4 +217,25 @@ export function requirementText(live: LiveScore): string | null {
   const need = Math.max(0, live.target - live.runs)
   if (need === 0) return null
   return `${live.battingTeamId} need ${need} off ${live.ballsRemaining}`
+}
+
+export interface BatterReplacedPayload {
+  type: 'BATTER_REPLACED'
+  outgoingPlayerId: string
+  incomingPlayerId: string
+  slot: 'striker' | 'nonStriker'
+}
+
+/** Build a BATTER_REPLACED event payload (not a ball, no seq/ts/id added yet). */
+export function buildBatterReplacedPayload(
+  outgoingPlayerId: string,
+  incomingPlayerId: string,
+  slot: 'striker' | 'nonStriker'
+): BatterReplacedPayload {
+  return {
+    type: 'BATTER_REPLACED',
+    outgoingPlayerId,
+    incomingPlayerId,
+    slot,
+  }
 }
