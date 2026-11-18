@@ -4,9 +4,6 @@ import { editDeliveryFromLog } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { clearToken } from './token'
-import { MatchReport } from './MatchReport'
-import { ScorecardView } from './ScorecardView'
-import { MatchResultScreen } from './MatchResultScreen'
 import { EXTRA_GROUPS, buildBallPayload, buildBatterReplacedPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
 import { ExtrasSheet } from './ExtrasSheet'
@@ -17,11 +14,17 @@ import { ThemeToggle } from './ui/ThemeToggle'
 import { OverTimeline } from './ui/OverTimeline'
 import { StickyScore } from './ui/StickyScore'
 import { ShotPicker } from './ui/ShotPicker'
-import { WagonWheel } from './ui/WagonWheel'
-import { Beehive } from './ui/Beehive'
-import { WatcherView } from './ui/WatcherView'
-import { SettingsScreen } from './SettingsScreen'
 import { PressureChart } from './ui/PressureChart'
+
+// Lazy-load heavy tab components to reduce initial bundle
+const MatchReport = lazy(() => import('./MatchReport').then((m) => ({ default: m.MatchReport })))
+const ScorecardView = lazy(() => import('./ScorecardView').then((m) => ({ default: m.ScorecardView })))
+const WagonWheel = lazy(() => import('./ui/WagonWheel').then((m) => ({ default: m.WagonWheel })))
+const Beehive = lazy(() => import('./ui/Beehive').then((m) => ({ default: m.Beehive })))
+const WatcherView = lazy(() => import('./ui/WatcherView').then((m) => ({ default: m.WatcherView })))
+const SettingsScreen = lazy(() => import('./SettingsScreen').then((m) => ({ default: m.SettingsScreen })))
+const MatchResultScreen = lazy(() => import('./MatchResultScreen').then((m) => ({ default: m.MatchResultScreen })))
+const MatchCharts = lazy(() => import('./ui/charts/MatchCharts').then((m) => ({ default: m.MatchCharts })))
 
 const DISMISSALS: Dismissal[] = [
   'BOWLED',
@@ -38,9 +41,6 @@ function dismissalLabel(d: Dismissal): string {
 }
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK', 'SUPER_OVER'])
-
-// The charts are the heaviest view, so they load only when the tab is opened.
-const MatchCharts = lazy(() => import('./ui/charts/MatchCharts').then((m) => ({ default: m.MatchCharts })))
 
 interface Props {
   matchId: string
@@ -80,6 +80,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [showBatterReplaceModal, setShowBatterReplaceModal] = useState(false)
   const [replaceSlot, setReplaceSlot] = useState<'striker' | 'nonStriker'>('striker')
   const [outgoingPlayerId, setOutgoingPlayerId] = useState<string | null>(null)
+  const [addingNewPlayer, setAddingNewPlayer] = useState(false)
+  const [newPlayerName, setNewPlayerName] = useState('')
   const [editTargetSeq, setEditTargetSeq] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<{
     kind: BallKind
@@ -260,11 +262,11 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   }, [inningsIndex, seenInnings, live?.status])
 
   const teamIds = useMemo(() => {
-    if (!state) return { batting: [] as string[], bowling: [] as string[] }
+    if (!state) return { batting: [] as string[], bowling: [] as string[], battingKey: 'A' as 'A' | 'B' }
     const cfg = state.config
-    const battingKey = live?.battingTeamId === cfg.teamBId ? 'B' : 'A'
-    const bowlingKey = battingKey === 'A' ? 'B' : 'A'
-    return { batting: cfg.lineups[battingKey], bowling: cfg.lineups[bowlingKey] }
+    const battingKey = (live?.battingTeamId === cfg.teamBId ? 'B' : 'A') as 'A' | 'B'
+    const bowlingKey = (battingKey === 'A' ? 'B' : 'A') as 'A' | 'B'
+    return { batting: cfg.lineups[battingKey], bowling: cfg.lineups[bowlingKey], battingKey }
   }, [state, live?.battingTeamId])
 
   // Calculate inningsNotStarted early for useEffect
@@ -361,6 +363,65 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     setReplaceSlot(slot)
     setOutgoingPlayerId(playerId)
     setShowBatterReplaceModal(true)
+    setAddingNewPlayer(false)
+    setNewPlayerName('')
+  }
+
+  // Compute available replacement batters (not out, not retired, not the other batter)
+  const availableReplacements = useMemo(() => {
+    if (!live || !state || !bundle) return []
+    const currentInnings = bundle.state.innings[bundle.state.innings.length - 1]
+    if (!currentInnings) return []
+    const otherBatterId = replaceSlot === 'striker' ? live.nonStriker?.playerId : live.striker?.playerId
+    return state.config.lineups[teamIds.battingKey].filter((p) => {
+      if (p === outgoingPlayerId) return false
+      if (p === otherBatterId) return false
+      const batter = currentInnings.batters[p]
+      return !batter?.out && !batter?.retiredNotOut
+    })
+  }, [live, state, bundle, replaceSlot, outgoingPlayerId, teamIds.battingKey])
+
+  async function handleAddNewPlayerAndReplace(): Promise<void> {
+    if (!outgoingPlayerId || !live || !state || !newPlayerName.trim()) return
+    const name = newPlayerName.trim()
+    setBusy(true)
+    setPadError(null)
+    try {
+      // Generate a unique player ID
+      const newPlayerId = `player-${crypto.randomUUID()}`
+      const battingKey = teamIds.battingKey
+      const currentLineup = state.config.lineups[battingKey]
+      const newLineups = {
+        ...state.config.lineups,
+        [battingKey]: [...currentLineup, newPlayerId],
+      }
+      const newPlayerRefs = {
+        ...state.config.playerRefs,
+        [newPlayerId]: { name, verified: false },
+      }
+      // Update match config in database
+      await api.updateMatchConfig(matchId, { lineups: newLineups, playerRefs: newPlayerRefs })
+      // Refresh to get updated config
+      await refresh()
+      // Now replace with the new player
+      const payload = buildBatterReplacedPayload(outgoingPlayerId, newPlayerId, replaceSlot)
+      await api.postEvent(matchId, payload)
+      setShowBatterReplaceModal(false)
+      setOutgoingPlayerId(null)
+      setAddingNewPlayer(false)
+      setNewPlayerName('')
+      // Update local picks
+      if (replaceSlot === 'striker') {
+        setStrikerPick(newPlayerId)
+      } else {
+        setNonStrikerPick(newPlayerId)
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Failed to add player and replace batter')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handleBatterReplace(incomingPlayerId: string): Promise<void> {
@@ -972,9 +1033,13 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           heroRef={stickyRef}
         />
       ) : activeTab === 'report' ? (
-        <MatchReport bundle={bundle} commentary={commentary} />
+        <Suspense fallback={<p className="muted chart-empty">Loading report…</p>}>
+          <MatchReport bundle={bundle} commentary={commentary} />
+        </Suspense>
       ) : activeTab === 'scorecard' ? (
-        <ScorecardView bundle={bundle} commentary={commentary} events={bundle.events} />
+        <Suspense fallback={<p className="muted chart-empty">Loading scorecard…</p>}>
+          <ScorecardView bundle={bundle} commentary={commentary} events={bundle.events} />
+        </Suspense>
       ) : activeTab === 'wheel' ? (
         <>
           <div className="wheel-view-toggle" role="group" aria-label="Wheel view">
@@ -995,14 +1060,18 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               Beehive
             </button>
           </div>
-          {wheelView === 'wheel' ? <WagonWheel config={state.config} events={bundle.events} /> : <Beehive events={bundle.events} />}
+          <Suspense fallback={<p className="muted chart-empty">Loading wheel…</p>}>
+            {wheelView === 'wheel' ? <WagonWheel config={state.config} events={bundle.events} /> : <Beehive events={bundle.events} />}
+          </Suspense>
         </>
       ) : activeTab === 'charts' ? (
         <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
           <MatchCharts config={state.config} events={bundle.events} />
         </Suspense>
       ) : activeTab === 'settings' ? (
-        <SettingsScreen onBack={() => setTab('scoring')} />
+        <Suspense fallback={<p className="muted chart-empty">Loading settings…</p>}>
+          <SettingsScreen onBack={() => setTab('scoring')} />
+        </Suspense>
       ) : (
         <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
           <MatchCharts config={state.config} events={bundle.events} />
@@ -1170,47 +1239,86 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       )}
 
       {showBatterReplaceModal && outgoingPlayerId && (
-        <div className="modal-overlay" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); }}>
+        <div className="modal-overlay" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); setAddingNewPlayer(false); setNewPlayerName(''); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Replace Batter</h2>
             <p className="muted">
               {playerName(state.config, outgoingPlayerId)} will be replaced at {replaceSlot}.
             </p>
             <div className="modal-fields">
-              <label>
-                New Batter
-                <select
-                  value={replaceSlot === 'striker' ? strikerPick : nonStrikerPick}
-                  onChange={(e) => {
-                    if (replaceSlot === 'striker') setStrikerPick(e.target.value)
-                    else setNonStrikerPick(e.target.value)
-                  }}
-                >
-                  <option value="">Select…</option>
-                  {teamIds.batting
-                    .filter((p) => p !== outgoingPlayerId)
-                    .filter((p) => {
-                      const currentInnings = bundle?.state.innings[bundle.state.innings.length - 1]
-                      const batter = currentInnings?.batters[p]
-                      return !batter?.out && !batter?.retiredNotOut
-                    })
-                    .filter((p) => p !== (replaceSlot === 'striker' ? live?.nonStriker?.playerId : live?.striker?.playerId))
-                    .map((p) => (
-                      <option key={p} value={p}>
-                        {playerName(state.config, p)}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              {!addingNewPlayer ? (
+                <>
+                  <label>
+                    New Batter
+                    <select
+                      value={replaceSlot === 'striker' ? strikerPick : nonStrikerPick}
+                      onChange={(e) => {
+                        if (replaceSlot === 'striker') setStrikerPick(e.target.value)
+                        else setNonStrikerPick(e.target.value)
+                      }}
+                    >
+                      <option value="">Select…</option>
+                      {availableReplacements.length === 0 && (
+                        <option value="" disabled>No available batters</option>
+                      )}
+                      {availableReplacements.map((p) => (
+                        <option key={p} value={p}>
+                          {playerName(state.config, p)}
+                        </option>
+                      ))}
+                      <option value="__add_new__">+ Add new player</option>
+                    </select>
+                  </label>
+                  {availableReplacements.length === 0 && (
+                    <p className="muted" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                      No other batters available in the lineup.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <label>
+                  New Player Name
+                  <input
+                    type="text"
+                    value={newPlayerName}
+                    onChange={(e) => setNewPlayerName(e.target.value)}
+                    placeholder="Enter player name"
+                    autoFocus
+                    maxLength={50}
+                    disabled={busy}
+                  />
+                  <span className="hint">This player will be added to the team lineup.</span>
+                </label>
+              )}
             </div>
             {padError && <p className="error">{padError}</p>}
             <div className="modal-actions">
-              <button className="btn ghost" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); }}>
-                Cancel
+              <button className="btn ghost" onClick={() => {
+                if (addingNewPlayer) {
+                  setAddingNewPlayer(false)
+                  setNewPlayerName('')
+                } else {
+                  setShowBatterReplaceModal(false)
+                  setOutgoingPlayerId(null)
+                }
+              }}>
+                {addingNewPlayer ? 'Back' : 'Cancel'}
               </button>
-              {(replaceSlot === 'striker' ? strikerPick : nonStrikerPick) && (
-                <button className="btn accent" onClick={() => handleBatterReplace(replaceSlot === 'striker' ? strikerPick : nonStrikerPick!)} disabled={busy}>
-                  Replace
+              {!addingNewPlayer && availableReplacements.length > 0 && (
+                <>
+                  <button className="btn secondary" onClick={() => { setAddingNewPlayer(true); setNewPlayerName(''); }}>
+                    + Add new player
+                  </button>
+                  {(replaceSlot === 'striker' ? strikerPick : nonStrikerPick) && (
+                    <button className="btn accent" onClick={() => handleBatterReplace(replaceSlot === 'striker' ? strikerPick : nonStrikerPick!)} disabled={busy}>
+                      Replace
+                    </button>
+                  )}
+                </>
+              )}
+              {addingNewPlayer && newPlayerName.trim() && (
+                <button className="btn accent" onClick={handleAddNewPlayerAndReplace} disabled={busy}>
+                  Add & Replace
                 </button>
               )}
             </div>

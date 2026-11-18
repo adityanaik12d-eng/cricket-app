@@ -435,6 +435,32 @@ export const api = {
     }
   },
 
+  /**
+   * Updates the match config (lineups and playerRefs).
+   * Used when adding a new player mid-match for batter replacement.
+   */
+  async updateMatchConfig(
+    matchId: string,
+    updates: { lineups?: { A: string[]; B: string[] }; playerRefs?: Record<string, { name: string; mobile?: string; verified: boolean }> }
+  ): Promise<MatchConfig> {
+    await assertScorer(matchId)
+    const { config } = await loadRow(matchId)
+    const newConfig = {
+      ...config,
+      lineups: updates.lineups ?? config.lineups,
+      playerRefs: { ...config.playerRefs, ...(updates.playerRefs ?? {}) },
+    }
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ config: newConfig, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return newConfig
+  },
+
   // --- Shared player directory / accounts (server-backed) are deferred. The
   // online build keeps the setup flow working with local, in-memory players. ---
 
