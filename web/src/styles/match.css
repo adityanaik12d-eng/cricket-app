@@ -1461,32 +1461,6 @@
   flex: 1;
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  position: relative;
-}
-
-.topbar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
 .topbar h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
