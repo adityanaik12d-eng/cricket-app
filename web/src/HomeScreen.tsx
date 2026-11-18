@@ -33,6 +33,7 @@ interface MatchCardProps {
 
 export function MatchCard({ summary, onOpen, style, selectMode, selected, onToggleSelect }: MatchCardProps) {
   const prevScore = useRef<string | null>(null)
+  const hasAnimated = useRef(false)
   const parsed = summary.score ? splitScore(summary.score) : null
 
   useEffect(() => {
@@ -41,12 +42,14 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
       playScoreBlip()
     }
     prevScore.current = summary.score
+    // Mark as animated after first paint so entrance animation only runs once
+    hasAnimated.current = true
   }, [summary.score])
 
   if (selectMode) {
     return (
       <label
-        className={`card match-card animate ${selected ? 'bookmarked' : ''}`}
+        className={`card match-card ${hasAnimated.current ? '' : 'animate'} ${selected ? 'bookmarked' : ''}`}
         style={style}
         data-tooltip={summary.statusText}
       >
@@ -83,7 +86,7 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
   return (
     <button
       type="button"
-      className="card match-card animate"
+      className={`card match-card ${hasAnimated.current ? '' : 'animate'}`}
       style={style}
       onClick={() => onOpen(summary.matchId)}
       data-tooltip={summary.statusText}
