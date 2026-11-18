@@ -1587,10 +1587,6 @@
   min-height: 80px;
 }
 
-.match-card.animate {
-  animation: fade-in-up var(--duration-normal) var(--ease-out) both;
-}
-
 .match-card.bookmarked {
   border-color: var(--amber-glow);
   background: color-mix(in srgb, var(--amber-glow) 5%, var(--surface-primary));
@@ -2005,17 +2001,5 @@
 @media (min-width: 1024px) {
   .charts-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* Keyframe for fade-in-up */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
