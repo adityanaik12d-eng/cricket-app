@@ -49,9 +49,7 @@ textarea {
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out),
     transform var(--duration-fast) var(--ease-spring);
-  -webkit-backdrop-filter: blur(10px) saturate(150%);
-  backdrop-filter: blur(10px) saturate(150%);
-  box-shadow: var(--glass-specular);
+  box-shadow: var(--shadow-sm);
 }
 
 input::placeholder,
@@ -152,9 +150,7 @@ input[type="radio"] {
     background var(--duration-fast) var(--ease-spring),
     box-shadow var(--duration-fast) var(--ease-spring),
     transform var(--duration-fast) var(--ease-spring);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
-  backdrop-filter: blur(8px) saturate(140%);
-  box-shadow: var(--glass-specular);
+  box-shadow: var(--shadow-sm);
   flex-shrink: 0;
   display: inline-grid;
   place-content: center;
