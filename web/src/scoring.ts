@@ -3,7 +3,7 @@ import type { BattingCardLine, BowlingCardLine, DeliveryCelebration, Dismissal, 
 
 export interface PadPositions {
   strikerId: string
-  nonStrikerId: string
+  nonStrikerId: string | null
   bowlerId: string
 }
 

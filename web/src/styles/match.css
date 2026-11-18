@@ -323,6 +323,27 @@
   overflow: hidden;
 }
 
+/* Mobile: smaller buttons on narrow screens (360-430px) while maintaining 44px minimum touch targets */
+@media (max-width: 430px) {
+  .pad-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    padding: 0 var(--space-2);
+    font-size: clamp(var(--text-lg), var(--text-xl), 1.25rem);
+  }
+
+  .extras-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    min-width: 60px;
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
+  }
+
+  .replace-btn {
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
+  }
+}
+
 .pad-btn:active:not(:disabled) {
   transform: scale(0.95);
 }
@@ -404,6 +425,13 @@
 
 .wicket-btn.holding::after {
   transform: scaleX(1);
+}
+
+/* Custom runs button */
+.custom-btn {
+  background: var(--grad-pen);
+  color: var(--text-on-accent);
+  border-color: transparent;
 }
 
 /* --- MATCH TIDE (Pressure Indicator) --- */
@@ -1236,6 +1264,68 @@
   }
 }
 
+/* --- CUSTOM RUNS SHEET (Numeric Keypad) --- */
+.custom-runs-sheet {
+  max-height: 80vh;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.keypad-btn {
+  height: var(--touch-target);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-lg);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.keypad-btn:active:not(:disabled) {
+  transform: scale(0.95);
+  background: var(--surface-tertiary);
+}
+
+@media (hover: hover) {
+  .keypad-btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--border-secondary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.keypad-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--border-focus);
+}
+
+.sheet-hint {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  line-height: var(--leading-relaxed);
+}
+
+/* Mobile responsive for keypad */
+@media (max-width: 430px) {
+  .keypad-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    font-size: var(--text-xl);
+  }
+}
+
 /* --- SCOREBOOK COVER PAGE --- */
 .scorebook-cover {
   max-width: 520px;
@@ -2001,5 +2091,67 @@
 @media (min-width: 1024px) {
   .charts-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* --- CUSTOM RUNS SHEET (Numeric Keypad) --- */
+.custom-runs-sheet {
+  max-height: 80vh;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.keypad-btn {
+  height: var(--touch-target);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-lg);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.keypad-btn:active:not(:disabled) {
+  transform: scale(0.95);
+  background: var(--surface-tertiary);
+}
+
+@media (hover: hover) {
+  .keypad-btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--border-secondary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.keypad-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--border-focus);
+}
+
+.sheet-hint {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  line-height: var(--leading-relaxed);
+}
+
+/* Mobile responsive for keypad */
+@media (max-width: 430px) {
+  .keypad-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    font-size: var(--text-xl);
   }
 }

@@ -7,6 +7,7 @@ import { clearToken } from './token'
 import { EXTRA_GROUPS, buildBallPayload, buildBatterReplacedPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
 import { ExtrasSheet } from './ExtrasSheet'
+import { CustomRunsSheet } from './CustomRunsSheet'
 import { matchShareUrl } from './share'
 import { getSupabase } from './supabase'
 import { Celebration } from './ui/Celebration'
@@ -55,7 +56,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const { bundle, error, refresh, canScore, resolved } = useMatch(matchId)
   const [tab, setTab] = useState<Tab>(initialTab)
   const [strikerPick, setStrikerPick] = useState('')
-  const [nonStrikerPick, setNonStrikerPick] = useState('')
+  const [nonStrikerPick, setNonStrikerPick] = useState<string | null>(null)
   const [bowlerPick, setBowlerPick] = useState('')
   const [wicketMode, setWicketMode] = useState(false)
   const [selectedDismissal, setSelectedDismissal] = useState<Dismissal | null>(null)
@@ -65,6 +66,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [commentary, setCommentary] = useState<CommentaryLine[]>([])
   const [copied, setCopied] = useState(false)
   const [extraKind, setExtraKind] = useState<ExtraKind | null>(null)
+  const [customRunsOpen, setCustomRunsOpen] = useState(false)
   const [undoing, setUndoing] = useState(false)
   const [undone, setUndone] = useState(false)
   const [celebration, setCelebration] = useState<DeliveryCelebration | null>(null)
@@ -246,7 +248,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     if (inningsIndex !== seenInnings) {
       setSeenInnings(inningsIndex)
       setStrikerPick('')
-      setNonStrikerPick('')
+      setNonStrikerPick(isSingleBatter ? null : '')
       setBowlerPick('')
       setSelectedDismissal(null)
       setFielderPick('')
@@ -259,7 +261,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         setSuperOverAcknowledged(prev => new Set())
       }
     }
-  }, [inningsIndex, seenInnings, live?.status])
+  }, [inningsIndex, seenInnings, live?.status, isSingleBatter])
 
   const teamIds = useMemo(() => {
     if (!state) return { batting: [] as string[], bowling: [] as string[], battingKey: 'A' as 'A' | 'B' }
@@ -270,28 +272,39 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   }, [state, live?.battingTeamId])
 
   // Calculate inningsNotStarted early for useEffect
-  const inningsNotStarted = live?.striker == null || live?.nonStriker == null
+  // In single batter mode, only striker is needed
+  const isSingleBatter = state?.config.singleBatter ?? false
+  const inningsNotStarted = live
+    ? isSingleBatter
+      ? live.striker == null
+      : live.striker == null || live.nonStriker == null
+    : true
 
   // Debug: log padEnabled conditions
   const positions = useMemo(() => {
     if (!live) {
       return {
         strikerId: strikerPick,
-        nonStrikerId: nonStrikerPick,
+        nonStrikerId: isSingleBatter ? null : nonStrikerPick,
         bowlerId: bowlerPick,
       }
     }
-    return resolvePositions(live, {
+    const resolved = resolvePositions(live, {
       strikerId: strikerPick,
       nonStrikerId: nonStrikerPick,
       bowlerId: bowlerPick,
     })
-  }, [live, strikerPick, nonStrikerPick, bowlerPick])
+    // In single batter mode, non-striker doesn't exist
+    if (isSingleBatter) {
+      return { ...resolved, nonStrikerId: null }
+    }
+    return resolved
+  }, [live, strikerPick, nonStrikerPick, bowlerPick, isSingleBatter])
 
   const padEnabledDebug = live ? (
     BATTING_STATUSES.has(live.status) &&
     positions.strikerId !== '' &&
-    positions.nonStrikerId !== '' &&
+    (isSingleBatter || positions.nonStrikerId !== '') &&
     positions.bowlerId !== '' &&
     !busy
   ) : false
@@ -321,12 +334,16 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   }, [inningsNotStarted, live?.status, inningsStartConfirmed])
 
   async function handleStartInnings(): Promise<void> {
-    // Validate all three are selected
-    if (!strikerPick || !nonStrikerPick || !bowlerPick) {
-      setPadError('Please select striker, non-striker, and bowler')
+    // Validate based on mode
+    if (!strikerPick || !bowlerPick) {
+      setPadError('Please select striker and bowler')
       return
     }
-    if (strikerPick === nonStrikerPick) {
+    if (!isSingleBatter && !nonStrikerPick) {
+      setPadError('Please select non-striker')
+      return
+    }
+    if (!isSingleBatter && strikerPick === nonStrikerPick) {
       setPadError('Striker and non-striker must be different players')
       return
     }
@@ -338,7 +355,10 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   function handleNextBatsman(batsmanId: string): void {
     // Determine if the dismissed player was striker or non-striker
     // and replace with the new batsman
-    if (live?.striker?.playerId === dismissedPlayerId) {
+    if (isSingleBatter) {
+      // In single batter mode, only striker exists
+      setStrikerPick(batsmanId)
+    } else if (live?.striker?.playerId === dismissedPlayerId) {
       setStrikerPick(batsmanId)
     } else if (live?.nonStriker?.playerId === dismissedPlayerId) {
       setNonStrikerPick(batsmanId)
@@ -604,7 +624,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const padEnabled =
     BATTING_STATUSES.has(live.status) &&
     positions.strikerId !== '' &&
-    positions.nonStrikerId !== '' &&
+    (isSingleBatter || (positions.nonStrikerId !== '' && positions.nonStrikerId !== null)) &&
     positions.bowlerId !== '' &&
     !busy
 
@@ -681,6 +701,12 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   // delivery is actually recorded, so a rejected ball keeps the sheet open.
   async function pickExtra(option: ExtraOption): Promise<void> {
     if (await submitBall(option.kind, option.runs)) setExtraKind(null)
+  }
+
+  // Custom runs: pick a run value (0-12) from the numeric keypad sheet.
+  // Strike rotation follows cricket rules: odd runs = swap ends, even runs = stay.
+  async function pickCustomRuns(runs: number): Promise<void> {
+    if (await submitBall('RUNS', runs)) setCustomRunsOpen(false)
   }
 
   function selectDismissal(d: Dismissal): void {
@@ -811,13 +837,15 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   {live.striker ? `${live.striker.runs} (${live.striker.balls})` : ''}
                 </span>
               </div>
-              <div className="player">
-                <span className="muted">Non-strike</span>
-                <strong>{live.nonStriker ? playerName(state.config, live.nonStriker.playerId) : '—'}</strong>
-                <span className="player-runs">
-                  {live.nonStriker ? `${live.nonStriker.runs} (${live.nonStriker.balls})` : ''}
-                </span>
-              </div>
+              {!isSingleBatter && (
+                <div className="player">
+                  <span className="muted">Non-strike</span>
+                  <strong>{live.nonStriker ? playerName(state.config, live.nonStriker.playerId) : '—'}</strong>
+                  <span className="player-runs">
+                    {live.nonStriker ? `${live.nonStriker.runs} (${live.nonStriker.balls})` : ''}
+                  </span>
+                </div>
+              )}
               <div className="player">
                 <span className="muted">Bowler</span>
                 <strong>{playerName(state.config, live.bowler?.playerId ?? bowlerPick) || '—'}</strong>
@@ -904,6 +932,14 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                       {r}
                     </button>
                   ))}
+                  <button
+                    key="custom"
+                    className="pad-btn custom-btn"
+                    disabled={!padEnabled}
+                    onClick={() => setCustomRunsOpen(true)}
+                  >
+                    Custom
+                  </button>
                 </div>
                 <div className="extras-row">
                   {EXTRA_GROUPS.map((group) => (
@@ -1023,6 +1059,14 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               onClose={() => setExtraKind(null)}
             />
           )}
+          {customRunsOpen && (
+            <CustomRunsSheet
+              busy={busy}
+              error={padError}
+              onPick={(runs) => void pickCustomRuns(runs)}
+              onClose={() => setCustomRunsOpen(false)}
+            />
+          )}
         </>
       ) : activeTab === 'watch' ? (
         <WatcherView
@@ -1095,7 +1139,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 <select value={strikerPick} onChange={(e) => setStrikerPick(e.target.value)}>
                   <option value="">Select…</option>
                   {teamIds.batting
-                    .filter((p) => p !== nonStrikerPick)
+                    .filter((p) => !isSingleBatter || p !== nonStrikerPick)
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -1103,19 +1147,21 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                     ))}
                 </select>
               </label>
-              <label>
-                Non-striker
-                <select value={nonStrikerPick} onChange={(e) => setNonStrikerPick(e.target.value)}>
-                  <option value="">Select…</option>
-                  {teamIds.batting
-                    .filter((p) => p !== strikerPick)
-                    .map((p) => (
-                      <option key={p} value={p}>
-                        {playerName(state.config, p)}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              {!isSingleBatter && (
+                <label>
+                  Non-striker
+                  <select value={nonStrikerPick} onChange={(e) => setNonStrikerPick(e.target.value)}>
+                    <option value="">Select…</option>
+                    {teamIds.batting
+                      .filter((p) => p !== strikerPick)
+                      .map((p) => (
+                        <option key={p} value={p}>
+                          {playerName(state.config, p)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Bowler
                 <select value={bowlerPick} onChange={(e) => setBowlerPick(e.target.value)}>
@@ -1143,20 +1189,26 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Next Batsman</h2>
             <p className="muted">
-              {live?.striker?.playerId === dismissedPlayerId
+              {isSingleBatter
                 ? 'Select the new striker'
-                : 'Select the new non-striker'}
+                : live?.striker?.playerId === dismissedPlayerId
+                  ? 'Select the new striker'
+                  : 'Select the new non-striker'}
             </p>
             <div className="modal-fields">
               <label>
-                Batsman
+                {isSingleBatter ? 'New Striker' : 'Batsman'}
                 <select
                   value={strikerPick}
                   onChange={(e) => handleNextBatsman(e.target.value)}
                 >
                   <option value="">Select…</option>
                   {teamIds.batting
-                    .filter((p) => p !== dismissedPlayerId && p !== live?.striker?.playerId && p !== live?.nonStriker?.playerId)
+                    .filter((p) => {
+                      if (p === dismissedPlayerId) return false
+                      if (isSingleBatter) return p !== live?.striker?.playerId
+                      return p !== live?.striker?.playerId && p !== live?.nonStriker?.playerId
+                    })
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
