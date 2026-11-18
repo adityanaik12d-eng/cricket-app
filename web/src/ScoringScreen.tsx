@@ -243,6 +243,9 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const inningsIndex = live?.inningsIndex ?? 0
   const [seenInnings, setSeenInnings] = useState(inningsIndex)
 
+  // Calculate isSingleBatter early for useEffect dependency
+  const isSingleBatter = state?.config.singleBatter ?? false
+
   // Handle innings change in useEffect to avoid setState during render
   useEffect(() => {
     if (inningsIndex !== seenInnings) {
@@ -273,7 +276,6 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   // Calculate inningsNotStarted early for useEffect
   // In single batter mode, only striker is needed
-  const isSingleBatter = state?.config.singleBatter ?? false
   const inningsNotStarted = live
     ? isSingleBatter
       ? live.striker == null
