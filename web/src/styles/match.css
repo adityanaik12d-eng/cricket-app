@@ -12,19 +12,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.over-ribbon::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
 .over-row {
@@ -303,19 +291,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.scoring-pad::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
 .pad-grid {
@@ -523,19 +499,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.time-travel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
 .scrubber-track {
@@ -667,20 +631,8 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-}
-
-.commentary-strip::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
 }
 
 .commentary-line {
