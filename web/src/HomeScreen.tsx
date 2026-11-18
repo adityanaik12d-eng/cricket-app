@@ -3,10 +3,8 @@ import { api } from './api'
 import { myMatchIds, clearMyMatches } from './myMatches'
 import { getSupabase } from './supabase'
 import type { MatchSummary } from './match'
-import { AnimatedNumber } from './ui/AnimatedNumber'
 import { playScoreBlip } from './ui/beep'
 import { ThemeToggle } from './ui/ThemeToggle'
-import { TiltCard } from './ui/TiltCard'
 
 import type { CSSProperties } from 'react'
 
@@ -69,7 +67,7 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
           <span className="match-score">
             {parsed ? (
               <>
-                <AnimatedNumber value={parsed.runs} />
+                <span>{parsed.runs}</span>
                 {parsed.rest}
               </>
             ) : (
@@ -102,7 +100,7 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
         <span className="match-score">
           {parsed ? (
             <>
-              <AnimatedNumber value={parsed.runs} />
+              <span>{parsed.runs}</span>
               {parsed.rest}
             </>
           ) : (
@@ -235,16 +233,16 @@ export function HomeBoard({
       </section>
 
       <section className="feature-grid" aria-label="Quick actions">
-        <TiltCard as="a" href="#/standings" className="feature-card feature-runs"><span className="feature-icon">📊</span><span className="feature-title">Points Table</span><span className="feature-desc">Standings, NRR & Smart NRR</span></TiltCard>
-        <TiltCard as="a" href="#/dls" className="feature-card feature-wicket"><span className="feature-icon">🌧️</span><span className="feature-title">DLS / VJD</span><span className="feature-desc">Revise targets with demos</span></TiltCard>
-        <TiltCard as="a" href="#/tournaments" className="feature-card feature-boundary"><span className="feature-icon">🏆</span><span className="feature-title">Tournaments</span><span className="feature-desc">Teams, fixtures & results</span></TiltCard>
+        <a href="#/standings" className="feature-card feature-runs"><span className="feature-icon">📊</span><span className="feature-title">Points Table</span><span className="feature-desc">Standings, NRR & Smart NRR</span></a>
+        <a href="#/dls" className="feature-card feature-wicket"><span className="feature-icon">🌧️</span><span className="feature-title">DLS / VJD</span><span className="feature-desc">Revise targets with demos</span></a>
+        <a href="#/tournaments" className="feature-card feature-boundary"><span className="feature-icon">🏆</span><span className="feature-title">Tournaments</span><span className="feature-desc">Teams, fixtures & results</span></a>
         {signedIn ? (
-          <TiltCard as="a" href="#/settings" className="feature-card feature-six"><span className="feature-icon">⚙️</span><span className="feature-title">Settings</span><span className="feature-desc">Profile & preferences</span></TiltCard>
+          <a href="#/settings" className="feature-card feature-six"><span className="feature-icon">⚙️</span><span className="feature-title">Settings</span><span className="feature-desc">Profile & preferences</span></a>
         ) : (
-          <TiltCard as="a" href="#/signup" className="feature-card feature-six"><span className="feature-icon">✨</span><span className="feature-title">Sign up</span><span className="feature-desc">Save & sync your matches</span></TiltCard>
+          <a href="#/signup" className="feature-card feature-six"><span className="feature-icon">✨</span><span className="feature-title">Sign up</span><span className="feature-desc">Save & sync your matches</span></a>
         )}
         {signedIn && isAdmin && (
-          <TiltCard as="a" href="#/admin" className="feature-card feature-admin"><span className="feature-icon">🛡️</span><span className="feature-title">Admin Portal</span><span className="feature-desc">Manage users & accounts</span></TiltCard>
+          <a href="#/admin" className="feature-card feature-admin"><span className="feature-icon">🛡️</span><span className="feature-title">Admin Portal</span><span className="feature-desc">Manage users & accounts</span></a>
         )}
       </section>
 
