@@ -19,7 +19,6 @@ import type { CreateMatchBody, Player } from './api'
 import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { initTheme } from './ui/theme'
-import { withViewTransition } from './ui/viewTransition'
 import { isCreatorAdminEmail } from './admin'
 import { AdminPortalScreen } from './AdminPortalScreen'
 
@@ -101,7 +100,7 @@ export function App() {
   useEffect(() => {
     const onHash = (): void => {
       const next = parseHash(window.location.hash)
-      withViewTransition(() => setRoute(next), document)
+      setRoute(next)
     }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
