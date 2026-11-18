@@ -39,11 +39,7 @@ body {
   line-height: var(--leading-normal);
   -webkit-tap-highlight-color: transparent;
   height: 100%;
-  /* Paper texture on body */
   background-color: var(--bg-primary);
-  background-image: var(--paper-noise), var(--grad-paper);
-  background-attachment: fixed;
-  background-size: 256px 256px, cover;
   min-height: 100vh;
   min-height: 100dvh;
 }
