@@ -659,6 +659,269 @@ describe('deliveryBatRuns', () => {
   })
 })
 
+describe('apply: custom runs strike rotation', () => {
+  it('custom 5 runs rotates strike (odd)', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    // a1 on strike, a2 non-striker
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 5 }))
+    expect(state.innings[0].strikerId).toBe('a2')
+    expect(state.innings[0].nonStrikerId).toBe('a1')
+  })
+
+  it('custom 4 runs does NOT rotate strike (even)', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 4 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBe('a2')
+  })
+
+  it('custom 7 runs rotates strike (odd)', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 7 }))
+    expect(state.innings[0].strikerId).toBe('a2')
+    expect(state.innings[0].nonStrikerId).toBe('a1')
+  })
+
+  it('custom 12 runs does NOT rotate strike (even)', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 12 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBe('a2')
+  })
+})
+
+describe('apply: single batter mode never rotates strike', () => {
+  const singleBatterConfig = withDefaults({
+    matchId: 'm1',
+    teamAId: 'A',
+    teamBId: 'B',
+    lineups: {
+      A: ['a1', 'a2', 'a3', 'a4', 'a5'],
+      B: ['b1', 'b2', 'b3', 'b4', 'b5'],
+    },
+    singleBatter: true,
+    maxWickets: 5,
+  })
+
+  const toss: TossEvent = {
+    id: 't1',
+    matchId: 'm1',
+    seq: 1,
+    ts: '2026-10-08T10:00:00.000Z',
+    type: 'TOSS',
+    winnerTeamId: 'A',
+    winnerDecision: 'BAT',
+  }
+
+  function sbBallAt(state: MatchState, partial: Partial<BallEvent> = {}): BallEvent {
+    const inn = state.innings[state.innings.length - 1]
+    return {
+      id: `e${nextSeq()}`,
+      matchId: 'm1',
+      seq: seqCounter,
+      ts: '2026-10-08T10:01:00.000Z',
+      type: 'BALL',
+      over: inn ? Math.floor(inn.legalBalls / 6) : 0,
+      ball: inn ? inn.legalBalls % 6 : 0,
+      runs: 0,
+      extras: 'NONE',
+      wicket: false,
+      dismissal: null,
+      dismissedPlayerId: null,
+      batterId: inn?.strikerId ?? 'a1',
+      nonStrikerId: null,
+      bowlerId: inn ? (inn.currentBowlerId ?? 'b1') : 'b1',
+      fieldingCaptainId: 'b5',
+      ...partial,
+    }
+  }
+
+  it('single mode: odd runs (1) does not rotate strike', () => {
+    resetSeq()
+    let state = applyEvents(singleBatterConfig, [toss])
+    state = applyEvent(singleBatterConfig, state, sbBallAt(state, { runs: 1 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBeNull()
+  })
+
+  it('single mode: even runs (2) does not rotate strike', () => {
+    resetSeq()
+    let state = applyEvents(singleBatterConfig, [toss])
+    state = applyEvent(singleBatterConfig, state, sbBallAt(state, { runs: 2 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+  })
+
+  it('single mode: custom 5 runs does not rotate strike', () => {
+    resetSeq()
+    let state = applyEvents(singleBatterConfig, [toss])
+    state = applyEvent(singleBatterConfig, state, sbBallAt(state, { runs: 5 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+  })
+
+  it('single mode: custom 4 runs does not rotate strike', () => {
+    resetSeq()
+    let state = applyEvents(singleBatterConfig, [toss])
+    state = applyEvent(singleBatterConfig, state, sbBallAt(state, { runs: 4 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+  })
+
+  it('single mode: end of over resets bowler but not striker', () => {
+    resetSeq()
+    let state = applyEvents(singleBatterConfig, [toss])
+    // Deliver 6 legal balls (all 0 runs)
+    for (let i = 0; i < 6; i++) {
+      state = applyEvent(singleBatterConfig, state, sbBallAt(state, { runs: 0 }))
+    }
+    expect(state.innings[0].legalBalls).toBe(6)
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBeNull()
+    expect(state.innings[0].lastOverBowlerId).toBe('b1')
+    expect(state.innings[0].currentBowlerId).toBeNull()
+  })
+
+  it('single mode: start innings without non-striker', () => {
+    resetSeq()
+    let state = applyEvents(singleBatterConfig, [toss])
+    // After toss, first ball establishes striker. In single batter mode, no non-striker.
+    state = applyEvent(singleBatterConfig, state, sbBallAt(state, { runs: 0 }))
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBeNull()
+    expect(state.innings[0].battingOrder).toEqual(['a1'])
+  })
+})
+
+describe('apply: undo (corrections) with custom runs', () => {
+  it('undo of custom runs reverts runs and strike', () => {
+    resetSeq()
+    const original = ball({ runs: 5 })
+    const state = applyEvents(baseConfig, [
+      toss,
+      original,
+      {
+        id: 'c1',
+        matchId: 'm1',
+        seq: 3,
+        ts: '2026-10-08T10:03:00.000Z',
+        type: 'CORRECTION',
+        supersedes: original.id,
+        reason: 'wrong runs',
+        replacement: {
+          kind: 'BALL',
+          ball: {
+            over: 0,
+            ball: 1,
+            runs: 1,
+            extras: 'NONE',
+            wicket: false,
+            dismissal: null,
+            dismissedPlayerId: null,
+            batterId: 'a1',
+            nonStrikerId: 'a2',
+            bowlerId: 'b1',
+            fieldingCaptainId: 'b11',
+          },
+        },
+      },
+    ])
+    // Only the corrected value (1 run) should count, not the original 5
+    expect(state.innings[0].runs).toBe(1)
+    // Strike should be based on corrected runs (1 = odd, so rotated)
+    expect(state.innings[0].strikerId).toBe('a2')
+    expect(state.innings[0].nonStrikerId).toBe('a1')
+  })
+
+  it('undo of custom 5 to 0 reverts strike rotation', () => {
+    resetSeq()
+    const original = ball({ runs: 5 })
+    const state = applyEvents(baseConfig, [
+      toss,
+      original,
+      {
+        id: 'c1',
+        matchId: 'm1',
+        seq: 3,
+        ts: '2026-10-08T10:03:00.000Z',
+        type: 'CORRECTION',
+        supersedes: original.id,
+        reason: 'wrong runs',
+        replacement: {
+          kind: 'BALL',
+          ball: {
+            over: 0,
+            ball: 1,
+            runs: 0,
+            extras: 'NONE',
+            wicket: false,
+            dismissal: null,
+            dismissedPlayerId: null,
+            batterId: 'a1',
+            nonStrikerId: 'a2',
+            bowlerId: 'b1',
+            fieldingCaptainId: 'b11',
+          },
+        },
+      },
+    ])
+    // Corrected to 0 runs (even), strike should NOT rotate
+    expect(state.innings[0].runs).toBe(0)
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBe('a2')
+  })
+})
+
+describe('apply: totals and batter/bowler stats for custom runs', () => {
+  it('custom runs 7-12 are added to team total and batter runs', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    // Custom 7 runs (odd - rotates strike to a2)
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 7 }))
+    expect(state.innings[0].runs).toBe(7)
+    expect(state.innings[0].batters['a1'].runs).toBe(7)
+    expect(state.innings[0].batters['a1'].balls).toBe(1)
+    expect(state.innings[0].strikerId).toBe('a2')
+
+    // Custom 9 runs (odd - rotates strike back to a1, scored by a2)
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 9 }))
+    expect(state.innings[0].runs).toBe(16)
+    expect(state.innings[0].batters['a1'].runs).toBe(7)
+    expect(state.innings[0].batters['a2'].runs).toBe(9)
+    expect(state.innings[0].batters['a2'].balls).toBe(1)
+    expect(state.innings[0].strikerId).toBe('a1')
+  })
+
+  it('custom 5 is not counted as a four or six', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    // 5 runs (odd - rotates to a2)
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 5 }))
+    expect(state.innings[0].batters['a1'].fours).toBe(0)
+    expect(state.innings[0].batters['a1'].sixes).toBe(0)
+    expect(state.innings[0].strikerId).toBe('a2')
+
+    // 4 runs (even - a2 stays on strike, a2 gets the four)
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 4 }))
+    expect(state.innings[0].batters['a2'].fours).toBe(1)
+    expect(state.innings[0].strikerId).toBe('a2')
+
+    // 6 runs (even - a2 stays on strike, a2 gets the six)
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 6 }))
+    expect(state.innings[0].batters['a2'].sixes).toBe(1)
+    expect(state.innings[0].strikerId).toBe('a2')
+  })
+
+  it('bowler concedes custom runs correctly', () => {
+    resetSeq()
+    let state = applyEvents(baseConfig, [toss])
+    state = applyEvent(baseConfig, state, ballAt(state, { runs: 8 }))
+    expect(state.innings[0].bowlers['b1'].runs).toBe(8)
+    expect(state.innings[0].bowlers['b1'].balls).toBe(1)
+  })
+})
+
 describe('apply: BATTER_REPLACED', () => {
   const singleBatterConfig = withDefaults({
     matchId: 'm1',
@@ -846,6 +1109,68 @@ describe('apply: BATTER_REPLACED', () => {
     expect(() => applyEvent(normalConfig, state, replacedEvent(4, 'a2', 'a4', 'nonStriker'))).toThrow(
       /retired|already/i,
     )
+  })
+
+  it('Replace with 2-player lineup adding new player', () => {
+    // First create config with 2 players, then simulate adding new players to lineup
+    // (like the UI does via config update before BATTER_REPLACED event)
+    const baseLineups = {
+      A: ['a1', 'a2'],
+      B: ['b1', 'b2', 'b3', 'b4', 'b5'],
+    }
+
+    let twoPlayerConfig = withDefaults({
+      matchId: 'm1',
+      teamAId: 'A',
+      teamBId: 'B',
+      lineups: baseLineups,
+      maxWickets: 1,
+    })
+
+    let state = applyEvents(twoPlayerConfig, [toss])
+    // a1 on strike, a2 non-striker
+    state = applyEvent(twoPlayerConfig, state, ballEvent({ seq: 2, runs: 4, batterId: 'a1', nonStrikerId: 'a2' }))
+    expect(state.innings[0].strikerId).toBe('a1')
+    expect(state.innings[0].nonStrikerId).toBe('a2')
+    expect(state.innings[0].batters['a1'].runs).toBe(4)
+
+    // Simulate UI: add a3 to lineup, then replace a2 (non-striker) with a3
+    twoPlayerConfig = withDefaults({
+      matchId: 'm1',
+      teamAId: 'A',
+      teamBId: 'B',
+      lineups: { A: ['a1', 'a2', 'a3'], B: baseLineups.B },
+      maxWickets: 1,
+    })
+    state = applyEvent(twoPlayerConfig, state, replacedEvent(3, 'a2', 'a3', 'nonStriker'))
+    expect(state.innings[0].batters['a2'].retiredNotOut).toBe(true)
+    expect(state.innings[0].nonStrikerId).toBe('a3')
+    expect(state.innings[0].batters['a3'].runs).toBe(0)
+    expect(state.innings[0].strikerId).toBe('a1') // striker unchanged
+
+    // a1 scores, a3 doesn't face
+    state = applyEvent(twoPlayerConfig, state, ballEvent({ seq: 4, runs: 6, batterId: 'a1', nonStrikerId: 'a3' }))
+    expect(state.innings[0].batters['a3'].runs).toBe(0) // a3 didn't face
+    expect(state.innings[0].batters['a1'].runs).toBe(10)
+
+    // Now replace striker a1 with a new player a4 (not in original lineup)
+    twoPlayerConfig = withDefaults({
+      matchId: 'm1',
+      teamAId: 'A',
+      teamBId: 'B',
+      lineups: { A: ['a1', 'a2', 'a3', 'a4'], B: baseLineups.B },
+      maxWickets: 1,
+    })
+    state = applyEvent(twoPlayerConfig, state, replacedEvent(5, 'a1', 'a4', 'striker'))
+    expect(state.innings[0].batters['a1'].retiredNotOut).toBe(true)
+    expect(state.innings[0].strikerId).toBe('a4')
+    expect(state.innings[0].nonStrikerId).toBe('a3')
+    expect(state.innings[0].batters['a4'].runs).toBe(0)
+
+    // a4 scores
+    state = applyEvent(twoPlayerConfig, state, ballEvent({ seq: 6, runs: 2, batterId: 'a4', nonStrikerId: 'a3' }))
+    expect(state.innings[0].batters['a4'].runs).toBe(2)
+    expect(state.innings[0].runs).toBe(12)
   })
 
   it('scorecard shows retired not out with runs', () => {
