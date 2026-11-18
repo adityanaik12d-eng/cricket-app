@@ -334,14 +334,15 @@
   }
 }
 
-/* Context-aware highlighting */
+/* Context-aware highlighting — one-time pulse, not infinite */
 .pad-btn.highlight {
-  animation: pad-pulse var(--duration-slow) var(--ease-spring) infinite;
+  animation: pad-pulse var(--duration-slow) var(--ease-spring);
 }
 
 @keyframes pad-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pen-blue) 40%, transparent); }
-  50% { box-shadow: 0 0 0 8px transparent; }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pen-blue) 40%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--pen-blue) 40%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -146,11 +146,6 @@
   background: var(--grad-pen);
 }
 
-@keyframes sheet-barber {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-
 .sheet-head {
   display: flex;
   align-items: center;

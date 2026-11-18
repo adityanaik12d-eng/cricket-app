@@ -388,12 +388,13 @@ a.btn {
   background: var(--status-live-bg);
   color: var(--status-live-text);
   box-shadow: 0 0 12px color-mix(in srgb, var(--status-live-bg) 40%, transparent);
-  animation: pulse-live 2s ease-in-out infinite;
+  animation: pulse-live 2s ease-in-out;
 }
 
 @keyframes pulse-live {
-  0%, 100% { box-shadow: 0 0 0 0 var(--status-live-bg), 0 0 12px color-mix(in srgb, var(--status-live-bg) 40%, transparent); }
-  50% { box-shadow: 0 0 0 8px transparent, 0 0 20px color-mix(in srgb, var(--status-live-bg) 60%, transparent); }
+  0% { box-shadow: 0 0 0 0 var(--status-live-bg), 0 0 12px color-mix(in srgb, var(--status-live-bg) 40%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--status-live-bg) 40%, transparent), 0 0 20px color-mix(in srgb, var(--status-live-bg) 60%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent, 0 0 12px color-mix(in srgb, var(--status-live-bg) 40%, transparent); }
 }
 
 @media (prefers-reduced-motion: reduce) {
