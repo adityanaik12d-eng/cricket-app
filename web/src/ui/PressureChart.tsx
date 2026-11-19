@@ -1,25 +1,30 @@
 import { useEffect, useRef, useMemo } from 'react'
-import type { BallEvent, LiveScore, MatchEvent } from '@cricket-app/core'
-import { effectiveEvents } from '@cricket-app/core'
+import type { BallEvent, LiveScore, MatchEvent, MatchConfig } from '@cricket-app/core'
+import { effectiveEvents, projectTimeline } from '@cricket-app/core'
 
 interface Props {
   live: LiveScore
   events: MatchEvent[]
+  config: MatchConfig
 }
 
 const PRESSURE_WINDOW = 12 // balls to consider for pressure calculation
 
-export function PressureChart({ live, events }: Props) {
+export function PressureChart({ live, events, config }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const pressureData = useMemo(() => {
     if (!live) return { points: [] as number[], maxPressure: 1 }
 
-    // Get scored events for current innings
-    const scored = effectiveEvents(events).filter(
-      (e): e is BallEvent => e.type === 'BALL' &&
-      (e.over < live.over || (e.over === live.over && e.ball <= live.thisOver.length))
-    )
+    // Get scored events for current innings using projectTimeline to handle innings boundaries
+    const timeline = projectTimeline(config, events);
+    const currentInningsOvers = timeline.filter((o) => o.innings === live.inningsIndex);
+    let scored: BallEvent[] = [];
+    for (const over of currentInningsOvers) {
+      if (over.over < live.over || (over.over === live.over && over.balls.length <= live.thisOver.length)) {
+        scored.push(...over.balls);
+      }
+    }
 
     // Get last N balls
     const recent = scored.slice(-PRESSURE_WINDOW)

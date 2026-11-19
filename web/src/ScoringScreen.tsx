@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import type { CommentaryLine, CorrectionEvent, DeliveryCelebration, Dismissal, LiveScore, MatchState, BallEvent } from '@cricket-app/core'
-import { editDeliveryFromLog } from '@cricket-app/core'
+import { editDeliveryFromLog, projectTimeline } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { clearToken } from './token'
@@ -864,11 +864,13 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             <div className="over-label">Current Over</div>
             <div className="over-balls">
               {(() => {
-                const events = bundle.events.filter((e): e is BallEvent => e.type === 'BALL' && e.over === live.over);
-                if (events.length === 0) {
+                const timeline = projectTimeline(bundle.state.config, bundle.events);
+                const currentInningsOvers = timeline.filter((o) => o.innings === live.inningsIndex);
+                const currentOver = currentInningsOvers.find((o) => o.over === live.over);
+                if (!currentOver || currentOver.balls.length === 0) {
                   return <span className="muted">No balls in this over yet</span>;
                 }
-                return events.map((e, idx) => {
+                return currentOver.balls.map((e) => {
                   let className = 'ball-mark';
                   if (e.extras === 'WIDE') className += ' wide';
                   else if (e.extras === 'NO_BALL') className += ' noball';
@@ -890,7 +892,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             <div className="tide-label pressure">Pressure</div>
             <div className="tide-label calm">Calm</div>
             <div className="tide-watermark">TIDE</div>
-            <PressureChart live={live} events={bundle.events} />
+            <PressureChart live={live} events={bundle.events} config={bundle.state.config} />
           </section>
 
           <section className="scoring-pad">

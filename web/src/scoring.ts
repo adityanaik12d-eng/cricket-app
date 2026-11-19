@@ -1,5 +1,5 @@
 import { celebrateDelivery, deliveryBatRuns, deliveryRuns } from '@cricket-app/core'
-import type { BattingCardLine, BowlingCardLine, DeliveryCelebration, Dismissal, Extra, InningsCard, LiveScore, MatchConfig, MatchResult } from '@cricket-app/core'
+import type { BallEvent, BattingCardLine, BowlingCardLine, DeliveryCelebration, Dismissal, Extra, InningsCard, LiveScore, MatchConfig, MatchEvent, MatchResult } from '@cricket-app/core'
 
 export interface PadPositions {
   strikerId: string
@@ -238,4 +238,44 @@ export function buildBatterReplacedPayload(
     incomingPlayerId,
     slot,
   }
+}
+
+/**
+ * Get balls for a specific innings and over.
+ * Uses the same innings detection logic as projectTimeline: when (over, ball) regresses,
+ * a new innings has started.
+ */
+export function getBallsForInningsAndOver(
+  events: MatchEvent[],
+  targetInnings: number,
+  targetOver: number
+): BallEvent[] {
+  const balls: BallEvent[] = []
+  let currentInnings = 0
+  let lastOver: number | null = null
+  let lastBall = -1
+
+  for (const event of events) {
+    if (event.type !== 'BALL') continue
+
+    // Detect innings boundary: address regression
+    if (lastOver !== null && (event.over < lastOver || (event.over === lastOver && event.ball < lastBall))) {
+      currentInnings += 1
+      lastOver = null
+      lastBall = -1
+    }
+
+    // Track current over/ball
+    if (lastOver === null || event.over !== lastOver) {
+      lastOver = event.over
+    }
+    lastBall = event.ball
+
+    // Collect if this matches our target
+    if (currentInnings === targetInnings && event.over === targetOver) {
+      balls.push(event)
+    }
+  }
+
+  return balls
 }
