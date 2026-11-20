@@ -960,8 +960,25 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                     W
                   </button>
                   {(() => {
-                  const showReplace = state.config.singleBatter || live?.striker || live?.nonStriker
-                  if (!showReplace) return null
+                  // In single batter mode: always show "Replace Striker" (only one batter)
+                  // In regular mode: show replace options when innings is in progress (striker or non-striker slot exists)
+                  const inningsInProgress = live?.status === 'IN_PROGRESS'
+                  if (!inningsInProgress) return null
+
+                  if (state.config.singleBatter) {
+                    // Single batter mode: only striker exists
+                    return (
+                      <button
+                        className="pad-btn replace-btn"
+                        disabled={!padEnabled}
+                        onClick={() => openBatterReplaceModal('striker')}
+                      >
+                        Replace Striker
+                      </button>
+                    )
+                  }
+
+                  // Regular mode: show both options when innings is in progress
                   return (
                     <>
                       {live?.striker && (
@@ -981,6 +998,24 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                         >
                           Replace Non-striker
                         </button>
+                      )}
+                      {!live?.striker && !live?.nonStriker && (
+                        <>
+                          <button
+                            className="pad-btn replace-btn"
+                            disabled={!padEnabled}
+                            onClick={() => openBatterReplaceModal('striker')}
+                          >
+                            Replace Striker
+                          </button>
+                          <button
+                            className="pad-btn replace-btn"
+                            disabled={!padEnabled}
+                            onClick={() => openBatterReplaceModal('nonStriker')}
+                          >
+                            Replace Non-striker
+                          </button>
+                        </>
                       )}
                     </>
                   )
