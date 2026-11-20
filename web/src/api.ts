@@ -50,6 +50,34 @@ export interface Player {
   created_at: string
 }
 
+/** Player returned by search_players RPC (excludes mobile/email for privacy) */
+export interface SearchPlayer {
+  id: string
+  name: string
+  is_guest: boolean
+  masked_mobile: string | null
+}
+
+/** Team from the teams table */
+export interface Team {
+  id: string
+  name: string
+  short_name: string
+  colour: string
+  created_by: string | null
+  created_at: string
+}
+
+/** Team member with player details */
+export interface TeamMember {
+  team_id: string
+  player_id: string
+  role: 'captain' | 'vice' | 'member'
+  added_at: string
+  added_by: string | null
+  player: SearchPlayer
+}
+
 export interface CareerStats {
   matches: number
   runs: number
@@ -461,11 +489,94 @@ export const api = {
     return newConfig
   },
 
-  // --- Shared player directory / accounts (server-backed) are deferred. The
-  // online build keeps the setup flow working with local, in-memory players. ---
+  // --- Shared player directory / accounts (server-backed) ---
 
-  async searchPlayers(_q: string): Promise<{ players: Player[] }> {
-    return { players: [] }
+  /** Search players via search_players RPC. Returns empty array gracefully if RPC missing or user signed out. */
+  async searchPlayers(q: string): Promise<{ players: SearchPlayer[] }> {
+    if (!q || q.trim().length < 3) return { players: [] }
+    try {
+      const { data, error } = await getSupabase().rpc('search_players', { q: q.trim(), max_results: 20 })
+      if (error) {
+        // RPC missing or permission denied - fail gracefully
+        return { players: [] }
+      }
+      return { players: (data ?? []) as SearchPlayer[] }
+    } catch {
+      // Network error or RPC not found - fail gracefully
+      return { players: [] }
+    }
+  },
+
+  /** Create a guest player (name only, no mobile/email). Returns the new player's id. */
+  async createGuestPlayer(name: string): Promise<{ playerId: string }> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to create players', 'UNAUTHENTICATED')
+    }
+    const { data, error } = await getSupabase()
+      .from('players')
+      .insert({ name: name.trim(), is_guest: true, created_by: userData.user.id })
+      .select('id')
+      .single()
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return { playerId: data.id }
+  },
+
+  /** List teams created by the current user */
+  async listMyTeams(): Promise<Team[]> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) return []
+    const { data, error } = await getSupabase()
+      .from('teams')
+      .select('id, name, short_name, colour, created_by, created_at')
+      .eq('created_by', userData.user.id)
+      .order('created_at', { ascending: false })
+    if (error) {
+      // Table might not exist yet
+      return []
+    }
+    return (data ?? []) as Team[]
+  },
+
+  /** Create a new team */
+  async createTeam(name: string, shortName: string, colour: string): Promise<{ teamId: string }> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to create teams', 'UNAUTHENTICATED')
+    }
+    const { data, error } = await getSupabase()
+      .from('teams')
+      .insert({ name: name.trim(), short_name: shortName.trim(), colour: colour.trim(), created_by: userData.user.id })
+      .select('id')
+      .single()
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return { teamId: data.id }
+  },
+
+  /** Add a player to a team (captain/manager only via RLS) */
+  async addTeamMember(teamId: string, playerId: string, role: 'captain' | 'vice' | 'member' = 'member'): Promise<void> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to manage team', 'UNAUTHENTICATED')
+    }
+    const { error } = await getSupabase()
+      .from('team_members')
+      .insert({ team_id: teamId, player_id: playerId, role, added_by: userData.user.id })
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+  },
+
+  /** Remove a player from a team (captain/manager only via RLS) */
+  async removeTeamMember(teamId: string, playerId: string): Promise<void> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to manage team', 'UNAUTHENTICATED')
+    }
+    const { error } = await getSupabase()
+      .from('team_members')
+      .delete()
+      .eq('team_id', teamId)
+      .eq('player_id', playerId)
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
   },
 
   async createPlayer(mobile: string, name: string): Promise<{ player: Player }> {
