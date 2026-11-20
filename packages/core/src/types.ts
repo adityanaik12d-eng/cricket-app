@@ -27,6 +27,8 @@ export interface PlayerRef {
   name: string
   mobile?: string
   verified?: boolean
+  /** Optional reference to a player in the shared players directory. When set, this player was picked from a team roster or search. */
+  playerId?: string
 }
 
 export interface MatchConfig {
