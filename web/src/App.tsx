@@ -10,6 +10,7 @@ import { StandingsScreen } from './StandingsScreen'
 import { TournamentsScreen } from './TournamentsScreen'
 import { TournamentDetailScreen } from './TournamentDetailScreen'
 import { DLSScreen } from './DLSScreen'
+import { TeamsScreen } from './TeamsScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
 import { getSupabase } from './supabase'
@@ -187,6 +188,19 @@ export function App() {
   if (route.name === 'dls') {
     return <DLSScreen onBack={() => { window.location.hash = '#/' }} />
   }
+  if (route.name === 'teams') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
+        </header>
+        <TeamsScreen onBack={() => { window.location.hash = '#/' }} />
+      </div>
+    )
+  }
   if (route.name === 'admin') {
     return (
       <div className="shell">
@@ -227,8 +241,8 @@ function SetupFlow() {
   const [lineupA, setLineupA] = useState<LineupEntry[]>([])
   const [lineupB, setLineupB] = useState<LineupEntry[]>([])
 
-  const [modeA, setModeA] = useState<'name' | 'number'>('name')
-  const [modeB, setModeB] = useState<'name' | 'number'>('name')
+  const [modeA, setModeA] = useState<'name' | 'number' | 'team'>('name')
+  const [modeB, setModeB] = useState<'name' | 'number' | 'team'>('name')
   const [nameA, setNameA] = useState('')
   const [nameB, setNameB] = useState('')
   const [numA, setNumA] = useState('')
@@ -243,6 +257,30 @@ function SetupFlow() {
   const [newNameB, setNewNameB] = useState('')
   const [creatingA, setCreatingA] = useState(false)
   const [creatingB, setCreatingB] = useState(false)
+
+  // Team picker state
+  const [teams, setTeams] = useState<Array<{id: string; name: string; short_name: string; colour: string}>>([])
+  const [teamsLoading, setTeamsLoading] = useState(false)
+  const [selectedTeamA, setSelectedTeamA] = useState<string | null>(null)
+  const [selectedTeamB, setSelectedTeamB] = useState<string | null>(null)
+  const [importingTeamA, setImportingTeamA] = useState(false)
+  const [importingTeamB, setImportingTeamB] = useState(false)
+
+  // Load teams on mount
+  useEffect(() => {
+    async function load() {
+      setTeamsLoading(true)
+      try {
+        const data = await api.listMyTeams()
+        setTeams(data)
+      } catch {
+        setTeams([])
+      } finally {
+        setTeamsLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   // Coin flip effect
   useEffect(() => {
@@ -284,6 +322,53 @@ function SetupFlow() {
     setLineupB(next)
     setResultsB([])
     setShowCreateB(false)
+  }
+
+  async function importTeamRoster(teamId: string, isTeamA: boolean): Promise<void> {
+    if (isTeamA) setImportingTeamA(true)
+    else setImportingTeamB(true)
+    setError(null)
+    try {
+      const { data, error } = await getSupabase()
+        .from('team_members')
+        .select(`
+          player_id,
+          players!inner (
+            id,
+            name,
+            is_guest
+          )
+        `)
+        .eq('team_id', teamId)
+      if (error) throw error
+      const taken = isTeamA ? takenIdsA() : takenIdsB()
+      const next: LineupEntry[] = []
+      for (const row of data ?? []) {
+        const p = row.players
+        if (!p) continue
+        next.push(directoryEntry({
+          id: p.id,
+          mobile: p.is_guest ? '' : 'guest',
+          name: p.name,
+          role: 'BATSMAN',
+          batting_hand: 'RHB',
+          bowling_style: null,
+          location: null,
+          created_at: new Date().toISOString(),
+        }, taken.concat(next.map(e => e.id))))
+      }
+      if (isTeamA) setLineupA(next)
+      else setLineupB(next)
+      if (isTeamA) setSelectedTeamA(teamId)
+      else setSelectedTeamB(teamId)
+      if (isTeamA) { setResultsA([]); setShowCreateA(false); setNumA('') }
+      else { setResultsB([]); setShowCreateB(false); setNumB('') }
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not import team roster')
+    } finally {
+      if (isTeamA) setImportingTeamA(false)
+      else setImportingTeamB(false)
+    }
   }
 
   useEffect(() => {
@@ -638,13 +723,16 @@ function SetupFlow() {
                 <div className="paper-tabs" role="tablist">
                   <button role="tab" className={modeA === 'name' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('name')}>By name</button>
                   <button role="tab" className={modeA === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('number')}>By number</button>
+                  {teams.length > 0 && (
+                    <button role="tab" className={modeA === 'team' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('team')}>By team</button>
+                  )}
                 </div>
                 {modeA === 'name' ? (
                   <div className="add-row">
                     <input value={nameA} onChange={(e) => setNameA(e.target.value)} placeholder="Player name" />
                     <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>Add</button>
                   </div>
-                ) : (
+                ) : modeA === 'number' ? (
                   <div className="add-col">
                     <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numA} onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
                     {searchingA && <p className="muted">Searching...</p>}
@@ -672,6 +760,32 @@ function SetupFlow() {
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div className="add-col">
+                    {teamsLoading ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>Loading teams…</p>
+                    ) : teams.length === 0 ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>No teams yet. <a href="#/teams" onClick={(e) => { e.preventDefault(); window.location.hash = '#/teams'; }}>Create a team first</a>.</p>
+                    ) : (
+                      <div className="team-picker">
+                        {teams.map(t => (
+                          <button
+                            key={t.id}
+                            className={`team-option ${selectedTeamA === t.id ? 'selected' : ''}`}
+                            type="button"
+                            onClick={() => void importTeamRoster(t.id, true)}
+                            disabled={importingTeamA}
+                            style={{ borderColor: t.colour }}
+                          >
+                            <span className="team-option-colour" style={{ background: t.colour }} />
+                            <span className="team-option-name">{t.name}</span>
+                            <span className="team-option-short">({t.short_name})</span>
+                            {importingTeamA && selectedTeamA === t.id && <span className="muted">Importing…</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -691,13 +805,16 @@ function SetupFlow() {
                 <div className="paper-tabs" role="tablist">
                   <button role="tab" className={modeB === 'name' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('name')}>By name</button>
                   <button role="tab" className={modeB === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('number')}>By number</button>
+                  {teams.length > 0 && (
+                    <button role="tab" className={modeB === 'team' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('team')}>By team</button>
+                  )}
                 </div>
                 {modeB === 'name' ? (
                   <div className="add-row">
                     <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="Player name" />
                     <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>Add</button>
                   </div>
-                ) : (
+                ) : modeB === 'number' ? (
                   <div className="add-col">
                     <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numB} onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
                     {searchingB && <p className="muted">Searching...</p>}
@@ -722,6 +839,32 @@ function SetupFlow() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="add-col">
+                    {teamsLoading ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>Loading teams…</p>
+                    ) : teams.length === 0 ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>No teams yet. <a href="#/teams" onClick={(e) => { e.preventDefault(); window.location.hash = '#/teams'; }}>Create a team first</a>.</p>
+                    ) : (
+                      <div className="team-picker">
+                        {teams.map(t => (
+                          <button
+                            key={t.id}
+                            className={`team-option ${selectedTeamB === t.id ? 'selected' : ''}`}
+                            type="button"
+                            onClick={() => void importTeamRoster(t.id, false)}
+                            disabled={importingTeamB}
+                            style={{ borderColor: t.colour }}
+                          >
+                            <span className="team-option-colour" style={{ background: t.colour }} />
+                            <span className="team-option-name">{t.name}</span>
+                            <span className="team-option-short">({t.short_name})</span>
+                            {importingTeamB && selectedTeamB === t.id && <span className="muted">Importing…</span>}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
