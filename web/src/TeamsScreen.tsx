@@ -154,13 +154,13 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
 
                 {expandedTeam === team.id && (
                   <div className="team-members">
-                    {membersLoading[teamId] ? (
+                    {membersLoading[team.id] ? (
                       <p className="muted" style={{ padding: 16, textAlign: 'center' }}>Loading members…</p>
-                    ) : teamMembers[teamId]?.length === 0 ? (
+                    ) : teamMembers[team.id]?.length === 0 ? (
                       <p className="muted" style={{ padding: 16, textAlign: 'center' }}>No members yet</p>
                     ) : (
                       <ul className="member-list">
-                        {teamMembers[teamId]?.map(member => (
+                        {teamMembers[team.id]?.map(member => (
                           <li key={member.id} className="member-row">
                             <span className="member-name">{member.name}</span>
                             {member.is_guest && <span className="member-badge guest">Guest</span>}
