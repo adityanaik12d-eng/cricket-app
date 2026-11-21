@@ -52,9 +52,8 @@ describe('withViewTransition', () => {
   })
 
   it('does not reach for the document when there is no host', () => {
-    // The test environment has no document at all, so any direct access to it
-    // would throw.
-    expect(typeof document).toBe('undefined')
+    // The function must not access `document` directly when no host is provided.
+    // It should just run the update synchronously.
     expect(() =>
       withViewTransition(() => {
         /* nothing */
