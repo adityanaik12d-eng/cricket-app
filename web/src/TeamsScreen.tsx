@@ -154,6 +154,17 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function handleRemoveMember(teamId: string, playerId: string, playerName: string) {
+    if (!confirm(`Remove "${playerName}" from this team?`)) return
+    setError(null)
+    try {
+      await api.removeTeamMember(teamId, playerId)
+      await loadMembers(teamId)
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not remove member')
+    }
+  }
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -212,6 +223,17 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
                             {member.player.is_guest && <span className="member-badge guest">Guest</span>}
                             {member.player.masked_mobile && <span className="member-mobile">{member.player.masked_mobile}</span>}
                             <span className="member-role">{member.role}</span>
+                            <button
+                              className="btn ghost sm"
+                              style={{ padding: '4px 8px', fontSize: 12, marginLeft: 8 }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRemoveMember(team.id, member.player_id, member.player.name)
+                              }}
+                              title="Remove member"
+                            >
+                              Remove
+                            </button>
                           </li>
                         ))}
                       </ul>
