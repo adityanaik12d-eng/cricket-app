@@ -502,7 +502,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       }
       const newPlayerRefs = {
         ...state.config.playerRefs,
-        [player.id]: { name: player.name, mobile: player.masked_mobile ?? undefined, verified: !player.is_guest },
+        [player.id]: { name: player.name, mobile: undefined, verified: !player.is_guest },
       }
       await api.updateMatchConfig(matchId, { lineups: newLineups, playerRefs: newPlayerRefs })
       await refresh()
@@ -1512,7 +1512,6 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                         >
                           <strong>{player.name}</strong>
                           {player.is_guest && <span className="member-badge guest" style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>Guest</span>}
-                          {player.masked_mobile && <span style={{ marginLeft: '0.5rem', color: 'var(--text-tertiary)' }}>{player.masked_mobile}</span>}
                         </button>
                       ))}
                     </div>
