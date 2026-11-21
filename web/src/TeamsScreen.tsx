@@ -3,6 +3,8 @@ import { api, ApiRequestError } from './api'
 import { getSupabase } from './supabase'
 import type { Team, SearchPlayer, TeamMember } from './api'
 
+const ROLE_OPTIONS: Array<'captain' | 'vice' | 'member'> = ['captain', 'vice', 'member']
+
 export function TeamsScreen({ onBack }: { onBack: () => void }) {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
@@ -163,6 +165,16 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function handleUpdateRole(teamId: string, playerId: string, role: 'captain' | 'vice' | 'member') {
+    setError(null)
+    try {
+      await api.updateTeamMemberRole(teamId, playerId, role)
+      await loadMembers(teamId)
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not update role')
+    }
+  }
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -219,7 +231,16 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
                           <li key={member.player_id} className="member-row">
                             <span className="member-name">{member.player.name}</span>
                             {member.player.is_guest && <span className="member-badge guest">Guest</span>}
-                            <span className="member-role">{member.role}</span>
+                            <select
+                              className="member-role-select"
+                              value={member.role}
+                              onChange={(e) => handleUpdateRole(team.id, member.player_id, e.target.value as 'captain' | 'vice' | 'member')}
+                              style={{ padding: '4px 8px', fontSize: 12, marginLeft: 8, minWidth: 100 }}
+                            >
+                              {ROLE_OPTIONS.map(r => (
+                                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                              ))}
+                            </select>
                             <button
                               className="btn ghost sm"
                               style={{ padding: '4px 8px', fontSize: 12, marginLeft: 8 }}

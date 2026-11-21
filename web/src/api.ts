@@ -488,6 +488,48 @@ export const api = {
     return newConfig
   },
 
+  /**
+   * Fully replaces the match config. Used for editing match setup (team names, overs, etc.)
+   * Requires scorer token or admin.
+   */
+  async replaceMatchConfig(
+    matchId: string,
+    newConfig: MatchConfig
+  ): Promise<MatchConfig> {
+    await assertScorer(matchId)
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ config: newConfig, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    return newConfig
+  },
+
+  /**
+   * Replaces the entire events log. Used for editing ball-by-ball data.
+   * Requires scorer token or admin.
+   */
+  async replaceMatchEvents(
+    matchId: string,
+    events: MatchEvent[]
+  ): Promise<{ state: MatchState; live: LiveScore }> {
+    await assertScorer(matchId)
+    const { config } = await loadRow(matchId)
+    const { error } = await withScorerToken(
+      getSupabase()
+        .from('matches')
+        .update({ events, updated_at: new Date().toISOString() })
+        .eq('id', matchId),
+      scorerTokenFor(matchId),
+    )
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    const state = applyEvents(config, events)
+    return { state, live: projectLiveScore(state) }
+  },
+
   // --- Shared player directory / accounts (server-backed) ---
 
   /** Search players via search_players RPC. Returns empty array gracefully if RPC missing or user signed out. */
@@ -573,6 +615,20 @@ export const api = {
     const { error } = await getSupabase()
       .from('team_members')
       .delete()
+      .eq('team_id', teamId)
+      .eq('player_id', playerId)
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+  },
+
+  /** Update a team member's role (captain/manager only via RLS) */
+  async updateTeamMemberRole(teamId: string, playerId: string, role: 'captain' | 'vice' | 'member'): Promise<void> {
+    const { data: userData, error: userError } = await getSupabase().auth.getUser()
+    if (userError || !userData.user) {
+      throw new ApiRequestError('Sign in to manage team', 'UNAUTHENTICATED')
+    }
+    const { error } = await getSupabase()
+      .from('team_members')
+      .update({ role })
       .eq('team_id', teamId)
       .eq('player_id', playerId)
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')

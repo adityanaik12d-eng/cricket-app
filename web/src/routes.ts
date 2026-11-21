@@ -2,6 +2,7 @@ export type Route =
   | { name: 'home' }
   | { name: 'setup' }
   | { name: 'match'; matchId: string; tab: 'scoring' | 'report' | 'scorecard' | 'wheel' | 'charts' | 'settings' }
+  | { name: 'edit-match'; matchId: string }
   | { name: 'signin' }
   | { name: 'signup' }
   | { name: 'profile' }
@@ -23,6 +24,8 @@ export function parseHash(hash: string): Route {
     const tab = (match[2] as 'scoring' | 'report' | 'scorecard' | 'wheel' | 'charts' | 'settings') ?? 'scoring'
     return { name: 'match', matchId: match[1], tab }
   }
+  const editMatch = /^#\/edit-match\/([^/]+)$/.exec(hash)
+  if (editMatch && editMatch[1]) return { name: 'edit-match', matchId: editMatch[1] }
   const tournament = /^#\/tournament\/([^/]+)$/.exec(hash)
   if (tournament && tournament[1]) return { name: 'tournament', tournamentId: tournament[1] }
   if (hash === '#/new') return { name: 'setup' }

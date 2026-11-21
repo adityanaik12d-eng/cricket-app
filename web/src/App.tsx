@@ -11,6 +11,7 @@ import { TournamentsScreen } from './TournamentsScreen'
 import { TournamentDetailScreen } from './TournamentDetailScreen'
 import { DLSScreen } from './DLSScreen'
 import { TeamsScreen } from './TeamsScreen'
+import { EditMatchScreen } from './EditMatchScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
 import { getSupabase } from './supabase'
@@ -198,6 +199,19 @@ export function App() {
           </div>
         </header>
         <TeamsScreen onBack={() => { window.location.hash = '#/' }} />
+      </div>
+    )
+  }
+  if (route.name === 'edit-match') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
+        </header>
+        <EditMatchScreen matchId={route.matchId} onBack={() => { window.location.hash = `#/match/${route.matchId}/report` }} />
       </div>
     )
   }

@@ -203,11 +203,16 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
           ))}
         </section>
 
-        {/* Share as Poster Button */}
+        {/* Share as Poster & Edit Match Buttons */}
         <section className="card" style={{ marginBottom: 16 }}>
-          <button className="btn accent wide" onClick={() => setShowPoster(true)}>
-            📸 Share as Poster
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn accent" style={{ flex: 1 }} onClick={() => setShowPoster(true)}>
+              📸 Share as Poster
+            </button>
+            <button className="btn secondary" style={{ flex: 1 }} onClick={() => { window.location.hash = `#/edit-match/${config.id}` }}>
+              ✏️ Edit Match
+            </button>
+          </div>
         </section>
 
         {state && events && (
