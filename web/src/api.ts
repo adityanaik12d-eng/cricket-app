@@ -489,6 +489,14 @@ export const api = {
   },
 
   /**
+   * Loads a match by ID (config + events). Requires scorer token or owner.
+   */
+  async getMatch(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[] }> {
+    await assertScorer(matchId)
+    return loadRow(matchId)
+  },
+
+  /**
    * Fully replaces the match config. Used for editing match setup (team names, overs, etc.)
    * Requires scorer token or admin.
    */
