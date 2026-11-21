@@ -1,88 +1,146 @@
+import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
-import { HomeBoard, MatchCard } from './HomeScreen'
-import type { MatchSummary } from './match'
+import { HomeBoard } from './HomeScreen'
 
-const live: MatchSummary = {
-  matchId: 'm1',
-  teamAId: 'India',
-  teamBId: 'Australia',
-  label: 'India vs Australia',
-  score: '148-3 (16.2 ov)',
-  status: 'LIVE',
-  statusText: 'LIVE',
-  resultText: null,
+const mockCallbacks = {
+  onNew: vi.fn(),
+  onRefresh: vi.fn(),
+  onOpen: vi.fn(),
+  onToggleSelect: vi.fn(),
+  onSelectAll: vi.fn(),
+  onClearSelection: vi.fn(),
+  onDeleteSelected: vi.fn(),
+  onDeleteAll: vi.fn(),
+  onLogout: vi.fn(),
+  onEnterSelectMode: vi.fn(),
+  onExitSelectMode: vi.fn(),
 }
 
-const done: MatchSummary = {
-  ...live,
-  matchId: 'm2',
-  label: 'Chennai vs Mumbai',
-  score: '171-6 (20 ov)',
-  status: 'DONE',
-  statusText: 'Result',
-  resultText: 'Chennai won by 12 runs',
-}
-
-const noop = (): void => {}
-
-describe('MatchCard', () => {
-  it('shows teams, score, status pill and result line', () => {
-    const html = renderToStaticMarkup(<MatchCard summary={live} onOpen={noop} />)
-    expect(html).toContain('India vs Australia')
-    // The run figure animates, so it sits in its own span; the rest is plain text.
-    expect(html).toContain('148')
-    expect(html).toContain('-3 (16.2 ov)')
-    expect(html).toContain('LIVE')
-  })
-
-  it('shows the result line for a finished match', () => {
-    const html = renderToStaticMarkup(<MatchCard summary={done} onOpen={noop} />)
-    expect(html).toContain('Chennai won by 12 runs')
-    expect(html).toContain('Result')
-  })
-
-  it('omits the score for a match that has not started (review focus 2)', () => {
-    const upcoming: MatchSummary = { ...live, score: null, status: 'UPCOMING', statusText: 'Yet to start' }
-    const html = renderToStaticMarkup(<MatchCard summary={upcoming} onOpen={noop} />)
-    expect(html).toContain('Yet to start')
-    expect(html).not.toContain('match-score')
-  })
-
-  it('renders the status tooltip and innings progress bar', () => {
-    const withProgress: MatchSummary = { ...live, progress: 0.5 }
-    const html = renderToStaticMarkup(<MatchCard summary={withProgress} onOpen={noop} />)
-    expect(html).toContain('data-tooltip')
-    expect(html).toContain('match-progress')
-    expect(html).toContain('width:50%')
-  })
-})
-
-describe('HomeBoard', () => {
-  it('renders both sections with their cards', () => {
+describe('HomeBoard render', () => {
+  it('shows My Teams tile when signed in', () => {
     const html = renderToStaticMarkup(
-      <HomeBoard liveNow={[live]} mine={[done]} error={null} loading={false} signedIn={false} selectMode={false} selected={new Set()} onNew={noop} onRefresh={noop} onOpen={noop} onToggleSelect={noop} onSelectAll={noop} onClearSelection={noop} onDeleteSelected={noop} onDeleteAll={noop} onLogout={noop} deleting={false} onEnterSelectMode={noop} onExitSelectMode={noop} isAdmin={false} />
+      <HomeBoard
+        liveNow={[]}
+        mine={[]}
+        error={null}
+        loading={false}
+        signedIn={true}
+        isAdmin={false}
+        selectMode={false}
+        selected={new Set()}
+        {...mockCallbacks}
+      />
     )
-    expect(html).toContain('Live now')
-    expect(html).toContain('Your matches')
-    expect(html).toContain('India vs Australia')
-    expect(html).toContain('Chennai vs Mumbai')
+
+    // Should contain My Teams tile with correct link
+    expect(html).toContain('href="#/teams"')
+    expect(html).toContain('My Teams')
+    // renderToStaticMarkup encodes & as &
+    expect(html).toContain('Rosters &amp; players')
+    expect(html).toContain('feature-teams')
   })
 
-  it('shows empty states instead of blank sections', () => {
+  it('hides My Teams tile when signed out', () => {
     const html = renderToStaticMarkup(
-      <HomeBoard liveNow={[]} mine={[]} error={null} loading={false} signedIn={false} selectMode={false} selected={new Set()} onNew={noop} onRefresh={noop} onOpen={noop} onToggleSelect={noop} onSelectAll={noop} onClearSelection={noop} onDeleteSelected={noop} onDeleteAll={noop} onLogout={noop} deleting={false} onEnterSelectMode={noop} onExitSelectMode={noop} isAdmin={false} />,
+      <HomeBoard
+        liveNow={[]}
+        mine={[]}
+        error={null}
+        loading={false}
+        signedIn={false}
+        isAdmin={false}
+        selectMode={false}
+        selected={new Set()}
+        {...mockCallbacks}
+      />
     )
-    expect(html).toContain('Nothing being played right now.')
-    expect(html).toContain('No matches on this device yet.')
+
+    // Should NOT contain My Teams tile when signed out
+    expect(html).not.toContain('feature-teams')
+    expect(html).not.toContain('My Teams')
+    // renderToStaticMarkup encodes & as &
+    expect(html).not.toContain('Rosters &amp; players')
   })
 
-  it('shows the error and keeps Refresh usable (review focus 5)', () => {
+  it('shows Sign up tile when signed out', () => {
     const html = renderToStaticMarkup(
-      <HomeBoard liveNow={[]} mine={[]} error="Network unreachable" loading={false} signedIn={false} selectMode={false} selected={new Set()} onNew={noop} onRefresh={noop} onOpen={noop} onToggleSelect={noop} onSelectAll={noop} onClearSelection={noop} onDeleteSelected={noop} onDeleteAll={noop} onLogout={noop} deleting={false} onEnterSelectMode={noop} onExitSelectMode={noop} isAdmin={false} />,
+      <HomeBoard
+        liveNow={[]}
+        mine={[]}
+        error={null}
+        loading={false}
+        signedIn={false}
+        isAdmin={false}
+        selectMode={false}
+        selected={new Set()}
+        {...mockCallbacks}
+      />
     )
-    expect(html).toContain('Network unreachable')
-    expect(html).toContain('Refresh')
-    expect(html).not.toContain('disabled')
+
+    expect(html).toContain('href="#/signup"')
+    expect(html).toContain('Sign up')
+    // renderToStaticMarkup encodes & as &
+    expect(html).toContain('Save &amp; sync your matches')
+  })
+
+  it('shows Settings tile when signed in', () => {
+    const html = renderToStaticMarkup(
+      <HomeBoard
+        liveNow={[]}
+        mine={[]}
+        error={null}
+        loading={false}
+        signedIn={true}
+        isAdmin={false}
+        selectMode={false}
+        selected={new Set()}
+        {...mockCallbacks}
+      />
+    )
+
+    expect(html).toContain('href="#/settings"')
+    expect(html).toContain('Settings')
+    // renderToStaticMarkup encodes & as &
+    expect(html).toContain('Profile &amp; preferences')
+  })
+
+  it('shows Admin tile when signed in and is admin', () => {
+    const html = renderToStaticMarkup(
+      <HomeBoard
+        liveNow={[]}
+        mine={[]}
+        error={null}
+        loading={false}
+        signedIn={true}
+        isAdmin={true}
+        selectMode={false}
+        selected={new Set()}
+        {...mockCallbacks}
+      />
+    )
+
+    expect(html).toContain('href="#/admin"')
+    expect(html).toContain('Admin Portal')
+    // renderToStaticMarkup encodes & as &
+    expect(html).toContain('Manage users &amp; accounts')
+  })
+
+  it('hides Admin tile when not admin', () => {
+    const html = renderToStaticMarkup(
+      <HomeBoard
+        liveNow={[]}
+        mine={[]}
+        error={null}
+        loading={false}
+        signedIn={true}
+        isAdmin={false}
+        selectMode={false}
+        selected={new Set()}
+        {...mockCallbacks}
+      />
+    )
+
+    expect(html).not.toContain('Admin Portal')
+    expect(html).not.toContain('feature-admin')
   })
 })

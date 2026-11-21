@@ -239,6 +239,9 @@ export function HomeBoard({
         <a href="#/standings" className="feature-card feature-runs"><span className="feature-icon">📊</span><span className="feature-title">Points Table</span><span className="feature-desc">Standings, NRR & Smart NRR</span></a>
         <a href="#/dls" className="feature-card feature-wicket"><span className="feature-icon">🌧️</span><span className="feature-title">DLS / VJD</span><span className="feature-desc">Revise targets with demos</span></a>
         <a href="#/tournaments" className="feature-card feature-boundary"><span className="feature-icon">🏆</span><span className="feature-title">Tournaments</span><span className="feature-desc">Teams, fixtures & results</span></a>
+        {signedIn && (
+          <a href="#/teams" className="feature-card feature-teams"><span className="feature-icon">👥</span><span className="feature-title">My Teams</span><span className="feature-desc">Rosters & players</span></a>
+        )}
         {signedIn ? (
           <a href="#/settings" className="feature-card feature-six"><span className="feature-icon">⚙️</span><span className="feature-title">Settings</span><span className="feature-desc">Profile & preferences</span></a>
         ) : (
