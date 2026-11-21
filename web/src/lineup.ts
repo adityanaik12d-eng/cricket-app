@@ -5,6 +5,7 @@ export interface LineupEntry {
   name: string
   mobile?: string | undefined
   verified: boolean
+  playerId?: string
 }
 
 const issuedLocalIds = new Set<string>()
@@ -35,7 +36,7 @@ export function directoryEntry(p: Player): LineupEntry {
 }
 
 export function directoryEntryFromSearch(p: SearchPlayer): LineupEntry {
-  return { id: p.id, name: p.name, mobile: p.masked_mobile ?? undefined, verified: !p.is_guest }
+  return { id: p.id, name: p.name, mobile: undefined, verified: !p.is_guest, playerId: p.id }
 }
 
 export function buildLineupRefs(entries: LineupEntry[]): {

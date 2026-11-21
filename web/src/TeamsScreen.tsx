@@ -67,8 +67,7 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
           players!inner (
             id,
             name,
-            is_guest,
-            masked_mobile:mobile
+            is_guest
           )
         `)
         .eq('team_id', teamId)
@@ -84,7 +83,6 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
           id: row.players.id,
           name: row.players.name,
           is_guest: row.players.is_guest,
-          masked_mobile: row.players.masked_mobile,
         },
       }))
       setTeamMembers(prev => ({ ...prev, [teamId]: members }))
@@ -221,7 +219,6 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
                           <li key={member.player_id} className="member-row">
                             <span className="member-name">{member.player.name}</span>
                             {member.player.is_guest && <span className="member-badge guest">Guest</span>}
-                            {member.player.masked_mobile && <span className="member-mobile">{member.player.masked_mobile}</span>}
                             <span className="member-role">{member.role}</span>
                             <button
                               className="btn ghost sm"
@@ -274,8 +271,7 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
                               <li key={player.id} className="member-row" style={{ cursor: 'pointer' }} onClick={() => handleAddMember(team.id, player.id)}>
                                 <span className="member-name">{player.name}</span>
                                 {player.is_guest && <span className="member-badge guest">Guest</span>}
-                                {player.masked_mobile && <span className="member-mobile">{player.masked_mobile}</span>}
-                                <span className="member-role" style={{ color: 'var(--accent)' }}>Add</span>
+                                                                <span className="member-role" style={{ color: 'var(--accent)' }}>Add</span>
                               </li>
                             ))}
                           </ul>

@@ -55,7 +55,6 @@ export interface SearchPlayer {
   id: string
   name: string
   is_guest: boolean
-  masked_mobile: string | null
 }
 
 /** Team from the teams table */

@@ -344,18 +344,9 @@ function SetupFlow() {
       const taken = isTeamA ? takenIdsA() : takenIdsB()
       const next: LineupEntry[] = []
       for (const row of data ?? []) {
-        const p = row.players as unknown as { id: string; name: string; is_guest: boolean }
+        const p = row.players as unknown as SearchPlayer
         if (!p) continue
-        next.push(directoryEntry({
-          id: p.id,
-          mobile: p.is_guest ? '' : 'guest',
-          name: p.name,
-          role: 'BATSMAN',
-          batting_hand: 'RHB',
-          bowling_style: null,
-          location: null,
-          created_at: new Date().toISOString(),
-        }))
+        next.push({ id: p.id, name: p.name, mobile: undefined, verified: !p.is_guest, playerId: p.id })
       }
       if (isTeamA) setLineupA(next)
       else setLineupB(next)
@@ -842,7 +833,7 @@ function SetupFlow() {
                       <div className="suggestions">
                         {resultsA.map((p) => (
                           <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryA(p)}>
-                            {p.name} {p.is_guest ? '· Guest' : ''} · {p.masked_mobile ?? 'no mobile'}
+                            {p.name} {p.is_guest ? '· Guest' : ''}
                           </button>
                         ))}
                       </div>
@@ -925,7 +916,7 @@ function SetupFlow() {
                       <div className="suggestions">
                         {resultsB.map((p) => (
                           <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryB(p)}>
-                            {p.name} {p.is_guest ? '· Guest' : ''} · {p.masked_mobile ?? 'no mobile'}
+                            {p.name} {p.is_guest ? '· Guest' : ''}
                           </button>
                         ))}
                       </div>
