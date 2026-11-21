@@ -121,7 +121,7 @@ grant execute on function public.is_team_manager(uuid) to authenticated;
 
 -- --- players ---
 revoke all on public.players from anon, authenticated;
-grant select (id, name, is_guest, user_id, created_at) on public.players to authenticated;
+grant select (id, name, is_guest, user_id, created_at, mobile) on public.players to authenticated;
 grant insert (name, is_guest, created_by) on public.players to authenticated;
 grant update (name) on public.players to authenticated;
 
