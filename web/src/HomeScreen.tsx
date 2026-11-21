@@ -3,10 +3,8 @@ import { api } from './api'
 import { myMatchIds, clearMyMatches } from './myMatches'
 import { getSupabase } from './supabase'
 import type { MatchSummary } from './match'
-import { AnimatedNumber } from './ui/AnimatedNumber'
 import { playScoreBlip } from './ui/beep'
 import { ThemeToggle } from './ui/ThemeToggle'
-import { TiltCard } from './ui/TiltCard'
 
 import type { CSSProperties } from 'react'
 
@@ -35,6 +33,7 @@ interface MatchCardProps {
 
 export function MatchCard({ summary, onOpen, style, selectMode, selected, onToggleSelect }: MatchCardProps) {
   const prevScore = useRef<string | null>(null)
+  const hasAnimated = useRef(false)
   const parsed = summary.score ? splitScore(summary.score) : null
 
   useEffect(() => {
@@ -43,12 +42,14 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
       playScoreBlip()
     }
     prevScore.current = summary.score
+    // Mark as animated after first paint so entrance animation only runs once
+    hasAnimated.current = true
   }, [summary.score])
 
   if (selectMode) {
     return (
       <label
-        className={`card match-card animate ${selected ? 'bookmarked' : ''}`}
+        className={`card match-card ${hasAnimated.current ? '' : 'animate'} ${selected ? 'bookmarked' : ''}`}
         style={style}
         data-tooltip={summary.statusText}
       >
@@ -69,7 +70,7 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
           <span className="match-score">
             {parsed ? (
               <>
-                <AnimatedNumber value={parsed.runs} />
+                <span>{parsed.runs}</span>
                 {parsed.rest}
               </>
             ) : (
@@ -85,7 +86,7 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
   return (
     <button
       type="button"
-      className="card match-card animate"
+      className={`card match-card ${hasAnimated.current ? '' : 'animate'}`}
       style={style}
       onClick={() => onOpen(summary.matchId)}
       data-tooltip={summary.statusText}
@@ -102,7 +103,7 @@ export function MatchCard({ summary, onOpen, style, selectMode, selected, onTogg
         <span className="match-score">
           {parsed ? (
             <>
-              <AnimatedNumber value={parsed.runs} />
+              <span>{parsed.runs}</span>
               {parsed.rest}
             </>
           ) : (
@@ -235,16 +236,19 @@ export function HomeBoard({
       </section>
 
       <section className="feature-grid" aria-label="Quick actions">
-        <TiltCard as="a" href="#/standings" className="feature-card feature-runs"><span className="feature-icon">📊</span><span className="feature-title">Points Table</span><span className="feature-desc">Standings, NRR & Smart NRR</span></TiltCard>
-        <TiltCard as="a" href="#/dls" className="feature-card feature-wicket"><span className="feature-icon">🌧️</span><span className="feature-title">DLS / VJD</span><span className="feature-desc">Revise targets with demos</span></TiltCard>
-        <TiltCard as="a" href="#/tournaments" className="feature-card feature-boundary"><span className="feature-icon">🏆</span><span className="feature-title">Tournaments</span><span className="feature-desc">Teams, fixtures & results</span></TiltCard>
+        <a href="#/standings" className="feature-card feature-runs"><span className="feature-icon">📊</span><span className="feature-title">Points Table</span><span className="feature-desc">Standings, NRR & Smart NRR</span></a>
+        <a href="#/dls" className="feature-card feature-wicket"><span className="feature-icon">🌧️</span><span className="feature-title">DLS / VJD</span><span className="feature-desc">Revise targets with demos</span></a>
+        <a href="#/tournaments" className="feature-card feature-boundary"><span className="feature-icon">🏆</span><span className="feature-title">Tournaments</span><span className="feature-desc">Teams, fixtures & results</span></a>
+        {signedIn && (
+          <a href="#/teams" className="feature-card feature-teams"><span className="feature-icon">👥</span><span className="feature-title">My Teams</span><span className="feature-desc">Rosters & players</span></a>
+        )}
         {signedIn ? (
-          <TiltCard as="a" href="#/settings" className="feature-card feature-six"><span className="feature-icon">⚙️</span><span className="feature-title">Settings</span><span className="feature-desc">Profile & preferences</span></TiltCard>
+          <a href="#/settings" className="feature-card feature-six"><span className="feature-icon">⚙️</span><span className="feature-title">Settings</span><span className="feature-desc">Profile & preferences</span></a>
         ) : (
-          <TiltCard as="a" href="#/signup" className="feature-card feature-six"><span className="feature-icon">✨</span><span className="feature-title">Sign up</span><span className="feature-desc">Save & sync your matches</span></TiltCard>
+          <a href="#/signup" className="feature-card feature-six"><span className="feature-icon">✨</span><span className="feature-title">Sign up</span><span className="feature-desc">Save & sync your matches</span></a>
         )}
         {signedIn && isAdmin && (
-          <TiltCard as="a" href="#/admin" className="feature-card feature-admin"><span className="feature-icon">🛡️</span><span className="feature-title">Admin Portal</span><span className="feature-desc">Manage users & accounts</span></TiltCard>
+          <a href="#/admin" className="feature-card feature-admin"><span className="feature-icon">🛡️</span><span className="feature-title">Admin Portal</span><span className="feature-desc">Manage users & accounts</span></a>
         )}
       </section>
 

@@ -10,26 +10,12 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
   padding: var(--space-5);
-  box-shadow: var(--glass-specular), var(--shadow-md);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-md);
   overflow: hidden;
   transition:
     transform var(--duration-fast) var(--ease-spring),
     box-shadow var(--duration-normal) var(--ease-spring),
     border-color var(--duration-fast) var(--ease-out);
-}
-
-/* Paper texture overlay on cards */
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.5;
-  pointer-events: none;
-  border-radius: inherit;
 }
 
 .card::after {
@@ -125,8 +111,6 @@
   inset: 0;
   z-index: var(--z-sheet);
   background: var(--bg-overlay);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
-  backdrop-filter: blur(8px) saturate(120%);
   display: flex;
   align-items: flex-end;
   animation: fade-in var(--duration-fast) var(--ease-out);
@@ -146,9 +130,7 @@
   gap: var(--space-3);
   max-height: 75vh;
   overflow: auto;
-  box-shadow: var(--glass-specular), var(--shadow-xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-xl);
   animation: sheet-up var(--duration-normal) var(--ease-spring);
   position: relative;
   overflow: hidden;
@@ -162,13 +144,6 @@
   right: 0;
   height: 3px;
   background: var(--grad-pen);
-  background-size: 200% 100%;
-  animation: sheet-barber 3s linear infinite;
-}
-
-@keyframes sheet-barber {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
 }
 
 .sheet-head {
@@ -235,8 +210,6 @@
   inset: 0;
   z-index: var(--z-modal);
   background: var(--bg-overlay);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  backdrop-filter: blur(12px) saturate(140%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -251,9 +224,7 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-3xl);
   padding: var(--space-6);
-  box-shadow: var(--glass-specular), var(--shadow-xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-xl);
   animation: modal-in var(--duration-normal) var(--ease-spring);
   max-height: 85vh;
   overflow-y: auto;
@@ -339,9 +310,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
-  box-shadow: var(--glass-specular), var(--shadow-xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-xl);
   animation: toast-in var(--duration-normal) var(--ease-spring);
   /* Sticky note effect */
   transform: rotate(var(--toast-rotation, -1deg));
@@ -591,23 +560,9 @@
   border-radius: var(--radius-3xl);
   padding: var(--space-8) var(--space-6);
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--pen-blue) 12%, transparent) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, color-mix(in srgb, var(--amber-glow) 10%, transparent) 0%, transparent 50%),
-    var(--grad-paper);
+  background: var(--surface-primary);
   border: 1px solid var(--border-primary);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.5;
-  pointer-events: none;
+  box-shadow: var(--shadow-md);
 }
 
 .hero-content {
@@ -680,21 +635,8 @@
   text-decoration: none;
   color: var(--text-primary);
   transition: all var(--duration-fast) var(--ease-spring);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: var(--glass-specular), var(--shadow-sm);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-}
-
-.feature-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
 }
 
 .feature-card::after {

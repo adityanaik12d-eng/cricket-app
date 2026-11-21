@@ -10,16 +10,16 @@ import { StandingsScreen } from './StandingsScreen'
 import { TournamentsScreen } from './TournamentsScreen'
 import { TournamentDetailScreen } from './TournamentDetailScreen'
 import { DLSScreen } from './DLSScreen'
+import { TeamsScreen } from './TeamsScreen'
 import { parseHash } from './routes'
 import type { Route } from './routes'
 import { getSupabase } from './supabase'
 import { rememberMatch } from './myMatches'
 import { createScorerToken, storeScorerToken } from './ownership'
-import type { CreateMatchBody, Player } from './api'
-import { type LineupEntry, buildLineupRefs, directoryEntry, newLocalEntry, resetLocalIds } from './lineup'
+import type { CreateMatchBody, Player, SearchPlayer } from './api'
+import { type LineupEntry, buildLineupRefs, directoryEntry, directoryEntryFromSearch, newLocalEntry, resetLocalIds } from './lineup'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { initTheme } from './ui/theme'
-import { withViewTransition } from './ui/viewTransition'
 import { isCreatorAdminEmail } from './admin'
 import { AdminPortalScreen } from './AdminPortalScreen'
 
@@ -101,7 +101,7 @@ export function App() {
   useEffect(() => {
     const onHash = (): void => {
       const next = parseHash(window.location.hash)
-      withViewTransition(() => setRoute(next), document)
+      setRoute(next)
     }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
@@ -188,6 +188,19 @@ export function App() {
   if (route.name === 'dls') {
     return <DLSScreen onBack={() => { window.location.hash = '#/' }} />
   }
+  if (route.name === 'teams') {
+    return (
+      <div className="shell">
+        <header className="topbar">
+          <h1>Cricket Scorer</h1>
+          <div className="topbar-actions">
+            <ThemeToggle />
+          </div>
+        </header>
+        <TeamsScreen onBack={() => { window.location.hash = '#/' }} />
+      </div>
+    )
+  }
   if (route.name === 'admin') {
     return (
       <div className="shell">
@@ -215,6 +228,8 @@ function SetupFlow() {
   const [superOverEnabled, setSuperOverEnabled] = useState(false)
   const [superOverOvers, setSuperOverOvers] = useState(1)
   const [superOverMaxWickets, setSuperOverMaxWickets] = useState(2)
+  const [singleBatter, setSingleBatter] = useState(false)
+  const [maxWickets, setMaxWickets] = useState(10)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [toss, setToss] = useState<TossDraft | null>(null)
@@ -226,14 +241,14 @@ function SetupFlow() {
   const [lineupA, setLineupA] = useState<LineupEntry[]>([])
   const [lineupB, setLineupB] = useState<LineupEntry[]>([])
 
-  const [modeA, setModeA] = useState<'name' | 'number'>('name')
-  const [modeB, setModeB] = useState<'name' | 'number'>('name')
+  const [modeA, setModeA] = useState<'name' | 'number' | 'team'>('name')
+  const [modeB, setModeB] = useState<'name' | 'number' | 'team'>('name')
   const [nameA, setNameA] = useState('')
   const [nameB, setNameB] = useState('')
   const [numA, setNumA] = useState('')
   const [numB, setNumB] = useState('')
-  const [resultsA, setResultsA] = useState<Player[]>([])
-  const [resultsB, setResultsB] = useState<Player[]>([])
+  const [resultsA, setResultsA] = useState<SearchPlayer[]>([])
+  const [resultsB, setResultsB] = useState<SearchPlayer[]>([])
   const [searchingA, setSearchingA] = useState(false)
   const [searchingB, setSearchingB] = useState(false)
   const [showCreateA, setShowCreateA] = useState(false)
@@ -242,6 +257,30 @@ function SetupFlow() {
   const [newNameB, setNewNameB] = useState('')
   const [creatingA, setCreatingA] = useState(false)
   const [creatingB, setCreatingB] = useState(false)
+
+  // Team picker state
+  const [teams, setTeams] = useState<Array<{id: string; name: string; short_name: string; colour: string}>>([])
+  const [teamsLoading, setTeamsLoading] = useState(false)
+  const [selectedTeamA, setSelectedTeamA] = useState<string | null>(null)
+  const [selectedTeamB, setSelectedTeamB] = useState<string | null>(null)
+  const [importingTeamA, setImportingTeamA] = useState(false)
+  const [importingTeamB, setImportingTeamB] = useState(false)
+
+  // Load teams on mount
+  useEffect(() => {
+    async function load() {
+      setTeamsLoading(true)
+      try {
+        const data = await api.listMyTeams()
+        setTeams(data)
+      } catch {
+        setTeams([])
+      } finally {
+        setTeamsLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   // Coin flip effect
   useEffect(() => {
@@ -283,6 +322,44 @@ function SetupFlow() {
     setLineupB(next)
     setResultsB([])
     setShowCreateB(false)
+  }
+
+  async function importTeamRoster(teamId: string, isTeamA: boolean): Promise<void> {
+    if (isTeamA) setImportingTeamA(true)
+    else setImportingTeamB(true)
+    setError(null)
+    try {
+      const { data, error } = await getSupabase()
+        .from('team_members')
+        .select(`
+          player_id,
+          players!inner (
+            id,
+            name,
+            is_guest
+          )
+        `)
+        .eq('team_id', teamId)
+      if (error) throw error
+      const taken = isTeamA ? takenIdsA() : takenIdsB()
+      const next: LineupEntry[] = []
+      for (const row of data ?? []) {
+        const p = row.players as unknown as SearchPlayer
+        if (!p) continue
+        next.push({ id: p.id, name: p.name, mobile: undefined, verified: !p.is_guest, playerId: p.id })
+      }
+      if (isTeamA) setLineupA(next)
+      else setLineupB(next)
+      if (isTeamA) setSelectedTeamA(teamId)
+      else setSelectedTeamB(teamId)
+      if (isTeamA) { setResultsA([]); setShowCreateA(false); setNumA('') }
+      else { setResultsB([]); setShowCreateB(false); setNumB('') }
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not import team roster')
+    } finally {
+      if (isTeamA) setImportingTeamA(false)
+      else setImportingTeamB(false)
+    }
   }
 
   useEffect(() => {
@@ -367,16 +444,16 @@ function SetupFlow() {
     setNameB('')
   }
 
-  function addDirectoryA(p: Player): void {
-    const e = directoryEntry(p)
+  function addDirectoryA(p: SearchPlayer | Player): void {
+    const e = 'is_guest' in p ? directoryEntryFromSearch(p) : directoryEntry(p)
     setLineupA((prev) => [...prev, e])
     setNumA('')
     setResultsA([])
     setShowCreateA(false)
   }
 
-  function addDirectoryB(p: Player): void {
-    const e = directoryEntry(p)
+  function addDirectoryB(p: SearchPlayer | Player): void {
+    const e = 'is_guest' in p ? directoryEntryFromSearch(p) : directoryEntry(p)
     setLineupB((prev) => [...prev, e])
     setNumB('')
     setResultsB([])
@@ -424,8 +501,10 @@ function SetupFlow() {
   async function createMatch(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setError(null)
-    // Minimum 2 players per side (striker + non-striker). Allow fewer for short formats.
-    const minPlayers = Math.max(2, Math.min(11, overs + 1))
+    // Minimum players per side
+    // Normal mode: maxWickets + 1 (all out + 1 not out)
+    // Single batter mode: maxWickets (one batter only, no non-striker)
+    const minPlayers = singleBatter ? maxWickets : Math.max(2, Math.min(11, overs + 1))
     if (lineupA.length < minPlayers || lineupB.length < minPlayers) {
       setError(`Each side must have at least ${minPlayers} players for a ${overs}-over match`)
       return
@@ -445,6 +524,8 @@ function SetupFlow() {
         powerplayOvers: Math.min(6, overs),
         superOverEnabled,
         ...(superOverEnabled ? { superOverOvers, superOverMaxWickets } : {}),
+        singleBatter,
+        maxWickets,
       }
       const token = createScorerToken()
       const created = await api.createMatch(body, token)
@@ -556,14 +637,115 @@ function SetupFlow() {
           {wizardStep === 1 && (
             <div className="ms-reveal cover-page">
               <div className="cover-fields">
-                <label className="form-field">
-                  <span className="form-label">Team A</span>
-                  <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
-                </label>
-                <label className="form-field">
-                  <span className="form-label">Team B</span>
-                  <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
-                </label>
+                {/* Team Picker - Primary mode when teams exist */}
+                {teams.length > 0 && !teamsLoading && (
+                  <div className="team-picker-section">
+                    <p className="muted" style={{ marginBottom: 12, fontSize: 14 }}>
+                      {teamA || teamB ? 'Or enter team names manually:' : 'Select your created teams:'}
+                    </p>
+                    <div className="team-picker-row">
+                      <div className="team-picker-col">
+                        <h4 style={{ margin: '0 0 8px', fontSize: 14, color: 'var(--fg-muted)' }}>Team A</h4>
+                        <div className="team-picker">
+                          {teams.map(t => (
+                            <button
+                              key={t.id}
+                              className={`team-option ${selectedTeamA === t.id ? 'selected' : ''}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTeamA(t.id)
+                                setTeamA(t.name)
+                              }}
+                              disabled={importingTeamA}
+                              style={{ borderColor: t.colour }}
+                            >
+                              <span className="team-option-colour" style={{ background: t.colour }} />
+                              <span className="team-option-name">{t.name}</span>
+                              <span className="team-option-short">({t.short_name})</span>
+                            </button>
+                          ))}
+                        </div>
+                        {selectedTeamA && (
+                          <div className="team-selected-actions">
+                            <label className="form-field" style={{ marginTop: 8 }}>
+                              <span className="form-label">Team A name</span>
+                              <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
+                            </label>
+                            <button className="btn accent" type="button" onClick={() => void importTeamRoster(selectedTeamA, true)} disabled={importingTeamA}>
+                              {importingTeamA ? 'Importing…' : 'Import roster'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="team-picker-col">
+                        <h4 style={{ margin: '0 0 8px', fontSize: 14, color: 'var(--fg-muted)' }}>Team B</h4>
+                        <div className="team-picker">
+                          {teams.map(t => (
+                            <button
+                              key={t.id}
+                              className={`team-option ${selectedTeamB === t.id ? 'selected' : ''}`}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTeamB(t.id)
+                                setTeamB(t.name)
+                              }}
+                              disabled={importingTeamB}
+                              style={{ borderColor: t.colour }}
+                            >
+                              <span className="team-option-colour" style={{ background: t.colour }} />
+                              <span className="team-option-name">{t.name}</span>
+                              <span className="team-option-short">({t.short_name})</span>
+                            </button>
+                          ))}
+                        </div>
+                        {selectedTeamB && (
+                          <div className="team-selected-actions">
+                            <label className="form-field" style={{ marginTop: 8 }}>
+                              <span className="form-label">Team B name</span>
+                              <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
+                            </label>
+                            <button className="btn accent" type="button" onClick={() => void importTeamRoster(selectedTeamB, false)} disabled={importingTeamB}>
+                              {importingTeamB ? 'Importing…' : 'Import roster'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual entry fallback / when no teams */}
+                {(teams.length === 0 || teamsLoading) && (
+                  <>
+                    <label className="form-field">
+                      <span className="form-label">Team A</span>
+                      <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
+                    </label>
+                    <label className="form-field">
+                      <span className="form-label">Team B</span>
+                      <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
+                    </label>
+                  </>
+                )}
+
+                {/* Also show manual inputs when teams exist but user wants to override */}
+                {teams.length > 0 && !teamsLoading && (
+                  <details className="manual-entry-toggle">
+                    <summary className="muted" style={{ cursor: 'pointer', marginTop: 12, fontSize: 14 }}>
+                      Enter team names manually
+                    </summary>
+                    <div style={{ marginTop: 8 }}>
+                      <label className="form-field">
+                        <span className="form-label">Team A</span>
+                        <input value={teamA} onChange={(e) => setTeamA(e.target.value)} placeholder="India" required />
+                      </label>
+                      <label className="form-field">
+                        <span className="form-label">Team B</span>
+                        <input value={teamB} onChange={(e) => setTeamB(e.target.value)} placeholder="Australia" required />
+                      </label>
+                    </div>
+                  </details>
+                )}
                 <div className="field-row">
                   <label className="form-field">
                     <span className="form-label">Overs</span>
@@ -592,6 +774,18 @@ function SetupFlow() {
                     </label>
                   </div>
                 )}
+                <div className="field-row">
+                  <label className="form-field">
+                    <span className="form-label">Max Wickets</span>
+                    <input type="number" min={1} max={10} value={maxWickets} onChange={(e) => setMaxWickets(Number(e.target.value) || 10)} />
+                  </label>
+                </div>
+                <div className="field-row">
+                  <label className="checkbox-inline">
+                    <input type="checkbox" checked={singleBatter} onChange={(e) => setSingleBatter(e.target.checked)} />
+                    Single batter mode (one batter faces all balls)
+                  </label>
+                </div>
               </div>
               <button className="btn accent wide" type="button" onClick={() => { if (!teamA.trim() || !teamB.trim()) { setError('Enter both team names.'); return; } setError(null); setWizardStep(2); }}>
                 Next: Lineups
@@ -620,22 +814,26 @@ function SetupFlow() {
                 </div>
                 <div className="paper-tabs" role="tablist">
                   <button role="tab" className={modeA === 'name' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('name')}>By name</button>
-                  <button role="tab" className={modeA === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('number')}>By number</button>
+                  <button role="tab" className={modeA === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('number')}>Search by mobile</button>
+                  {teams.length > 0 && (
+                    <button role="tab" className={modeA === 'team' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeA('team')}>By team</button>
+                  )}
                 </div>
                 {modeA === 'name' ? (
                   <div className="add-row">
                     <input value={nameA} onChange={(e) => setNameA(e.target.value)} placeholder="Player name" />
                     <button className="btn" type="button" onClick={addByNameA} disabled={!nameA.trim()}>Add</button>
                   </div>
-                ) : (
+                ) : modeA === 'number' ? (
                   <div className="add-col">
-                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numA} onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
+                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numA} onChange={(e) => setNumA(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (last 10 digits, min 8)" />
+                    <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Searches your directory by mobile number</p>
                     {searchingA && <p className="muted">Searching...</p>}
                     {resultsA.length > 0 && (
                       <div className="suggestions">
                         {resultsA.map((p) => (
                           <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryA(p)}>
-                            {p.name} · {p.role} · {p.mobile}
+                            {p.name} {p.is_guest ? '· Guest' : ''}
                           </button>
                         ))}
                       </div>
@@ -652,6 +850,32 @@ function SetupFlow() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="add-col">
+                    {teamsLoading ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>Loading teams…</p>
+                    ) : teams.length === 0 ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>No teams yet. <a href="#/teams" onClick={(e) => { e.preventDefault(); window.location.hash = '#/teams'; }}>Create a team first</a>.</p>
+                    ) : (
+                      <div className="team-picker">
+                        {teams.map(t => (
+                          <button
+                            key={t.id}
+                            className={`team-option ${selectedTeamA === t.id ? 'selected' : ''}`}
+                            type="button"
+                            onClick={() => void importTeamRoster(t.id, true)}
+                            disabled={importingTeamA}
+                            style={{ borderColor: t.colour }}
+                          >
+                            <span className="team-option-colour" style={{ background: t.colour }} />
+                            <span className="team-option-name">{t.name}</span>
+                            <span className="team-option-short">({t.short_name})</span>
+                            {importingTeamA && selectedTeamA === t.id && <span className="muted">Importing…</span>}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -673,22 +897,26 @@ function SetupFlow() {
                 </div>
                 <div className="paper-tabs" role="tablist">
                   <button role="tab" className={modeB === 'name' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('name')}>By name</button>
-                  <button role="tab" className={modeB === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('number')}>By number</button>
+                  <button role="tab" className={modeB === 'number' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('number')}>Search by mobile</button>
+                  {teams.length > 0 && (
+                    <button role="tab" className={modeB === 'team' ? 'paper-tab active' : 'paper-tab'} type="button" onClick={() => setModeB('team')}>By team</button>
+                  )}
                 </div>
                 {modeB === 'name' ? (
                   <div className="add-row">
                     <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="Player name" />
                     <button className="btn" type="button" onClick={addByNameB} disabled={!nameB.trim()}>Add</button>
                   </div>
-                ) : (
+                ) : modeB === 'number' ? (
                   <div className="add-col">
-                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numB} onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (min 4 digits)" />
+                    <input type="tel" inputMode="numeric" pattern="[0-9]*" value={numB} onChange={(e) => setNumB(e.target.value.replace(/\D/g, ''))} placeholder="Mobile number (last 10 digits, min 8)" />
+                    <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Searches your directory by mobile number</p>
                     {searchingB && <p className="muted">Searching...</p>}
                     {resultsB.length > 0 && (
                       <div className="suggestions">
                         {resultsB.map((p) => (
                           <button key={p.id} className="suggestion" type="button" onClick={() => addDirectoryB(p)}>
-                            {p.name} · {p.role} · {p.mobile}
+                            {p.name} {p.is_guest ? '· Guest' : ''}
                           </button>
                         ))}
                       </div>
@@ -705,6 +933,32 @@ function SetupFlow() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="add-col">
+                    {teamsLoading ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>Loading teams…</p>
+                    ) : teams.length === 0 ? (
+                      <p className="muted" style={{ textAlign: 'center', padding: 16 }}>No teams yet. <a href="#/teams" onClick={(e) => { e.preventDefault(); window.location.hash = '#/teams'; }}>Create a team first</a>.</p>
+                    ) : (
+                      <div className="team-picker">
+                        {teams.map(t => (
+                          <button
+                            key={t.id}
+                            className={`team-option ${selectedTeamB === t.id ? 'selected' : ''}`}
+                            type="button"
+                            onClick={() => void importTeamRoster(t.id, false)}
+                            disabled={importingTeamB}
+                            style={{ borderColor: t.colour }}
+                          >
+                            <span className="team-option-colour" style={{ background: t.colour }} />
+                            <span className="team-option-name">{t.name}</span>
+                            <span className="team-option-short">({t.short_name})</span>
+                            {importingTeamB && selectedTeamB === t.id && <span className="muted">Importing…</span>}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>

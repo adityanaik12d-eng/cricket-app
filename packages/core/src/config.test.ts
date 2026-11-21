@@ -20,6 +20,10 @@ const base: MatchConfig = {
   wideExtra: 1,
   noBallExtra: 1,
   minutesPerOver: 4,
+  superOverEnabled: false,
+  superOverOvers: 1,
+  superOverMaxWickets: 2,
+  singleBatter: false,
 }
 
 function config(overrides: Partial<MatchConfig> = {}): MatchConfig {
@@ -102,6 +106,31 @@ describe('validateMatchConfig', () => {
 
   it('rejects same team', () => {
     const result = validateMatchConfig(config({ teamBId: 'A-team' }))
+    expect(result.ok).toBe(false)
+  })
+
+  it('accepts single batter mode with maxWickets players', () => {
+    const singleBatterConfig = config({
+      singleBatter: true,
+      maxWickets: 5,
+      lineups: {
+        A: ['a1', 'a2', 'a3', 'a4', 'a5'],
+        B: ['b1', 'b2', 'b3', 'b4', 'b5'],
+      },
+    })
+    expect(validateMatchConfig(singleBatterConfig)).toEqual({ ok: true })
+  })
+
+  it('rejects single batter mode with too few players', () => {
+    const singleBatterConfig = config({
+      singleBatter: true,
+      maxWickets: 5,
+      lineups: {
+        A: ['a1', 'a2', 'a3', 'a4'],
+        B: ['b1', 'b2', 'b3', 'b4', 'b5'],
+      },
+    })
+    const result = validateMatchConfig(singleBatterConfig)
     expect(result.ok).toBe(false)
   })
 })

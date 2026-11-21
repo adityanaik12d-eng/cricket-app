@@ -27,6 +27,8 @@ export interface PlayerRef {
   name: string
   mobile?: string
   verified?: boolean
+  /** Optional reference to a player in the shared players directory. When set, this player was picked from a team roster or search. */
+  playerId?: string
 }
 
 export interface MatchConfig {
@@ -55,6 +57,8 @@ export interface MatchConfig {
   superOverOvers?: number
   /** Maximum wickets per side in superover (default 2) */
   superOverMaxWickets?: number
+  /** Single batter mode: only one batter faces all balls, strike never rotates, innings ends at maxWickets */
+  singleBatter?: boolean
 }
 
 interface EventBase {
@@ -111,6 +115,14 @@ export interface EndMatchEvent extends EventBase {
   outcome: { kind: 'TIE' } | { kind: 'ABANDONED'; reason: string | null }
 }
 
+export interface BatterReplacedEvent extends EventBase {
+  type: 'BATTER_REPLACED'
+  outgoingPlayerId: string
+  incomingPlayerId: string
+  slot: 'striker' | 'nonStriker'
+  /** Not a ball — does not count toward over/balls/legalBalls */
+}
+
 export type Replacement =
   | { kind: 'BALL'; ball: Omit<BallEvent, 'id' | 'matchId' | 'seq' | 'ts' | 'type'> }
   | { kind: 'PENALTY'; penalty: Omit<PenaltyEvent, 'id' | 'matchId' | 'seq' | 'ts' | 'type'> }
@@ -122,8 +134,8 @@ export interface CorrectionEvent extends EventBase {
   reason: string
 }
 
-export type MatchEvent = BallEvent | TossEvent | DeclareEvent | PenaltyEvent | EndMatchEvent | CorrectionEvent
-export type ScoredEvent = BallEvent | TossEvent | DeclareEvent | PenaltyEvent | EndMatchEvent
+export type MatchEvent = BallEvent | TossEvent | DeclareEvent | PenaltyEvent | EndMatchEvent | CorrectionEvent | BatterReplacedEvent
+export type ScoredEvent = BallEvent | TossEvent | DeclareEvent | PenaltyEvent | EndMatchEvent | BatterReplacedEvent
 
 export interface BatterLine {
   playerId: string
@@ -134,6 +146,8 @@ export interface BatterLine {
   out: boolean
   dismissal: Dismissal | null
   outOnSeq: number | null
+  /** In single batter mode: true if this batter was replaced (retired not out) */
+  retiredNotOut?: boolean
 }
 
 export interface BowlerLine {
@@ -215,6 +229,8 @@ export interface BattingCardLine {
   sixes: number
   out: boolean
   dismissal: Dismissal | null
+  /** In single batter mode: true if this batter was replaced (retired not out) */
+  retiredNotOut?: boolean
   isStriker: boolean
   isNonStriker: boolean
 }
@@ -270,6 +286,7 @@ export interface LiveScore {
   declared: boolean
   powerplay: boolean
   ballsRemaining: number
+  over: number
   thisOver: ThisOverBall[]
   striker: BatterLine | null
   nonStriker: BatterLine | null

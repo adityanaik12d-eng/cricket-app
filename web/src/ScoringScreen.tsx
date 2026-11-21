@@ -1,15 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import type { CommentaryLine, DeliveryCelebration, Dismissal, LiveScore, MatchState, BallEvent } from '@cricket-app/core'
-import { editDeliveryFromLog } from '@cricket-app/core'
+import type { CommentaryLine, CorrectionEvent, DeliveryCelebration, Dismissal, LiveScore, MatchState, BallEvent } from '@cricket-app/core'
+import { editDeliveryFromLog, projectTimeline } from '@cricket-app/core'
 import { api, ApiRequestError } from './api'
 import { useMatch } from './useMatch'
 import { clearToken } from './token'
-import { MatchReport } from './MatchReport'
-import { ScorecardView } from './ScorecardView'
-import { MatchResultScreen } from './MatchResultScreen'
-import { EXTRA_GROUPS, buildBallPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
+import { EXTRA_GROUPS, buildBallPayload, buildBatterReplacedPayload, celebrationForDelivery, extrasForGroup, formatBowlerFigures, formatWin, isScoringShot, parseOvers, playerName, requiresFielder, resolvePositions } from './scoring'
 import type { BallKind, ExtraKind, ExtraOption } from './scoring'
 import { ExtrasSheet } from './ExtrasSheet'
+import { CustomRunsSheet } from './CustomRunsSheet'
 import { matchShareUrl } from './share'
 import { getSupabase } from './supabase'
 import { Celebration } from './ui/Celebration'
@@ -17,11 +15,17 @@ import { ThemeToggle } from './ui/ThemeToggle'
 import { OverTimeline } from './ui/OverTimeline'
 import { StickyScore } from './ui/StickyScore'
 import { ShotPicker } from './ui/ShotPicker'
-import { WagonWheel } from './ui/WagonWheel'
-import { Beehive } from './ui/Beehive'
-import { WatcherView } from './ui/WatcherView'
-import { SettingsScreen } from './SettingsScreen'
 import { PressureChart } from './ui/PressureChart'
+
+// Lazy-load heavy tab components to reduce initial bundle
+const MatchReport = lazy(() => import('./MatchReport').then((m) => ({ default: m.MatchReport })))
+const ScorecardView = lazy(() => import('./ScorecardView').then((m) => ({ default: m.ScorecardView })))
+const WagonWheel = lazy(() => import('./ui/WagonWheel').then((m) => ({ default: m.WagonWheel })))
+const Beehive = lazy(() => import('./ui/Beehive').then((m) => ({ default: m.Beehive })))
+const WatcherView = lazy(() => import('./ui/WatcherView').then((m) => ({ default: m.WatcherView })))
+const SettingsScreen = lazy(() => import('./SettingsScreen').then((m) => ({ default: m.SettingsScreen })))
+const MatchResultScreen = lazy(() => import('./MatchResultScreen').then((m) => ({ default: m.MatchResultScreen })))
+const MatchCharts = lazy(() => import('./ui/charts/MatchCharts').then((m) => ({ default: m.MatchCharts })))
 
 const DISMISSALS: Dismissal[] = [
   'BOWLED',
@@ -30,17 +34,14 @@ const DISMISSALS: Dismissal[] = [
   'RUN_OUT',
   'STUMPED',
   'HIT_WICKET',
-  'OBSTRUCTING_THE_FIELD',
+  'OBSTRUCTING',
 ]
 
 function dismissalLabel(d: Dismissal): string {
-  return d === 'HIT_WICKET' ? 'Hit wicket' : d === 'OBSTRUCTING_THE_FIELD' ? 'Obstructing the field' : d.replace('_', ' ')
+  return d === 'HIT_WICKET' ? 'Hit wicket' : d === 'OBSTRUCTING' ? 'Obstructing the field' : d.replace('_', ' ')
 }
 
 const BATTING_STATUSES = new Set(['IN_PROGRESS', 'INNINGS_BREAK', 'SUPER_OVER'])
-
-// The charts are the heaviest view, so they load only when the tab is opened.
-const MatchCharts = lazy(() => import('./ui/charts/MatchCharts').then((m) => ({ default: m.MatchCharts })))
 
 interface Props {
   matchId: string
@@ -55,7 +56,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const { bundle, error, refresh, canScore, resolved } = useMatch(matchId)
   const [tab, setTab] = useState<Tab>(initialTab)
   const [strikerPick, setStrikerPick] = useState('')
-  const [nonStrikerPick, setNonStrikerPick] = useState('')
+  const [nonStrikerPick, setNonStrikerPick] = useState<string | null>(null)
   const [bowlerPick, setBowlerPick] = useState('')
   const [wicketMode, setWicketMode] = useState(false)
   const [selectedDismissal, setSelectedDismissal] = useState<Dismissal | null>(null)
@@ -65,6 +66,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [commentary, setCommentary] = useState<CommentaryLine[]>([])
   const [copied, setCopied] = useState(false)
   const [extraKind, setExtraKind] = useState<ExtraKind | null>(null)
+  const [customRunsOpen, setCustomRunsOpen] = useState(false)
   const [undoing, setUndoing] = useState(false)
   const [undone, setUndone] = useState(false)
   const [celebration, setCelebration] = useState<DeliveryCelebration | null>(null)
@@ -75,14 +77,23 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [dismissedPlayerId, setDismissedPlayerId] = useState<string | null>(null)
   const [showNextBowlerModal, setShowNextBowlerModal] = useState(false)
   const [showSuperOverTeamSelectModal, setShowSuperOverTeamSelectModal] = useState(false)
-  const [superOverAcknowledged, setSuperOverAcknowledged] = useState<Set<number>>(new Set())
+  const [superOverAcknowledged, setSuperOverAcknowledged] = useState<Set<string>>(new Set())
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showBatterReplaceModal, setShowBatterReplaceModal] = useState(false)
+  const [replaceSlot, setReplaceSlot] = useState<'striker' | 'nonStriker'>('striker')
+  const [outgoingPlayerId, setOutgoingPlayerId] = useState<string | null>(null)
+  const [addingNewPlayer, setAddingNewPlayer] = useState(false)
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [searchingByMobile, setSearchingByMobile] = useState(false)
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('')
+  const [mobileSearchResults, setMobileSearchResults] = useState<SearchPlayer[]>([])
+  const [mobileSearchError, setMobileSearchError] = useState<string | null>(null)
   const [editTargetSeq, setEditTargetSeq] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<{
     kind: BallKind
     runs: number
     dismissal?: Dismissal
-    fielderId?: string
+    fielderId?: string | undefined
   } | null>(null)
   const prevOverBallRef = useRef<{ over: number; ball: number } | null>(null)
 
@@ -236,12 +247,15 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const inningsIndex = live?.inningsIndex ?? 0
   const [seenInnings, setSeenInnings] = useState(inningsIndex)
 
+  // Calculate isSingleBatter early for useEffect dependency
+  const isSingleBatter = state?.config.singleBatter ?? false
+
   // Handle innings change in useEffect to avoid setState during render
   useEffect(() => {
     if (inningsIndex !== seenInnings) {
       setSeenInnings(inningsIndex)
       setStrikerPick('')
-      setNonStrikerPick('')
+      setNonStrikerPick(isSingleBatter ? null : '')
       setBowlerPick('')
       setSelectedDismissal(null)
       setFielderPick('')
@@ -254,39 +268,49 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         setSuperOverAcknowledged(prev => new Set())
       }
     }
-  }, [inningsIndex, seenInnings, live?.status])
+  }, [inningsIndex, seenInnings, live?.status, isSingleBatter])
 
   const teamIds = useMemo(() => {
-    if (!state) return { batting: [] as string[], bowling: [] as string[] }
+    if (!state) return { batting: [] as string[], bowling: [] as string[], battingKey: 'A' as 'A' | 'B' }
     const cfg = state.config
-    const battingKey = live?.battingTeamId === cfg.teamBId ? 'B' : 'A'
-    const bowlingKey = battingKey === 'A' ? 'B' : 'A'
-    return { batting: cfg.lineups[battingKey], bowling: cfg.lineups[bowlingKey] }
+    const battingKey = (live?.battingTeamId === cfg.teamBId ? 'B' : 'A') as 'A' | 'B'
+    const bowlingKey = (battingKey === 'A' ? 'B' : 'A') as 'A' | 'B'
+    return { batting: cfg.lineups[battingKey], bowling: cfg.lineups[bowlingKey], battingKey }
   }, [state, live?.battingTeamId])
 
   // Calculate inningsNotStarted early for useEffect
-  const inningsNotStarted = live?.striker == null || live?.nonStriker == null
+  // In single batter mode, only striker is needed
+  const inningsNotStarted = live
+    ? isSingleBatter
+      ? live.striker == null
+      : live.striker == null || live.nonStriker == null
+    : true
 
   // Debug: log padEnabled conditions
   const positions = useMemo(() => {
     if (!live) {
       return {
         strikerId: strikerPick,
-        nonStrikerId: nonStrikerPick,
+        nonStrikerId: isSingleBatter ? null : nonStrikerPick,
         bowlerId: bowlerPick,
       }
     }
-    return resolvePositions(live, {
+    const resolved = resolvePositions(live, {
       strikerId: strikerPick,
       nonStrikerId: nonStrikerPick,
       bowlerId: bowlerPick,
     })
-  }, [live, strikerPick, nonStrikerPick, bowlerPick])
+    // In single batter mode, non-striker doesn't exist
+    if (isSingleBatter) {
+      return { ...resolved, nonStrikerId: null }
+    }
+    return resolved
+  }, [live, strikerPick, nonStrikerPick, bowlerPick, isSingleBatter])
 
   const padEnabledDebug = live ? (
     BATTING_STATUSES.has(live.status) &&
     positions.strikerId !== '' &&
-    positions.nonStrikerId !== '' &&
+    (isSingleBatter || positions.nonStrikerId !== '') &&
     positions.bowlerId !== '' &&
     !busy
   ) : false
@@ -307,7 +331,8 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   // Show match start modal when innings hasn't started and match is in a batting status
   // but only if the user hasn't already confirmed the innings start
   useEffect(() => {
-    if (inningsNotStarted && BATTING_STATUSES.has(live?.status) && !inningsStartConfirmed) {
+    const status = live?.status
+    if (inningsNotStarted && status && BATTING_STATUSES.has(status) && !inningsStartConfirmed) {
       setShowMatchStartModal(true)
     } else {
       setShowMatchStartModal(false)
@@ -315,12 +340,16 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   }, [inningsNotStarted, live?.status, inningsStartConfirmed])
 
   async function handleStartInnings(): Promise<void> {
-    // Validate all three are selected
-    if (!strikerPick || !nonStrikerPick || !bowlerPick) {
-      setPadError('Please select striker, non-striker, and bowler')
+    // Validate based on mode
+    if (!strikerPick || !bowlerPick) {
+      setPadError('Please select striker and bowler')
       return
     }
-    if (strikerPick === nonStrikerPick) {
+    if (!isSingleBatter && !nonStrikerPick) {
+      setPadError('Please select non-striker')
+      return
+    }
+    if (!isSingleBatter && strikerPick === nonStrikerPick) {
       setPadError('Striker and non-striker must be different players')
       return
     }
@@ -332,7 +361,10 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   function handleNextBatsman(batsmanId: string): void {
     // Determine if the dismissed player was striker or non-striker
     // and replace with the new batsman
-    if (live?.striker?.playerId === dismissedPlayerId) {
+    if (isSingleBatter) {
+      // In single batter mode, only striker exists
+      setStrikerPick(batsmanId)
+    } else if (live?.striker?.playerId === dismissedPlayerId) {
       setStrikerPick(batsmanId)
     } else if (live?.nonStriker?.playerId === dismissedPlayerId) {
       setNonStrikerPick(batsmanId)
@@ -349,6 +381,175 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   function handleStartNextOver(): void {
     // Actually set the bowler and close modal - this "starts" the next over
     setShowNextBowlerModal(false)
+  }
+
+  function openBatterReplaceModal(slot: 'striker' | 'nonStriker'): void {
+    const playerId = slot === 'striker' ? live?.striker?.playerId : live?.nonStriker?.playerId
+    if (!playerId) return
+    setReplaceSlot(slot)
+    setOutgoingPlayerId(playerId)
+    setShowBatterReplaceModal(true)
+    setAddingNewPlayer(false)
+    setNewPlayerName('')
+  }
+
+  // Compute available replacement batters (not out, not retired, not the other batter)
+  const availableReplacements = useMemo(() => {
+    if (!live || !state || !bundle) return []
+    const currentInnings = bundle.state.innings[bundle.state.innings.length - 1]
+    if (!currentInnings) return []
+    const otherBatterId = replaceSlot === 'striker' ? live.nonStriker?.playerId : live.striker?.playerId
+    return state.config.lineups[teamIds.battingKey].filter((p) => {
+      if (p === outgoingPlayerId) return false
+      if (p === otherBatterId) return false
+      const batter = currentInnings.batters[p]
+      return !batter?.out && !batter?.retiredNotOut
+    })
+  }, [live, state, bundle, replaceSlot, outgoingPlayerId, teamIds.battingKey])
+
+  async function handleAddNewPlayerAndReplace(): Promise<void> {
+    if (!outgoingPlayerId || !live || !state || !newPlayerName.trim()) return
+    const name = newPlayerName.trim()
+    setBusy(true)
+    setPadError(null)
+    try {
+      // Generate a unique player ID
+      const newPlayerId = `player-${crypto.randomUUID()}`
+      const battingKey = teamIds.battingKey
+      const currentLineup = state.config.lineups[battingKey]
+      const newLineups = {
+        ...state.config.lineups,
+        [battingKey]: [...currentLineup, newPlayerId],
+      }
+      const newPlayerRefs = {
+        ...state.config.playerRefs,
+        [newPlayerId]: { name, verified: false },
+      }
+      // Update match config in database
+      await api.updateMatchConfig(matchId, { lineups: newLineups, playerRefs: newPlayerRefs })
+      // Refresh to get updated config
+      await refresh()
+      // Now replace with the new player
+      const payload = buildBatterReplacedPayload(outgoingPlayerId, newPlayerId, replaceSlot)
+      await api.postEvent(matchId, payload)
+      setShowBatterReplaceModal(false)
+      setOutgoingPlayerId(null)
+      setAddingNewPlayer(false)
+      setNewPlayerName('')
+      // Update local picks
+      if (replaceSlot === 'striker') {
+        setStrikerPick(newPlayerId)
+      } else {
+        setNonStrikerPick(newPlayerId)
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Failed to add player and replace batter')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSearchByMobile(): Promise<void> {
+    const query = mobileSearchQuery.trim()
+    if (!query) return
+    setBusy(true)
+    setMobileSearchError(null)
+    setMobileSearchResults([])
+    try {
+      const result = await api.searchPlayers(query)
+      if (result.players.length === 0) {
+        setMobileSearchError('No player found with that mobile number')
+      } else {
+        setMobileSearchResults(result.players)
+      }
+    } catch (e) {
+      setMobileSearchError(e instanceof Error ? e.message : 'Search failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSelectMobilePlayer(player: SearchPlayer): Promise<void> {
+    if (!outgoingPlayerId || !live || !state) return
+    setBusy(true)
+    setPadError(null)
+    try {
+      // Check if player already in lineup
+      const battingKey = teamIds.battingKey
+      const currentLineup = state.config.lineups[battingKey]
+      if (currentLineup.includes(player.id)) {
+        // Player already in lineup, just replace
+        const payload = buildBatterReplacedPayload(outgoingPlayerId, player.id, replaceSlot)
+        await api.postEvent(matchId, payload)
+        setShowBatterReplaceModal(false)
+        setOutgoingPlayerId(null)
+        setSearchingByMobile(false)
+        setMobileSearchQuery('')
+        setMobileSearchResults([])
+        // Update local picks
+        if (replaceSlot === 'striker') {
+          setStrikerPick(player.id)
+        } else {
+          setNonStrikerPick(player.id)
+        }
+        return
+      }
+      // Add player to lineup
+      const newLineups = {
+        ...state.config.lineups,
+        [battingKey]: [...currentLineup, player.id],
+      }
+      const newPlayerRefs = {
+        ...state.config.playerRefs,
+        [player.id]: { name: player.name, mobile: undefined, verified: !player.is_guest },
+      }
+      await api.updateMatchConfig(matchId, { lineups: newLineups, playerRefs: newPlayerRefs })
+      await refresh()
+      // Now replace with the new player
+      const payload = buildBatterReplacedPayload(outgoingPlayerId, player.id, replaceSlot)
+      await api.postEvent(matchId, payload)
+      setShowBatterReplaceModal(false)
+      setOutgoingPlayerId(null)
+      setSearchingByMobile(false)
+      setMobileSearchQuery('')
+      setMobileSearchResults([])
+      // Update local picks
+      if (replaceSlot === 'striker') {
+        setStrikerPick(player.id)
+      } else {
+        setNonStrikerPick(player.id)
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Failed to add player and replace batter')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleBatterReplace(incomingPlayerId: string): Promise<void> {
+    if (!outgoingPlayerId || !live || !state) return
+    setBusy(true)
+    setPadError(null)
+    try {
+      const payload = buildBatterReplacedPayload(outgoingPlayerId, incomingPlayerId, replaceSlot)
+      const posted = await api.postEvent(matchId, payload)
+      // The engine doesn't produce a celebration for batter replacement
+      setShowBatterReplaceModal(false)
+      setOutgoingPlayerId(null)
+      // Update local picks if needed
+      if (replaceSlot === 'striker') {
+        setStrikerPick(incomingPlayerId)
+      } else {
+        setNonStrikerPick(incomingPlayerId)
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Failed to replace batter')
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Commentary is only shown on the scorecard tab; fetch it on demand and
@@ -507,7 +708,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const padEnabled =
     BATTING_STATUSES.has(live.status) &&
     positions.strikerId !== '' &&
-    positions.nonStrikerId !== '' &&
+    (isSingleBatter || (positions.nonStrikerId !== '' && positions.nonStrikerId !== null)) &&
     positions.bowlerId !== '' &&
     !busy
 
@@ -586,9 +787,15 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
     if (await submitBall(option.kind, option.runs)) setExtraKind(null)
   }
 
+  // Custom runs: pick a run value (0-12) from the numeric keypad sheet.
+  // Strike rotation follows cricket rules: odd runs = swap ends, even runs = stay.
+  async function pickCustomRuns(runs: number): Promise<void> {
+    if (await submitBall('RUNS', runs)) setCustomRunsOpen(false)
+  }
+
   function selectDismissal(d: Dismissal): void {
     setSelectedDismissal(d)
-    setFielderPick(d === 'STUMPED' || d === 'OBSTRUCTING_THE_FIELD' ? (teamIds.bowling[0] ?? '') : '')
+    setFielderPick(d === 'STUMPED' ? (teamIds.bowling[0] ?? '') : '')
   }
 
   function cancelWicket(): void {
@@ -714,13 +921,15 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   {live.striker ? `${live.striker.runs} (${live.striker.balls})` : ''}
                 </span>
               </div>
-              <div className="player">
-                <span className="muted">Non-strike</span>
-                <strong>{live.nonStriker ? playerName(state.config, live.nonStriker.playerId) : '—'}</strong>
-                <span className="player-runs">
-                  {live.nonStriker ? `${live.nonStriker.runs} (${live.nonStriker.balls})` : ''}
-                </span>
-              </div>
+              {!isSingleBatter && (
+                <div className="player">
+                  <span className="muted">Non-strike</span>
+                  <strong>{live.nonStriker ? playerName(state.config, live.nonStriker.playerId) : '—'}</strong>
+                  <span className="player-runs">
+                    {live.nonStriker ? `${live.nonStriker.runs} (${live.nonStriker.balls})` : ''}
+                  </span>
+                </div>
+              )}
               <div className="player">
                 <span className="muted">Bowler</span>
                 <strong>{playerName(state.config, live.bowler?.playerId ?? bowlerPick) || '—'}</strong>
@@ -737,11 +946,13 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             <div className="over-label">Current Over</div>
             <div className="over-balls">
               {(() => {
-                const events = bundle.events.filter((e): e is BallEvent => e.type === 'BALL' && e.over === live.over);
-                if (events.length === 0) {
+                const timeline = projectTimeline(bundle.state.config, bundle.events);
+                const currentInningsOvers = timeline.filter((o) => o.innings === live.inningsIndex);
+                const currentOver = currentInningsOvers.find((o) => o.over === live.over);
+                if (!currentOver || currentOver.balls.length === 0) {
                   return <span className="muted">No balls in this over yet</span>;
                 }
-                return events.map((e, idx) => {
+                return currentOver.balls.map((e) => {
                   let className = 'ball-mark';
                   if (e.extras === 'WIDE') className += ' wide';
                   else if (e.extras === 'NO_BALL') className += ' noball';
@@ -763,7 +974,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             <div className="tide-label pressure">Pressure</div>
             <div className="tide-label calm">Calm</div>
             <div className="tide-watermark">TIDE</div>
-            <PressureChart live={live} events={bundle.events} />
+            <PressureChart live={live} events={bundle.events} config={bundle.state.config} />
           </section>
 
           <section className="scoring-pad">
@@ -807,6 +1018,14 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                       {r}
                     </button>
                   ))}
+                  <button
+                    key="custom"
+                    className="pad-btn custom-btn"
+                    disabled={!padEnabled}
+                    onClick={() => setCustomRunsOpen(true)}
+                  >
+                    Custom
+                  </button>
                 </div>
                 <div className="extras-row">
                   {EXTRA_GROUPS.map((group) => (
@@ -822,6 +1041,67 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   <button className="pad-btn wicket-btn btn-hold" disabled={!padEnabled} onClick={startWicket}>
                     W
                   </button>
+                  {(() => {
+                  // In single batter mode: always show "Replace Striker" (only one batter)
+                  // In regular mode: show replace options when innings is in progress (striker or non-striker slot exists)
+                  const inningsInProgress = live?.status === 'IN_PROGRESS'
+                  if (!inningsInProgress) return null
+
+                  if (state.config.singleBatter) {
+                    // Single batter mode: only striker exists
+                    return (
+                      <button
+                        className="pad-btn replace-btn"
+                        disabled={!padEnabled}
+                        onClick={() => openBatterReplaceModal('striker')}
+                      >
+                        Replace Striker
+                      </button>
+                    )
+                  }
+
+                  // Regular mode: show both options when innings is in progress
+                  return (
+                    <>
+                      {live?.striker && (
+                        <button
+                          className="pad-btn replace-btn"
+                          disabled={!padEnabled}
+                          onClick={() => openBatterReplaceModal('striker')}
+                        >
+                          Replace Striker
+                        </button>
+                      )}
+                      {live?.nonStriker && (
+                        <button
+                          className="pad-btn replace-btn"
+                          disabled={!padEnabled}
+                          onClick={() => openBatterReplaceModal('nonStriker')}
+                        >
+                          Replace Non-striker
+                        </button>
+                      )}
+                      {!live?.striker && !live?.nonStriker && (
+                        <>
+                          <button
+                            className="pad-btn replace-btn"
+                            disabled={!padEnabled}
+                            onClick={() => openBatterReplaceModal('striker')}
+                          >
+                            Replace Striker
+                          </button>
+                          <button
+                            className="pad-btn replace-btn"
+                            disabled={!padEnabled}
+                            onClick={() => openBatterReplaceModal('nonStriker')}
+                          >
+                            Replace Non-striker
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )
+                })()}
                 </div>
               </>
             ) : (
@@ -900,6 +1180,14 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               onClose={() => setExtraKind(null)}
             />
           )}
+          {customRunsOpen && (
+            <CustomRunsSheet
+              busy={busy}
+              error={padError}
+              onPick={(runs) => void pickCustomRuns(runs)}
+              onClose={() => setCustomRunsOpen(false)}
+            />
+          )}
         </>
       ) : activeTab === 'watch' ? (
         <WatcherView
@@ -910,9 +1198,13 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           heroRef={stickyRef}
         />
       ) : activeTab === 'report' ? (
-        <MatchReport bundle={bundle} commentary={commentary} />
+        <Suspense fallback={<p className="muted chart-empty">Loading report…</p>}>
+          <MatchReport bundle={bundle} commentary={commentary} />
+        </Suspense>
       ) : activeTab === 'scorecard' ? (
-        <ScorecardView bundle={bundle} commentary={commentary} events={bundle.events} />
+        <Suspense fallback={<p className="muted chart-empty">Loading scorecard…</p>}>
+          <ScorecardView bundle={bundle} commentary={commentary} events={bundle.events} />
+        </Suspense>
       ) : activeTab === 'wheel' ? (
         <>
           <div className="wheel-view-toggle" role="group" aria-label="Wheel view">
@@ -933,14 +1225,18 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               Beehive
             </button>
           </div>
-          {wheelView === 'wheel' ? <WagonWheel config={state.config} events={bundle.events} /> : <Beehive events={bundle.events} />}
+          <Suspense fallback={<p className="muted chart-empty">Loading wheel…</p>}>
+            {wheelView === 'wheel' ? <WagonWheel config={state.config} events={bundle.events} /> : <Beehive events={bundle.events} />}
+          </Suspense>
         </>
       ) : activeTab === 'charts' ? (
         <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
           <MatchCharts config={state.config} events={bundle.events} />
         </Suspense>
       ) : activeTab === 'settings' ? (
-        <SettingsScreen onBack={() => setTab('scoring')} />
+        <Suspense fallback={<p className="muted chart-empty">Loading settings…</p>}>
+          <SettingsScreen onBack={() => setTab('scoring')} />
+        </Suspense>
       ) : (
         <Suspense fallback={<p className="muted chart-empty">Loading charts…</p>}>
           <MatchCharts config={state.config} events={bundle.events} />
@@ -964,7 +1260,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 <select value={strikerPick} onChange={(e) => setStrikerPick(e.target.value)}>
                   <option value="">Select…</option>
                   {teamIds.batting
-                    .filter((p) => p !== nonStrikerPick)
+                    .filter((p) => !isSingleBatter || p !== nonStrikerPick)
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -972,19 +1268,21 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                     ))}
                 </select>
               </label>
-              <label>
-                Non-striker
-                <select value={nonStrikerPick} onChange={(e) => setNonStrikerPick(e.target.value)}>
-                  <option value="">Select…</option>
-                  {teamIds.batting
-                    .filter((p) => p !== strikerPick)
-                    .map((p) => (
-                      <option key={p} value={p}>
-                        {playerName(state.config, p)}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              {!isSingleBatter && (
+                <label>
+                  Non-striker
+                  <select value={nonStrikerPick} onChange={(e) => setNonStrikerPick(e.target.value)}>
+                    <option value="">Select…</option>
+                    {teamIds.batting
+                      .filter((p) => p !== strikerPick)
+                      .map((p) => (
+                        <option key={p} value={p}>
+                          {playerName(state.config, p)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Bowler
                 <select value={bowlerPick} onChange={(e) => setBowlerPick(e.target.value)}>
@@ -1012,21 +1310,26 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Next Batsman</h2>
             <p className="muted">
-              {live?.striker?.playerId === dismissedPlayerId
+              {isSingleBatter
                 ? 'Select the new striker'
-                : 'Select the new non-striker'}
+                : live?.striker?.playerId === dismissedPlayerId
+                  ? 'Select the new striker'
+                  : 'Select the new non-striker'}
             </p>
             <div className="modal-fields">
               <label>
-                Batsman
+                {isSingleBatter ? 'New Striker' : 'Batsman'}
                 <select
                   value={strikerPick}
                   onChange={(e) => handleNextBatsman(e.target.value)}
                 >
                   <option value="">Select…</option>
                   {teamIds.batting
-                    .filter((p) => !live?.batters?.[p]?.out && p !== dismissedPlayerId)
-                    .filter((p) => p !== (live?.striker?.playerId === dismissedPlayerId ? live?.nonStriker?.playerId : live?.striker?.playerId))
+                    .filter((p) => {
+                      if (p === dismissedPlayerId) return false
+                      if (isSingleBatter) return p !== live?.striker?.playerId
+                      return p !== live?.striker?.playerId && p !== live?.nonStriker?.playerId
+                    })
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -1059,7 +1362,10 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 >
                   <option value="">Select…</option>
                   {teamIds.bowling
-                    .filter((p) => p !== live?.lastOverBowlerId)
+                    .filter((p) => {
+                      const currentInnings = bundle?.state.innings[bundle.state.innings.length - 1]
+                      return p !== currentInnings?.lastOverBowlerId
+                    })
                     .map((p) => (
                       <option key={p} value={p}>
                         {playerName(state.config, p)}
@@ -1100,6 +1406,154 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
               <button className="btn accent" onClick={() => { setShowSuperOverTeamSelectModal(false); setSuperOverAcknowledged(prev => new Set(prev).add('first-super-over')); }}>
                 Start Superover
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBatterReplaceModal && outgoingPlayerId && (
+        <div className="modal-overlay" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); setAddingNewPlayer(false); setNewPlayerName(''); setSearchingByMobile(false); setMobileSearchQuery(''); setMobileSearchResults([]); setMobileSearchError(null); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Replace Batter</h2>
+            <p className="muted">
+              {playerName(state.config, outgoingPlayerId)} will be replaced at {replaceSlot}.
+            </p>
+            <div className="modal-fields">
+              {!addingNewPlayer && !searchingByMobile ? (
+                <>
+                  <label>
+                    New Batter
+                    <select
+                      value={replaceSlot === 'striker' ? strikerPick : nonStrikerPick}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        if (val === '__add_new__') {
+                          setAddingNewPlayer(true)
+                          setNewPlayerName('')
+                          // Reset select to empty
+                          if (replaceSlot === 'striker') setStrikerPick('')
+                          else setNonStrikerPick('')
+                        } else if (val === '__search_mobile__') {
+                          setSearchingByMobile(true)
+                          setMobileSearchQuery('')
+                          setMobileSearchResults([])
+                          setMobileSearchError(null)
+                          // Reset select to empty
+                          if (replaceSlot === 'striker') setStrikerPick('')
+                          else setNonStrikerPick('')
+                        } else {
+                          if (replaceSlot === 'striker') setStrikerPick(val)
+                          else setNonStrikerPick(val)
+                        }
+                      }}
+                    >
+                      <option value="">Select…</option>
+                      {availableReplacements.length === 0 && (
+                        <option value="" disabled>No available batters</option>
+                      )}
+                      {availableReplacements.map((p) => (
+                        <option key={p} value={p}>
+                          {playerName(state.config, p)}
+                        </option>
+                      ))}
+                      <option value="__add_new__">+ Add new player</option>
+                      <option value="__search_mobile__">🔍 Search by mobile number</option>
+                    </select>
+                  </label>
+                  {availableReplacements.length === 0 && (
+                    <p className="muted" style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                      No other batters available in the lineup.
+                    </p>
+                  )}
+                </>
+              ) : addingNewPlayer ? (
+                <label>
+                  New Player Name
+                  <input
+                    type="text"
+                    value={newPlayerName}
+                    onChange={(e) => setNewPlayerName(e.target.value)}
+                    placeholder="Enter player name"
+                    autoFocus
+                    maxLength={50}
+                    disabled={busy}
+                  />
+                  <span className="hint">This player will be added to the team lineup.</span>
+                </label>
+              ) : (
+                <>
+                  <label>
+                    Mobile Number
+                    <input
+                      type="tel"
+                      value={mobileSearchQuery}
+                      onChange={(e) => setMobileSearchQuery(e.target.value)}
+                      placeholder="Enter mobile number (e.g., 9876543210)"
+                      autoFocus
+                      maxLength={20}
+                      disabled={busy}
+                    />
+                    <span className="hint">Search for an existing player by their mobile number.</span>
+                  </label>
+                  <button className="btn secondary" onClick={handleSearchByMobile} disabled={busy || !mobileSearchQuery.trim()}>
+                    Search
+                  </button>
+                  {mobileSearchError && <p className="error" style={{ marginTop: '0.5rem' }}>{mobileSearchError}</p>}
+                  {mobileSearchResults.length > 0 && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <p className="muted" style={{ fontSize: '0.875rem' }}>Found players:</p>
+                      {mobileSearchResults.map((player) => (
+                        <button
+                          key={player.id}
+                          className="btn secondary"
+                          style={{ width: '100%', textAlign: 'left', marginTop: '0.5rem' }}
+                          onClick={() => handleSelectMobilePlayer(player)}
+                          disabled={busy}
+                        >
+                          <strong>{player.name}</strong>
+                          {player.is_guest && <span className="member-badge guest" style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>Guest</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            {padError && <p className="error">{padError}</p>}
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => {
+                if (addingNewPlayer) {
+                  setAddingNewPlayer(false)
+                  setNewPlayerName('')
+                } else if (searchingByMobile) {
+                  setSearchingByMobile(false)
+                  setMobileSearchQuery('')
+                  setMobileSearchResults([])
+                  setMobileSearchError(null)
+                } else {
+                  setShowBatterReplaceModal(false)
+                  setOutgoingPlayerId(null)
+                }
+              }}>
+                {addingNewPlayer || searchingByMobile ? 'Back' : 'Cancel'}
+              </button>
+              {!addingNewPlayer && !searchingByMobile && availableReplacements.length > 0 && (
+                <>
+                  <button className="btn secondary" onClick={() => { setAddingNewPlayer(true); setNewPlayerName(''); }}>
+                    + Add new player
+                  </button>
+                  {(replaceSlot === 'striker' ? strikerPick : nonStrikerPick) && (
+                    <button className="btn accent" onClick={() => handleBatterReplace(replaceSlot === 'striker' ? strikerPick : nonStrikerPick!)} disabled={busy}>
+                      Replace
+                    </button>
+                  )}
+                </>
+              )}
+              {addingNewPlayer && newPlayerName.trim() && (
+                <button className="btn accent" onClick={handleAddNewPlayerAndReplace} disabled={busy}>
+                  Add & Replace
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1186,7 +1640,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         </div>
       )}
 
-      {bundle?.result && (state.status === 'COMPLETED' || state.status === 'TIED' || state.status === 'ABANDONED' || state.status === 'SUPER_OVER_WINNER') && (
+      {bundle?.result && (state.status === 'COMPLETED' || state.status === 'TIED' || state.status === 'ABANDONED') && (
         <MatchResultScreen
           config={state.config}
           scorecard={bundle.scorecard}

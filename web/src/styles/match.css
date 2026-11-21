@@ -7,31 +7,18 @@
 .over-ribbon {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3);
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.over-ribbon::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
 }
 
 .over-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
   border-bottom: 1px dashed var(--border-primary);
 }
 
@@ -40,7 +27,7 @@
 }
 
 .over-label {
-  flex: 0 0 60px;
+  flex: 0 0 52px;
   font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   color: var(--text-tertiary);
@@ -52,60 +39,44 @@
 .over-balls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 
-/* Ball marks - drawn as ink marks that "write" themselves */
+/* Ball marks - compact chips (32px visual), comfortable touch targets (44px) */
 .ball-mark {
-  flex: 0 0 36px;
-  height: 36px;
+  flex: 0 0 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   background: var(--surface-secondary);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   position: relative;
-  overflow: visible;
-  animation: ink-write var(--duration-normal) var(--ease-ink) both;
-  transform-origin: center;
 }
 
-/* Staggered animation delays for each ball */
-.ball-mark:nth-child(1) { animation-delay: 0ms; }
-.ball-mark:nth-child(2) { animation-delay: 100ms; }
-.ball-mark:nth-child(3) { animation-delay: 200ms; }
-.ball-mark:nth-child(4) { animation-delay: 300ms; }
-.ball-mark:nth-child(5) { animation-delay: 400ms; }
-.ball-mark:nth-child(6) { animation-delay: 500ms; }
-
-@keyframes ink-write {
-  from {
-    opacity: 0;
-    transform: scale(0.5) rotate(-5deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1) rotate(2deg);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) rotate(0);
-  }
+/* Touch target expansion for ball types without decorative pseudo-elements */
+.ball-mark.run-1::before,
+.ball-mark.run-2::before,
+.ball-mark.run-3::before,
+.ball-mark.bye::before,
+.ball-mark.legbye::before,
+.ball-mark.dot::before,
+.ball-mark.wide::before,
+.ball-mark.noball::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ball-mark {
-    animation: none;
-  }
-}
 
 /* Ball types as ink marks */
 .ball-mark.dot {
@@ -118,12 +89,6 @@
   height: 6px;
   background: currentColor;
   border-radius: 50%;
-  animation: ink-dot-appear var(--duration-fast) var(--ease-ink) both;
-}
-
-@keyframes ink-dot-appear {
-  from { transform: scale(0); }
-  to { transform: scale(1); }
 }
 
 .ball-mark.run-1,
@@ -139,16 +104,9 @@
 .ball-mark.run-4::before {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: -6px;
   border: 2px solid currentColor;
   border-radius: var(--radius-md);
-  animation: ink-loop var(--duration-slow) var(--ease-ink) both;
-}
-
-@keyframes ink-loop {
-  0% { transform: scale(0.5) rotate(0deg); opacity: 0; }
-  50% { transform: scale(1.2) rotate(180deg); opacity: 1; }
-  100% { transform: scale(1) rotate(360deg); opacity: 1; }
 }
 
 .ball-mark.run-6 {
@@ -160,21 +118,9 @@
 .ball-mark.run-6::after {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: -6px;
   border: 2px solid currentColor;
   border-radius: var(--radius-md);
-  animation: ink-double-loop var(--duration-slower) var(--ease-ink) both;
-}
-.ball-mark.run-6::after {
-  inset: -6px;
-  animation-delay: 150ms;
-}
-
-@keyframes ink-double-loop {
-  0% { transform: scale(0.3) rotate(0deg); opacity: 0; }
-  40% { transform: scale(1.1) rotate(180deg); opacity: 1; }
-  70% { transform: scale(0.9) rotate(270deg); opacity: 1; }
-  100% { transform: scale(1) rotate(360deg); opacity: 1; }
 }
 
 .ball-mark.wicket {
@@ -185,25 +131,19 @@
 .ball-mark.wicket::after {
   content: '';
   position: absolute;
-  width: 20px;
+  inset: -6px;
+  width: 28px;
   height: 2px;
   background: currentColor;
   top: 50%;
   left: 50%;
   transform-origin: center;
-  animation: ink-cross var(--duration-normal) var(--ease-ink) both;
 }
 .ball-mark.wicket::before {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 .ball-mark.wicket::after {
   transform: translate(-50%, -50%) rotate(-45deg);
-  animation-delay: 50ms;
-}
-
-@keyframes ink-cross {
-  from { width: 0; opacity: 0; }
-  to { width: 20px; opacity: 1; }
 }
 
 .ball-mark.wide,
@@ -226,15 +166,15 @@
   color: var(--legbye-color);
 }
 
-/* Scratch-out undo animation */
+/* Undo state - simple visual feedback without animation */
 .ball-mark.undoing {
-  animation: ink-scratch-out var(--duration-slow) var(--ease-ink) forwards;
+  opacity: 0.4;
 }
 
 .ball-mark.undoing::before {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: -6px;
   background: repeating-linear-gradient(
     45deg,
     currentColor,
@@ -242,19 +182,8 @@
     transparent 2px,
     transparent 4px
   );
-  opacity: 0;
-  animation: ink-fade-in var(--duration-fast) var(--ease-out) forwards;
-}
-
-@keyframes ink-scratch-out {
-  0% { opacity: 1; transform: scale(1) rotate(0deg); }
-  30% { transform: scale(1.1) rotate(-3deg); }
-  60% { transform: scale(1.05) rotate(2deg); }
-  100% { opacity: 0; transform: scale(0.8) rotate(-5deg); }
-}
-
-@keyframes ink-fade-in {
-  to { opacity: 1; }
+  opacity: 1;
+  border-radius: inherit;
 }
 
 /* --- LIVE CARD PLAYERS --- */
@@ -303,19 +232,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.scoring-pad::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
 .pad-grid {
@@ -347,6 +264,27 @@
   overflow: hidden;
 }
 
+/* Mobile: smaller buttons on narrow screens (360-430px) while maintaining 44px minimum touch targets */
+@media (max-width: 430px) {
+  .pad-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    padding: 0 var(--space-2);
+    font-size: clamp(var(--text-lg), var(--text-xl), 1.25rem);
+  }
+
+  .extras-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    min-width: 60px;
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
+  }
+
+  .replace-btn {
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
+  }
+}
+
 .pad-btn:active:not(:disabled) {
   transform: scale(0.95);
 }
@@ -358,14 +296,15 @@
   }
 }
 
-/* Context-aware highlighting */
+/* Context-aware highlighting — one-time pulse, not infinite */
 .pad-btn.highlight {
-  animation: pad-pulse var(--duration-slow) var(--ease-spring) infinite;
+  animation: pad-pulse var(--duration-slow) var(--ease-spring);
 }
 
 @keyframes pad-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pen-blue) 40%, transparent); }
-  50% { box-shadow: 0 0 0 8px transparent; }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--pen-blue) 40%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--pen-blue) 40%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -427,6 +366,13 @@
 
 .wicket-btn.holding::after {
   transform: scaleX(1);
+}
+
+/* Custom runs button */
+.custom-btn {
+  background: var(--grad-pen);
+  color: var(--text-on-accent);
+  border-color: transparent;
 }
 
 /* --- MATCH TIDE (Pressure Indicator) --- */
@@ -523,19 +469,7 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-}
-
-.time-travel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
 .scrubber-track {
@@ -667,20 +601,8 @@
   background: var(--surface-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
-}
-
-.commentary-strip::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
 }
 
 .commentary-line {
@@ -1283,6 +1205,68 @@
   }
 }
 
+/* --- CUSTOM RUNS SHEET (Numeric Keypad) --- */
+.custom-runs-sheet {
+  max-height: 80vh;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.keypad-btn {
+  height: var(--touch-target);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-lg);
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.keypad-btn:active:not(:disabled) {
+  transform: scale(0.95);
+  background: var(--surface-tertiary);
+}
+
+@media (hover: hover) {
+  .keypad-btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--border-secondary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.keypad-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-primary), 0 0 0 4px var(--border-focus);
+}
+
+.sheet-hint {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  background: var(--surface-tertiary);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  line-height: var(--leading-relaxed);
+}
+
+/* Mobile responsive for keypad */
+@media (max-width: 430px) {
+  .keypad-btn {
+    height: clamp(44px, var(--touch-target), 48px);
+    font-size: var(--text-xl);
+  }
+}
+
 /* --- SCOREBOOK COVER PAGE --- */
 .scorebook-cover {
   max-width: 520px;
@@ -1508,32 +1492,6 @@
   flex: 1;
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-2xl);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  position: relative;
-}
-
-.topbar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--paper-noise);
-  background-size: 256px 256px;
-  opacity: 0.3;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
 .topbar h1 {
   font-family: var(--font-display);
   font-size: var(--text-xl);
@@ -1658,10 +1616,6 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   min-height: 80px;
-}
-
-.match-card.animate {
-  animation: fade-in-up var(--duration-normal) var(--ease-out) both;
 }
 
 .match-card.bookmarked {
@@ -2078,17 +2032,5 @@
 @media (min-width: 1024px) {
   .charts-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* Keyframe for fade-in-up */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }

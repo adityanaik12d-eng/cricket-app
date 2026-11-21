@@ -11,6 +11,7 @@ export type Route =
   | { name: 'tournament'; tournamentId: string }
   | { name: 'dls' }
   | { name: 'admin' }
+  | { name: 'teams' }
 
 /**
  * Hash routing, so shared links work without any server rewrites.
@@ -33,5 +34,6 @@ export function parseHash(hash: string): Route {
   if (hash === '#/tournaments') return { name: 'tournaments' }
   if (hash === '#/dls') return { name: 'dls' }
   if (hash === '#/admin') return { name: 'admin' }
+  if (hash === '#/teams') return { name: 'teams' }
   return { name: 'home' }
 }

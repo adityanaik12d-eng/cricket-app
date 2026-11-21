@@ -1,26 +1,30 @@
 import { useEffect, useRef, useMemo } from 'react'
-import type { LiveScore, MatchEvent } from '@cricket-app/core'
-import { effectiveEvents } from '@cricket-app/core'
+import type { BallEvent, LiveScore, MatchEvent, MatchConfig } from '@cricket-app/core'
+import { effectiveEvents, projectTimeline } from '@cricket-app/core'
 
 interface Props {
   live: LiveScore
   events: MatchEvent[]
+  config: MatchConfig
 }
 
 const PRESSURE_WINDOW = 12 // balls to consider for pressure calculation
 
-export function PressureChart({ live, events }: Props) {
+export function PressureChart({ live, events, config }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
 
   const pressureData = useMemo(() => {
     if (!live) return { points: [] as number[], maxPressure: 1 }
 
-    // Get scored events for current innings
-    const scored = effectiveEvents(events).filter(
-      (e) => e.type === 'BALL' &&
-      e.over < live.over || (e.over === live.over && e.ball <= live.thisOver.length)
-    )
+    // Get scored events for current innings using projectTimeline to handle innings boundaries
+    const timeline = projectTimeline(config, events);
+    const currentInningsOvers = timeline.filter((o) => o.innings === live.inningsIndex);
+    let scored: BallEvent[] = [];
+    for (const over of currentInningsOvers) {
+      if (over.over < live.over || (over.over === live.over && over.balls.length <= live.thisOver.length)) {
+        scored.push(...over.balls);
+      }
+    }
 
     // Get last N balls
     const recent = scored.slice(-PRESSURE_WINDOW)
@@ -160,19 +164,29 @@ export function PressureChart({ live, events }: Props) {
       // Current ball indicator (latest point)
       if (points.length > 0) {
         const lastIdx = points.length - 1
-        const x = lastIdx * stepX
-        const y = centerY + (0.5 - points[lastIdx]) * height * 0.7
+        const lastPoint = points[lastIdx]
+        if (lastPoint !== undefined) {
+          const x = lastIdx * stepX
+          const y = centerY + (0.5 - lastPoint) * height * 0.7
 
-        ctx.strokeStyle = '#b82e2e'
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.arc(x, y, 10, 0, Math.PI * 2)
-        ctx.stroke()
+          ctx.strokeStyle = '#b82e2e'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(x, y, 10, 0, Math.PI * 2)
+          ctx.stroke()
+        }
       }
     }
 
     draw()
   }, [pressureData])
+
+  const lastPoint = pressureData.points[pressureData.points.length - 1]
+    const pressureLabel = pressureData.points.length > 0
+      ? lastPoint !== undefined && lastPoint > 0.7 ? 'High pressure'
+      : lastPoint !== undefined && lastPoint > 0.4 ? 'Moderate pressure'
+      : 'Calm'
+      : 'No data'
 
   return (
     <canvas
@@ -182,9 +196,7 @@ export function PressureChart({ live, events }: Props) {
       height={60}
       aria-hidden="true"
       role="img"
-      aria-label={`Match pressure: ${pressureData.points.length > 0 ?
-        pressureData.points[pressureData.points.length - 1] > 0.7 ? 'High pressure' :
-        pressureData.points[pressureData.points.length - 1] > 0.4 ? 'Moderate pressure' : 'Calm' : 'No data'}`}
+      aria-label={`Match pressure: ${pressureLabel}`}
     />
   )
 }

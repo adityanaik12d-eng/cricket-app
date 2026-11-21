@@ -14,7 +14,7 @@ function projectBatting(inn: InningsState): BattingCardLine[] {
   inn.battingOrder.forEach((playerId, i) => {
     const b = inn.batters[playerId]
     if (!b) return
-    lines.push({
+    const line: BattingCardLine = {
       position: i + 1,
       playerId: b.playerId,
       runs: b.runs,
@@ -25,7 +25,11 @@ function projectBatting(inn: InningsState): BattingCardLine[] {
       dismissal: b.dismissal,
       isStriker: inn.strikerId === playerId,
       isNonStriker: inn.nonStrikerId === playerId,
-    })
+    }
+    if (b.retiredNotOut) {
+      line.retiredNotOut = true
+    }
+    lines.push(line)
   })
   return lines
 }

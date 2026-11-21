@@ -1,4 +1,4 @@
-import type { BallEvent, CorrectionEvent, MatchConfig, MatchEvent, MatchState } from './types.js'
+import type { BallEvent, BatterReplacedEvent, CorrectionEvent, MatchConfig, MatchEvent, MatchState } from './types.js'
 import type { ValidationResult } from './errors.js'
 import { currentInnings } from './state.js'
 import { oversToBalls } from './overs.js'
@@ -105,4 +105,58 @@ export function validateCorrection(
     ts: targetEvent.ts,
     type: 'BALL',
   })
+}
+
+export function validateBatterReplaced(
+  config: MatchConfig,
+  state: MatchState,
+  event: BatterReplacedEvent
+): ValidationResult {
+  if (state.status !== 'IN_PROGRESS' && state.status !== 'INNINGS_BREAK' && state.status !== 'SUPER_OVER') {
+    return fail('STATUS', 'Match not in progress')
+  }
+  const inn = currentInnings(state)
+  if (!inn) return fail('POSITION', 'No current innings')
+  if (inn.closed) return fail('INNINGS_OVER', 'Innings is closed')
+  if (event.seq <= state.lastSeq) {
+    return fail('DUPLICATE_SEQ', 'Sequence already processed')
+  }
+
+  const outgoing = inn.batters[event.outgoingPlayerId]
+  if (!outgoing) {
+    return fail('POSITION', 'Outgoing batter not in this innings')
+  }
+  if (outgoing.out) {
+    return fail('POSITION', 'Cannot replace a dismissed batter')
+  }
+  if (outgoing.retiredNotOut) {
+    return fail('POSITION', 'Batter already retired')
+  }
+
+  // Verify the outgoing player is at the specified slot
+  if (event.slot === 'striker') {
+    if (inn.strikerId !== event.outgoingPlayerId) {
+      return fail('POSITION', 'Outgoing batter is not the striker')
+    }
+  } else {
+    if (inn.nonStrikerId !== event.outgoingPlayerId) {
+      return fail('POSITION', 'Outgoing batter is not the non-striker')
+    }
+  }
+
+  // In single batter mode, non-striker doesn't exist
+  if (config.singleBatter && event.slot === 'nonStriker') {
+    return fail('POSITION', 'No non-striker in single batter mode')
+  }
+
+  // Verify incoming player is in the lineup and not already batted
+  const key = inn.battingTeamId === config.teamAId ? 'A' : 'B'
+  if (!config.lineups[key].includes(event.incomingPlayerId)) {
+    return fail('INVALID_FORMAT', 'Incoming player not in lineup')
+  }
+  if (inn.battingOrder.includes(event.incomingPlayerId) && !inn.batters[event.incomingPlayerId]?.retiredNotOut) {
+    return fail('POSITION', 'Incoming player already batted')
+  }
+
+  return { ok: true }
 }

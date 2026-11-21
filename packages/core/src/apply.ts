@@ -10,7 +10,7 @@ import type {
 } from './types.js'
 import { currentInnings, emptyInnings, emptyState } from './state.js'
 import { EngineError } from './errors.js'
-import { isLegalDelivery, validateDelivery } from './validate.js'
+import { isLegalDelivery, validateDelivery, validateBatterReplaced } from './validate.js'
 import { oversToBalls } from './overs.js'
 
 function initSuperOver(config: MatchConfig, state: MatchState, firstBattingTeamId: string): MatchState {
@@ -135,15 +135,30 @@ function applyWicket(config: MatchConfig, next: MatchState, inn: InningsState, e
     ensureBowler(inn, event.bowlerId).wickets += 1
   }
 
-  const incoming = findNextBatter(config, inn)
-  if (incoming) {
-    ensureBatter(inn, incoming)
-    if (outId === inn.strikerId) {
+  if (config.singleBatter) {
+    // In single batter mode: striker is out, incoming batter becomes new striker
+    // No non-striker in single batter mode
+    const incoming = findNextBatter(config, inn)
+    if (incoming) {
+      ensureBatter(inn, incoming)
       inn.strikerId = incoming
-    } else if (outId === inn.nonStrikerId) {
-      inn.nonStrikerId = incoming
+      inn.nonStrikerId = null
     } else {
-      inn.strikerId = incoming
+      // No more batters available
+      inn.strikerId = null
+      inn.nonStrikerId = null
+    }
+  } else {
+    const incoming = findNextBatter(config, inn)
+    if (incoming) {
+      ensureBatter(inn, incoming)
+      if (outId === inn.strikerId) {
+        inn.strikerId = incoming
+      } else if (outId === inn.nonStrikerId) {
+        inn.nonStrikerId = incoming
+      } else {
+        inn.strikerId = incoming
+      }
     }
   }
 }
@@ -234,13 +249,22 @@ function applyBall(config: MatchConfig, next: MatchState, inn: InningsState, eve
   }
 
   // Strike rotation: odd runs run, then end of over.
-  if (event.runs % 2 === 1) {
-    swapStrike(inn)
-  }
-  if (legal && inn.legalBalls % config.ballsPerOver === 0) {
-    swapStrike(inn)
-    inn.lastOverBowlerId = event.bowlerId
-    inn.currentBowlerId = null
+  // In single batter mode: no strike rotation, striker always faces
+  if (!config.singleBatter) {
+    if (event.runs % 2 === 1) {
+      swapStrike(inn)
+    }
+    if (legal && inn.legalBalls % config.ballsPerOver === 0) {
+      swapStrike(inn)
+      inn.lastOverBowlerId = event.bowlerId
+      inn.currentBowlerId = null
+    }
+  } else {
+    // Single batter mode: only end of over resets bowler
+    if (legal && inn.legalBalls % config.ballsPerOver === 0) {
+      inn.lastOverBowlerId = event.bowlerId
+      inn.currentBowlerId = null
+    }
   }
 
   // Record the delivery against the over in progress. A change of over number
@@ -298,7 +322,12 @@ function maybeEndInnings(config: MatchConfig, next: MatchState): void {
   const totalBalls = oversToBalls(oversForThisInnings, config.ballsPerOver)
   const target = chaseTarget(next, inn)
   const chased = target !== null && inn.runs >= target
-  const allOut = inn.wickets >= maxWicketsForThisInnings
+
+  // In single batter mode: all out when wickets == maxWickets (no non-striker to remain not out)
+  // In normal mode: all out when wickets >= maxWickets (maxWickets fall, 1 remains not out)
+  const allOut = config.singleBatter
+    ? inn.wickets >= maxWicketsForThisInnings
+    : inn.wickets >= maxWicketsForThisInnings
   const oversDone = inn.legalBalls >= totalBalls
   if (!chased && !allOut && !oversDone && !inn.declared) return
 
@@ -437,6 +466,28 @@ export function applyEvent(config: MatchConfig, state: MatchState, event: MatchE
         : { kind: 'ABANDONED', reason: event.outcome.reason }
     next.status = event.outcome.kind === 'TIE' ? 'TIED' : 'ABANDONED'
     for (const inn of next.innings) inn.closed = true
+    return next
+  }
+
+  if (event.type === 'BATTER_REPLACED') {
+    const validation = validateBatterReplaced(config, state, event)
+    if (!validation.ok) {
+      throw new EngineError(validation.error.code, validation.error.message)
+    }
+    const inn = currentInnings(next)
+    if (!inn) throw new Error('No innings for batter replacement')
+    // Mark outgoing batter as retired not out
+    const outLine = ensureBatter(inn, event.outgoingPlayerId)
+    outLine.retiredNotOut = true
+    // Add incoming batter
+    const inLine = ensureBatter(inn, event.incomingPlayerId)
+    // Update striker/non-striker
+    if (event.slot === 'striker') {
+      inn.strikerId = event.incomingPlayerId
+    } else {
+      inn.nonStrikerId = event.incomingPlayerId
+    }
+    maybeEndInnings(config, next)
     return next
   }
 

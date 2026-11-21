@@ -1,10 +1,11 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { applyEvents } from '@cricket-app/core'
 import type { MatchConfig, MatchResult, InningsCard, Scorecard, MatchEvent, MatchState } from '@cricket-app/core'
 import { formatWin, playerName, topBowler, topScorer } from './scoring'
 import { HomeIcon } from './ui/HomeIcon'
 import { pickPlayerOfMatch } from './mvp'
 import { AnimatedCounter } from './ui/AnimatedCounter'
+import html2canvas from 'html2canvas'
 
 import { ScorecardView } from './ScorecardView'
 
@@ -62,6 +63,27 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
   // Show victory stamp animation on mount
   const [showStamp, setShowStamp] = useState(true)
   const [showPoster, setShowPoster] = useState(false)
+  const posterRef = useRef<HTMLDivElement>(null)
+
+  async function downloadPoster() {
+    if (!posterRef.current) return
+    try {
+      const canvas = await html2canvas(posterRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#0b0f13',
+        logging: false,
+      })
+      const link = document.createElement('a')
+      link.download = `${config.teamAId}-vs-${config.teamBId}-poster.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+      setShowPoster(false)
+    } catch (err) {
+      console.error('Failed to download poster:', err)
+      alert('Failed to download poster. Please try again.')
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setShowStamp(false), 3000)
@@ -206,7 +228,7 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
       {/* Match Poster Modal */}
       {showPoster && (
         <div className="modal-overlay" onClick={() => setShowPoster(false)}>
-          <div className="modal match-poster" onClick={(e) => e.stopPropagation()}>
+          <div ref={posterRef} className="modal match-poster" onClick={(e) => e.stopPropagation()}>
             <header className="poster-header">
               <h1 className="poster-title">{config.teamAId} vs {config.teamBId}</h1>
               <p className="poster-subtitle">{config.oversPerInnings} overs per side</p>
@@ -247,7 +269,7 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
                     {inn.bowling.map((b) => (
                       <div className="poster-batter" key={b.playerId}>
                         <span className="poster-batter-name">{playerName(config, b.playerId)}</span>
-                        <span className="poster-batter-stats">{b.oversText}-{b.maidens ?? 0}-{b.runs}-{b.wickets} (Econ {b.economy.toFixed(2)})</span>
+                        <span className="poster-batter-stats">{b.oversText}-{b.runs}-{b.wickets} (Econ {b.economy.toFixed(2)})</span>
                       </div>
                     ))}
                   </div>
@@ -259,10 +281,7 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
             </footer>
             <div className="modal-actions" style={{ marginTop: 16, display: 'flex', gap: 8 }}>
               <button className="btn ghost" onClick={() => setShowPoster(false)}>Close</button>
-              <button className="btn accent" onClick={() => {
-                // Download poster as image (would use html2canvas or similar)
-                setShowPoster(false)
-              }}>Download PNG</button>
+              <button className="btn accent" onClick={downloadPoster}>Download PNG</button>
             </div>
           </div>
         </div>
