@@ -84,6 +84,10 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   const [outgoingPlayerId, setOutgoingPlayerId] = useState<string | null>(null)
   const [addingNewPlayer, setAddingNewPlayer] = useState(false)
   const [newPlayerName, setNewPlayerName] = useState('')
+  const [searchingByMobile, setSearchingByMobile] = useState(false)
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('')
+  const [mobileSearchResults, setMobileSearchResults] = useState<SearchPlayer[]>([])
+  const [mobileSearchError, setMobileSearchError] = useState<string | null>(null)
   const [editTargetSeq, setEditTargetSeq] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<{
     kind: BallKind
@@ -437,6 +441,84 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
         setStrikerPick(newPlayerId)
       } else {
         setNonStrikerPick(newPlayerId)
+      }
+    } catch (e) {
+      if (e instanceof ApiRequestError) setPadError(e.message)
+      else setPadError(e instanceof Error ? e.message : 'Failed to add player and replace batter')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSearchByMobile(): Promise<void> {
+    const query = mobileSearchQuery.trim()
+    if (!query) return
+    setBusy(true)
+    setMobileSearchError(null)
+    setMobileSearchResults([])
+    try {
+      const result = await api.searchPlayers(query)
+      if (result.players.length === 0) {
+        setMobileSearchError('No player found with that mobile number')
+      } else {
+        setMobileSearchResults(result.players)
+      }
+    } catch (e) {
+      setMobileSearchError(e instanceof Error ? e.message : 'Search failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleSelectMobilePlayer(player: SearchPlayer): Promise<void> {
+    if (!outgoingPlayerId || !live || !state) return
+    setBusy(true)
+    setPadError(null)
+    try {
+      // Check if player already in lineup
+      const battingKey = teamIds.battingKey
+      const currentLineup = state.config.lineups[battingKey]
+      if (currentLineup.includes(player.id)) {
+        // Player already in lineup, just replace
+        const payload = buildBatterReplacedPayload(outgoingPlayerId, player.id, replaceSlot)
+        await api.postEvent(matchId, payload)
+        setShowBatterReplaceModal(false)
+        setOutgoingPlayerId(null)
+        setSearchingByMobile(false)
+        setMobileSearchQuery('')
+        setMobileSearchResults([])
+        // Update local picks
+        if (replaceSlot === 'striker') {
+          setStrikerPick(player.id)
+        } else {
+          setNonStrikerPick(player.id)
+        }
+        return
+      }
+      // Add player to lineup
+      const newLineups = {
+        ...state.config.lineups,
+        [battingKey]: [...currentLineup, player.id],
+      }
+      const newPlayerRefs = {
+        ...state.config.playerRefs,
+        [player.id]: { name: player.name, mobile: player.masked_mobile ?? undefined, verified: !player.is_guest },
+      }
+      await api.updateMatchConfig(matchId, { lineups: newLineups, playerRefs: newPlayerRefs })
+      await refresh()
+      // Now replace with the new player
+      const payload = buildBatterReplacedPayload(outgoingPlayerId, player.id, replaceSlot)
+      await api.postEvent(matchId, payload)
+      setShowBatterReplaceModal(false)
+      setOutgoingPlayerId(null)
+      setSearchingByMobile(false)
+      setMobileSearchQuery('')
+      setMobileSearchResults([])
+      // Update local picks
+      if (replaceSlot === 'striker') {
+        setStrikerPick(player.id)
+      } else {
+        setNonStrikerPick(player.id)
       }
     } catch (e) {
       if (e instanceof ApiRequestError) setPadError(e.message)
@@ -1330,22 +1412,39 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
       )}
 
       {showBatterReplaceModal && outgoingPlayerId && (
-        <div className="modal-overlay" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); setAddingNewPlayer(false); setNewPlayerName(''); }}>
+        <div className="modal-overlay" onClick={() => { setShowBatterReplaceModal(false); setOutgoingPlayerId(null); setAddingNewPlayer(false); setNewPlayerName(''); setSearchingByMobile(false); setMobileSearchQuery(''); setMobileSearchResults([]); setMobileSearchError(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Replace Batter</h2>
             <p className="muted">
               {playerName(state.config, outgoingPlayerId)} will be replaced at {replaceSlot}.
             </p>
             <div className="modal-fields">
-              {!addingNewPlayer ? (
+              {!addingNewPlayer && !searchingByMobile ? (
                 <>
                   <label>
                     New Batter
                     <select
                       value={replaceSlot === 'striker' ? strikerPick : nonStrikerPick}
                       onChange={(e) => {
-                        if (replaceSlot === 'striker') setStrikerPick(e.target.value)
-                        else setNonStrikerPick(e.target.value)
+                        const val = e.target.value
+                        if (val === '__add_new__') {
+                          setAddingNewPlayer(true)
+                          setNewPlayerName('')
+                          // Reset select to empty
+                          if (replaceSlot === 'striker') setStrikerPick('')
+                          else setNonStrikerPick('')
+                        } else if (val === '__search_mobile__') {
+                          setSearchingByMobile(true)
+                          setMobileSearchQuery('')
+                          setMobileSearchResults([])
+                          setMobileSearchError(null)
+                          // Reset select to empty
+                          if (replaceSlot === 'striker') setStrikerPick('')
+                          else setNonStrikerPick('')
+                        } else {
+                          if (replaceSlot === 'striker') setStrikerPick(val)
+                          else setNonStrikerPick(val)
+                        }
                       }}
                     >
                       <option value="">Select…</option>
@@ -1358,6 +1457,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                         </option>
                       ))}
                       <option value="__add_new__">+ Add new player</option>
+                      <option value="__search_mobile__">🔍 Search by mobile number</option>
                     </select>
                   </label>
                   {availableReplacements.length === 0 && (
@@ -1366,7 +1466,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                     </p>
                   )}
                 </>
-              ) : (
+              ) : addingNewPlayer ? (
                 <label>
                   New Player Name
                   <input
@@ -1380,6 +1480,44 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   />
                   <span className="hint">This player will be added to the team lineup.</span>
                 </label>
+              ) : (
+                <>
+                  <label>
+                    Mobile Number
+                    <input
+                      type="tel"
+                      value={mobileSearchQuery}
+                      onChange={(e) => setMobileSearchQuery(e.target.value)}
+                      placeholder="Enter mobile number (e.g., 9876543210)"
+                      autoFocus
+                      maxLength={20}
+                      disabled={busy}
+                    />
+                    <span className="hint">Search for an existing player by their mobile number.</span>
+                  </label>
+                  <button className="btn secondary" onClick={handleSearchByMobile} disabled={busy || !mobileSearchQuery.trim()}>
+                    Search
+                  </button>
+                  {mobileSearchError && <p className="error" style={{ marginTop: '0.5rem' }}>{mobileSearchError}</p>}
+                  {mobileSearchResults.length > 0 && (
+                    <div style={{ marginTop: '1rem' }}>
+                      <p className="muted" style={{ fontSize: '0.875rem' }}>Found players:</p>
+                      {mobileSearchResults.map((player) => (
+                        <button
+                          key={player.id}
+                          className="btn secondary"
+                          style={{ width: '100%', textAlign: 'left', marginTop: '0.5rem' }}
+                          onClick={() => handleSelectMobilePlayer(player)}
+                          disabled={busy}
+                        >
+                          <strong>{player.name}</strong>
+                          {player.is_guest && <span className="member-badge guest" style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>Guest</span>}
+                          {player.masked_mobile && <span style={{ marginLeft: '0.5rem', color: 'var(--text-tertiary)' }}>{player.masked_mobile}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
             {padError && <p className="error">{padError}</p>}
@@ -1388,14 +1526,19 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                 if (addingNewPlayer) {
                   setAddingNewPlayer(false)
                   setNewPlayerName('')
+                } else if (searchingByMobile) {
+                  setSearchingByMobile(false)
+                  setMobileSearchQuery('')
+                  setMobileSearchResults([])
+                  setMobileSearchError(null)
                 } else {
                   setShowBatterReplaceModal(false)
                   setOutgoingPlayerId(null)
                 }
               }}>
-                {addingNewPlayer ? 'Back' : 'Cancel'}
+                {addingNewPlayer || searchingByMobile ? 'Back' : 'Cancel'}
               </button>
-              {!addingNewPlayer && availableReplacements.length > 0 && (
+              {!addingNewPlayer && !searchingByMobile && availableReplacements.length > 0 && (
                 <>
                   <button className="btn secondary" onClick={() => { setAddingNewPlayer(true); setNewPlayerName(''); }}>
                     + Add new player
