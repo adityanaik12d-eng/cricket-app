@@ -209,7 +209,7 @@ export function MatchResultScreen({ config, scorecard, result, events, onHome }:
             <button className="btn accent" style={{ flex: 1 }} onClick={() => setShowPoster(true)}>
               📸 Share as Poster
             </button>
-            <button className="btn secondary" style={{ flex: 1 }} onClick={() => { window.location.hash = `#/edit-match/${config.id}` }}>
+            <button className="btn secondary" style={{ flex: 1 }} onClick={() => { window.location.hash = `#/edit-match/${config.matchId}` }}>
               ✏️ Edit Match
             </button>
           </div>
