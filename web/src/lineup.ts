@@ -1,9 +1,9 @@
-import type { Player } from './api'
+import type { Player, SearchPlayer } from './api'
 
 export interface LineupEntry {
   id: string
   name: string
-  mobile?: string
+  mobile?: string | undefined
   verified: boolean
 }
 
@@ -32,6 +32,10 @@ export function newLocalEntry(name: string, takenIds: string[]): LineupEntry {
 
 export function directoryEntry(p: Player): LineupEntry {
   return { id: p.id, name: p.name, mobile: p.mobile, verified: true }
+}
+
+export function directoryEntryFromSearch(p: SearchPlayer): LineupEntry {
+  return { id: p.id, name: p.name, mobile: p.masked_mobile ?? undefined, verified: !p.is_guest }
 }
 
 export function buildLineupRefs(entries: LineupEntry[]): {

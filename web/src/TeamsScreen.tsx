@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, ApiRequestError } from './api'
 import { getSupabase } from './supabase'
-import type { Team, SearchPlayer } from './api'
+import type { Team, SearchPlayer, TeamMember } from './api'
 
 export function TeamsScreen({ onBack }: { onBack: () => void }) {
   const [teams, setTeams] = useState<Team[]>([])
@@ -13,8 +13,12 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
   const [newColour, setNewColour] = useState('#3b82f6')
   const [creating, setCreating] = useState(false)
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
-  const [teamMembers, setTeamMembers] = useState<Record<string, SearchPlayer[]>>({})
+  const [teamMembers, setTeamMembers] = useState<Record<string, TeamMember[]>>({})
   const [membersLoading, setMembersLoading] = useState<Record<string, boolean>>({})
+  const [searchMobileQuery, setSearchMobileQuery] = useState('')
+  const [searchingMobile, setSearchingMobile] = useState(false)
+  const [mobileResults, setMobileResults] = useState<SearchPlayer[]>([])
+  const [mobileError, setMobileError] = useState<string | null>(null)
 
   useEffect(() => {
     loadTeams()
@@ -69,14 +73,19 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
         `)
         .eq('team_id', teamId)
       if (error) throw error
-      // Transform the data
-      const members = (data ?? []).map((row: any) => ({
-        id: row.players.id,
-        name: row.players.name,
-        is_guest: row.players.is_guest,
-        masked_mobile: row.players.masked_mobile,
+      // Transform the data to match TeamMember interface
+      const members = (data ?? []).map((row: any): TeamMember => ({
+        team_id: teamId,
+        player_id: row.player_id,
         role: row.role,
         added_at: row.added_at,
+        added_by: null,
+        player: {
+          id: row.players.id,
+          name: row.players.name,
+          is_guest: row.players.is_guest,
+          masked_mobile: row.players.masked_mobile,
+        },
       }))
       setTeamMembers(prev => ({ ...prev, [teamId]: members }))
     } catch (err) {
@@ -97,7 +106,7 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
     if (!confirm('Delete this team and all its members?')) return
     setError(null)
     try {
-      const { error } = await api.getSupabase()
+      const { error } = await getSupabase()
         .from('teams')
         .delete()
         .eq('id', teamId)
@@ -105,6 +114,43 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
       await loadTeams()
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not delete team')
+    }
+  }
+
+  async function handleSearchMobile(teamId: string) {
+    const query = searchMobileQuery.trim()
+    if (query.length < 8) {
+      setMobileError('Enter at least 8 digits of the mobile number')
+      return
+    }
+    setSearchingMobile(true)
+    setMobileError(null)
+    setMobileResults([])
+    try {
+      const { players } = await api.searchPlayers(query)
+      setMobileResults(players)
+      if (players.length === 0) {
+        setMobileError('No player found with that mobile number')
+      }
+    } catch (err) {
+      setMobileError(err instanceof ApiRequestError ? err.message : 'Search failed')
+    } finally {
+      setSearchingMobile(false)
+    }
+  }
+
+  async function handleAddMember(teamId: string, playerId: string) {
+    setError(null)
+    try {
+      await api.addTeamMember(teamId, playerId, 'member')
+      // Refresh members list
+      await loadMembers(teamId)
+      // Clear search
+      setSearchMobileQuery('')
+      setMobileResults([])
+      setMobileError(null)
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not add member')
     }
   }
 
@@ -161,15 +207,59 @@ export function TeamsScreen({ onBack }: { onBack: () => void }) {
                     ) : (
                       <ul className="member-list">
                         {teamMembers[team.id]?.map(member => (
-                          <li key={member.id} className="member-row">
-                            <span className="member-name">{member.name}</span>
-                            {member.is_guest && <span className="member-badge guest">Guest</span>}
-                            {member.masked_mobile && <span className="member-mobile">{member.masked_mobile}</span>}
+                          <li key={member.player_id} className="member-row">
+                            <span className="member-name">{member.player.name}</span>
+                            {member.player.is_guest && <span className="member-badge guest">Guest</span>}
+                            {member.player.masked_mobile && <span className="member-mobile">{member.player.masked_mobile}</span>}
                             <span className="member-role">{member.role}</span>
                           </li>
                         ))}
                       </ul>
                     )}
+
+                    {/* Add member by mobile */}
+                    <div className="add-member-section" style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Add Member</h4>
+                      <div className="form-field" style={{ marginBottom: 12 }}>
+                        <label className="form-label" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>Mobile Number (last 10 digits)</label>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            type="text"
+                            value={searchMobileQuery}
+                            onChange={e => setSearchMobileQuery(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            placeholder="Enter 10-digit mobile"
+                            style={{ flex: 1, padding: '8px 12px', fontSize: 14 }}
+                            disabled={searchingMobile}
+                            maxLength={10}
+                          />
+                          <button
+                            className="btn accent"
+                            onClick={() => handleSearchMobile(team.id)}
+                            disabled={searchingMobile || searchMobileQuery.length < 8}
+                            style={{ height: 38, whiteSpace: 'nowrap' }}
+                          >
+                            {searchingMobile ? 'Searching…' : 'Search'}
+                          </button>
+                        </div>
+                        {mobileError && <p className="error" style={{ marginTop: 6, fontSize: 13 }}>{mobileError}</p>}
+                      </div>
+
+                      {mobileResults.length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                          <p className="muted" style={{ fontSize: 13, marginBottom: 8 }}>Found player(s):</p>
+                          <ul className="member-list" style={{ maxHeight: 200, overflow: 'auto' }}>
+                            {mobileResults.map(player => (
+                              <li key={player.id} className="member-row" style={{ cursor: 'pointer' }} onClick={() => handleAddMember(team.id, player.id)}>
+                                <span className="member-name">{player.name}</span>
+                                {player.is_guest && <span className="member-badge guest">Guest</span>}
+                                {player.masked_mobile && <span className="member-mobile">{player.masked_mobile}</span>}
+                                <span className="member-role" style={{ color: 'var(--accent)' }}>Add</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </li>

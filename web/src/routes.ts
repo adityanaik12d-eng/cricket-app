@@ -11,6 +11,7 @@ export type Route =
   | { name: 'tournament'; tournamentId: string }
   | { name: 'dls' }
   | { name: 'admin' }
+  | { name: 'teams' }
 
 /**
  * Hash routing, so shared links work without any server rewrites.
