@@ -554,7 +554,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
 
   // Commentary is only shown on the scorecard tab; fetch it on demand and
   // refresh whenever a new event lands (eventCount changes) while it's open.
-  const eventCount = bundle?.state.eventCount ?? 0
+  const eventCount = bundle?.state?.eventCount ?? 0
   useEffect(() => {
     if (activeTab === 'scoring') return
     let alive = true
@@ -704,7 +704,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   }
 
   // The toss always stays, so anything past it can be rewound.
-  const canUndo = state.eventCount > 1 && !busy
+  const canUndo = (state?.eventCount ?? 0) > 1 && !busy
   const padEnabled =
     BATTING_STATUSES.has(live.status) &&
     positions.strikerId !== '' &&
