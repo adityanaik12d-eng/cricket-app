@@ -396,7 +396,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   // Compute available replacement batters (not out, not retired, not the other batter)
   const availableReplacements = useMemo(() => {
     if (!live || !state || !bundle) return []
-    const currentInnings = bundle.state.innings[bundle.state.innings.length - 1]
+    const currentInnings = bundle?.state.innings[bundle?.state.innings.length - 1]
     if (!currentInnings) return []
     const otherBatterId = replaceSlot === 'striker' ? live.nonStriker?.playerId : live.striker?.playerId
     return state.config.lineups[teamIds.battingKey].filter((p) => {
@@ -946,7 +946,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             <div className="over-label">Current Over</div>
             <div className="over-balls">
               {(() => {
-                const timeline = projectTimeline(bundle.state.config, bundle.events);
+                const timeline = bundle ? projectTimeline(bundle.state.config, bundle.events) : [];
                 const currentInningsOvers = timeline.filter((o) => o.innings === live.inningsIndex);
                 const currentOver = currentInningsOvers.find((o) => o.over === live.over);
                 if (!currentOver || currentOver.balls.length === 0) {
@@ -974,7 +974,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
             <div className="tide-label pressure">Pressure</div>
             <div className="tide-label calm">Calm</div>
             <div className="tide-watermark">TIDE</div>
-            <PressureChart live={live} events={bundle.events} config={bundle.state.config} />
+            <PressureChart live={live} events={bundle.events} config={bundle?.state.config} />
           </section>
 
           <section className="scoring-pad">
@@ -1363,7 +1363,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
                   <option value="">Select…</option>
                   {teamIds.bowling
                     .filter((p) => {
-                      const currentInnings = bundle?.state.innings[bundle.state.innings.length - 1]
+                      const currentInnings = bundle?.state.innings[bundle?.state.innings.length - 1]
                       return p !== currentInnings?.lastOverBowlerId
                     })
                     .map((p) => (
