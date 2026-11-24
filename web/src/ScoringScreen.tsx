@@ -686,7 +686,7 @@ export function ScoringScreen({ matchId, onLeave, initialTab = 'scoring' }: Prop
   }, [live?.status, matchId])
 
   // Handle home navigation from result screen
-  if (!bundle || !state || !live || !resolved) {
+  if (!bundle || !state || !live) {
     return (
       <div className="shell">
         <header className="topbar">
