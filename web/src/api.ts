@@ -156,15 +156,27 @@ async function assertScorer(matchId: string): Promise<void> {
 
 /** Loads a match row and replays it. One row = the whole match (config + log). */
 async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[] }> {
-  const { data, error } = await getSupabase()
-    .from('matches')
-    .select('config, events')
-    .eq('id', matchId)
-    .maybeSingle()
-  if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
-  if (!data) throw new ApiRequestError(`Match ${matchId} was not found`, 'NOT_FOUND')
-  const row = data as { config: MatchConfig; events: MatchEvent[] | null }
-  return { config: row.config, events: row.events ?? [] }
+  // Add timeout to prevent hanging on Vercel
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  try {
+    const { data, error } = await getSupabase()
+      .from('matches')
+      .select('config, events')
+      .eq('id', matchId)
+      .maybeSingle()
+      .abortSignal(controller.signal)
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    if (!data) throw new ApiRequestError(`Match ${matchId} was not found`, 'NOT_FOUND')
+    const row = data as { config: MatchConfig; events: MatchEvent[] | null }
+    return { config: row.config, events: row.events ?? [] }
+  } catch (e) {
+    if (e instanceof ApiRequestError) throw e
+    if (e instanceof Error && e.name === 'AbortError') throw new ApiRequestError('Request timed out', 'TIMEOUT')
+    throw new ApiRequestError(e instanceof Error ? e.message : 'Failed to load match', 'LOAD_FAILED')
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 /**
