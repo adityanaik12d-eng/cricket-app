@@ -26,6 +26,7 @@ import { resultText } from './scoring'
  */
 export interface MatchBundle {
   matchId: string
+  config: MatchConfig
   state: MatchState
   live: LiveScore
   scorecard: Scorecard
@@ -101,6 +102,7 @@ export function computeBundle(matchId: string, config: MatchConfig, events: Matc
   const state = applyEvents(config, events)
   return {
     matchId,
+    config,
     state,
     live: projectLiveScore(state),
     scorecard: projectScorecard(state),

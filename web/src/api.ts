@@ -164,8 +164,8 @@ async function loadRow(matchId: string): Promise<{ config: MatchConfig; events: 
       .from('matches')
       .select('config, events')
       .eq('id', matchId)
-      .maybeSingle()
       .abortSignal(controller.signal)
+      .maybeSingle()
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
     if (!data) throw new ApiRequestError(`Match ${matchId} was not found`, 'NOT_FOUND')
     const row = data as { config: MatchConfig; events: MatchEvent[] | null }
@@ -241,9 +241,16 @@ export const api = {
     return config?.ownerId ?? null
   },
 
+  /** Public read: returns full computed bundle. No auth required. */
   async getMatch(matchId: string): Promise<MatchBundle> {
     const { config, events } = await loadRow(matchId)
     return computeBundle(matchId, config, events)
+  },
+
+  /** Internal read: returns raw config + events. Requires scorer token or owner. */
+  async loadMatch(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[] }> {
+    await assertScorer(matchId)
+    return loadRow(matchId)
   },
 
   async postEvent(
@@ -265,10 +272,15 @@ export const api = {
     } catch (err) {
       throw toApiError(err, 'Could not record the event')
     }
+    const updatePayload: { events: MatchEvent[]; updated_at: string; finished_at?: string | null } = { events: appended.events, updated_at: new Date().toISOString() }
+    // If the match just became finished, set finished_at to the event timestamp
+    if (['COMPLETED', 'TIED', 'ABANDONED'].includes(appended.state.status)) {
+      updatePayload.finished_at = appended.event.ts
+    }
     const { error } = await withScorerToken(
       getSupabase()
         .from('matches')
-        .update({ events: appended.events, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', matchId),
       scorerTokenFor(matchId),
     )
@@ -315,15 +327,20 @@ export const api = {
   ): Promise<{ state: MatchState; live: LiveScore }> {
     await assertScorer(matchId)
     const { config } = await loadRow(matchId)
+    const state = applyEvents(config, events)
+    const updatePayload: { events: MatchEvent[]; updated_at: string; finished_at?: string | null } = { events, updated_at: new Date().toISOString() }
+    // If the match is finished, set finished_at to the last event timestamp
+    if (['COMPLETED', 'TIED', 'ABANDONED'].includes(state.status) && events.length > 0) {
+      updatePayload.finished_at = events[events.length - 1]!.ts
+    }
     const { error } = await withScorerToken(
       getSupabase()
         .from('matches')
-        .update({ events, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', matchId),
       scorerTokenFor(matchId),
     )
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
-    const state = applyEvents(config, events)
     return { state, live: projectLiveScore(state) }
   },
 
@@ -419,15 +436,22 @@ export const api = {
     if (rewound.length === events.length) {
       throw new ApiRequestError('There is nothing to undo', 'NOTHING_TO_UNDO')
     }
+    const state = applyEvents(config, rewound)
+    const updatePayload: { events: MatchEvent[]; updated_at: string; finished_at?: string | null } = { events: rewound, updated_at: new Date().toISOString() }
+    // If the match was finished but we undid the final event, clear finished_at
+    const wasFinished = ['COMPLETED', 'TIED', 'ABANDONED'].includes(applyEvents(config, events).status)
+    const nowFinished = ['COMPLETED', 'TIED', 'ABANDONED'].includes(state.status)
+    if (wasFinished && !nowFinished) {
+      updatePayload.finished_at = null
+    }
     const { error } = await withScorerToken(
       getSupabase()
         .from('matches')
-        .update({ events: rewound, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', matchId),
       scorerTokenFor(matchId),
     )
     if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
-    const state = applyEvents(config, rewound)
     return { state, live: projectLiveScore(state) }
   },
 
@@ -501,16 +525,57 @@ export const api = {
   },
 
   /**
-   * Loads a match by ID (config + events). Requires scorer token or owner.
+   * Checks if a match is finished. Uses the is_match_finished SECURITY DEFINER function.
+   * Throws on error (does not return false on failure).
    */
-  async getMatch(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[] }> {
-    await assertScorer(matchId)
-    return loadRow(matchId)
+  async isMatchFinished(matchId: string): Promise<boolean> {
+    const { data, error } = await getSupabase().rpc('is_match_finished', { p_match_id: matchId })
+    if (error) throw new ApiRequestError(error.message, 'RPC_ERROR')
+    return data === true
+  },
+
+  /**
+   * Fetches the current match row with its updated_at for optimistic locking.
+   * Used by editFinishedMatch to prevent lost updates.
+   */
+  async getMatchWithVersion(matchId: string): Promise<{ config: MatchConfig; events: MatchEvent[]; updatedAt: string }> {
+    const { data, error } = await getSupabase()
+      .from('matches')
+      .select('config, events, updated_at')
+      .eq('id', matchId)
+      .maybeSingle()
+    if (error) throw new ApiRequestError(error.message, 'SUPABASE_ERROR')
+    if (!data) throw new ApiRequestError(`Match ${matchId} was not found`, 'NOT_FOUND')
+    const row = data as { config: MatchConfig; events: MatchEvent[] | null; updated_at: string }
+    return { config: row.config, events: row.events ?? [], updatedAt: row.updated_at }
+  },
+
+  /**
+   * Edits a finished match in a single RPC call. Requires signed-in owner or admin.
+   * Validates: reason provided, new_events is array with size cap, matchId/ownerId/scorerTokenHash unchanged,
+   * optimistic lock via expectedUpdatedAt.
+   * Live matches use replaceMatchConfig/replaceMatchEvents (unchanged).
+   */
+  async editFinishedMatch(
+    matchId: string,
+    payload: { config: MatchConfig; events: MatchEvent[]; reason: string; expectedUpdatedAt: string }
+  ): Promise<{ config: MatchConfig; events: MatchEvent[]; updatedAt: string }> {
+    const { error } = await getSupabase().rpc('edit_finished_match', {
+      p_match_id: matchId,
+      p_new_config: payload.config,
+      p_new_events: payload.events,
+      p_reason: payload.reason,
+      p_expected_updated_at: payload.expectedUpdatedAt,
+    })
+    if (error) throw new ApiRequestError(error.message, 'RPC_ERROR')
+    // Return the updated match with new version
+    return this.getMatchWithVersion(matchId)
   },
 
   /**
    * Fully replaces the match config. Used for editing match setup (team names, overs, etc.)
-   * Requires scorer token or admin.
+   * LIVE MATCHES ONLY: requires scorer token or owner.
+   * For finished matches, use editFinishedMatch.
    */
   async replaceMatchConfig(
     matchId: string,
@@ -530,7 +595,8 @@ export const api = {
 
   /**
    * Replaces the entire events log. Used for editing ball-by-ball data.
-   * Requires scorer token or admin.
+   * LIVE MATCHES ONLY: requires scorer token or owner.
+   * For finished matches, use editFinishedMatch.
    */
   async replaceMatchEvents(
     matchId: string,

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, ApiRequestError } from './api'
-import { buildConfig, computeBundle, type MatchEvent, type MatchConfig, type LiveScore } from './match'
+import { buildConfig, computeBundle, type MatchBundle } from './match'
+import type { MatchEvent, MatchConfig, LiveScore } from '@cricket-app/core'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 interface EditMatchScreenProps {
@@ -13,9 +14,14 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [bundle, setBundle] = useState<ReturnType<typeof computeBundle> | null>(null)
+  const [bundle, setBundle] = useState<MatchBundle | null>(null)
   const [config, setConfig] = useState<Partial<MatchConfig>>({})
   const [activeTab, setActiveTab] = useState<'setup' | 'lineups' | 'events'>('setup')
+  const [isFinished, setIsFinished] = useState(false)
+  const [matchVersion, setMatchVersion] = useState<string | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [confirmPayload, setConfirmPayload] = useState<{ config: MatchConfig; events: MatchEvent[]; reason: string } | null>(null)
+  const [confirmReason, setConfirmReason] = useState('')
 
   // Config form fields
   const [teamAName, setTeamAName] = useState('')
@@ -39,6 +45,12 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
     try {
       const b = await api.getMatch(matchId)
       setBundle(b)
+      // Check if match is finished
+      const finished = await api.isMatchFinished(matchId)
+      setIsFinished(finished)
+      // Load match version for optimistic locking
+      const versioned = await api.getMatchWithVersion(matchId)
+      setMatchVersion(versioned.updatedAt)
       // Initialize form fields from config
       setTeamAName(b.config.teamAId)
       setTeamBName(b.config.teamBId)
@@ -57,28 +69,50 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
     }
   }
 
-  async function saveConfig() {
-    if (!bundle) return
-    setSaving(true)
+  function buildNewConfig(): MatchConfig {
+    if (!bundle) throw new Error('No bundle loaded')
+    const newConfig = buildConfig(
+      {
+        teamAId: teamAName,
+        teamBId: teamBName,
+        lineups: bundle.config.lineups,
+        oversPerInnings: overs,
+        powerplayOvers: powerplay,
+        maxWickets,
+        superOverEnabled,
+        superOverOvers,
+        superOverMaxWickets,
+      },
+      matchId,
+    )
+    // Use updated playerRefs from config state (includes lineups tab edits)
+    newConfig.playerRefs = config.playerRefs ?? bundle.config.playerRefs ?? {}
+    return newConfig
+  }
+
+  async function handleSaveConfig() {
+    if (!bundle || !matchVersion) return
     setError(null)
+    const newConfig = buildNewConfig()
+    if (isFinished) {
+      // For finished matches, show confirm dialog with reason
+      setConfirmPayload({ config: newConfig, events: bundle.events, reason: '' })
+      setConfirmReason('')
+      setShowConfirm(true)
+    } else {
+      // Live match path
+      await doSaveConfig(newConfig)
+    }
+  }
+
+  async function doSaveConfig(newConfig: MatchConfig) {
+    setSaving(true)
     try {
-      const newConfig = buildConfig(
-        {
-          teamAId: teamAName,
-          teamBId: teamBName,
-          lineups: bundle.config.lineups,
-          oversPerInnings: overs,
-          powerplayOvers: powerplay,
-          maxWickets,
-          superOverEnabled,
-          superOverOvers,
-          superOverMaxWickets,
-        },
-        matchId,
-      )
-      // Use updated playerRefs from config state (includes lineups tab edits)
-      newConfig.playerRefs = config.playerRefs ?? bundle.config.playerRefs
-      await api.replaceMatchConfig(matchId, newConfig)
+      if (isFinished && matchVersion) {
+        await api.editFinishedMatch(matchId, { config: newConfig, events: bundle!.events, reason: confirmReason, expectedUpdatedAt: matchVersion })
+      } else {
+        await api.replaceMatchConfig(matchId, newConfig)
+      }
       await loadMatch()
       onSaved?.()
     } catch (err) {
@@ -88,19 +122,49 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
     }
   }
 
-  async function saveEvents() {
-    if (!bundle) return
-    setSaving(true)
+  async function handleSaveEvents() {
+    if (!bundle || !matchVersion) return
     setError(null)
+    if (isFinished) {
+      // For finished matches, show confirm dialog with reason
+      const newConfig = buildNewConfig()
+      setConfirmPayload({ config: newConfig, events: bundle.events, reason: '' })
+      setConfirmReason('')
+      setShowConfirm(true)
+    } else {
+      // Live match path
+      await doSaveEvents()
+    }
+  }
+
+  async function doSaveEvents() {
+    setSaving(true)
     try {
-      // For now, just reload - in a full implementation you'd have an event editor
-      await api.replaceMatchEvents(matchId, bundle.events)
+      if (isFinished && matchVersion) {
+        const newConfig = buildNewConfig()
+        await api.editFinishedMatch(matchId, { config: newConfig, events: bundle!.events, reason: confirmReason, expectedUpdatedAt: matchVersion })
+      } else {
+        await api.replaceMatchEvents(matchId, bundle!.events)
+      }
       await loadMatch()
       onSaved?.()
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not save events')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleConfirmSave() {
+    if (!confirmPayload || !confirmReason.trim()) {
+      setError('Reason is required for editing finished matches')
+      return
+    }
+    setShowConfirm(false)
+    if (activeTab === 'setup' || activeTab === 'lineups') {
+      await doSaveConfig(confirmPayload.config)
+    } else {
+      await doSaveEvents()
     }
   }
 
@@ -221,8 +285,8 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
             </div>
 
             <div className="btn-row" style={{ marginTop: 16 }}>
-              <button className="btn accent" onClick={saveConfig} disabled={saving}>
-                {saving ? 'Saving…' : 'Save Match Setup'}
+              <button className="btn accent" onClick={handleSaveConfig} disabled={saving || (isFinished && !canEditFinished())}>
+                {saving ? 'Saving…' : isFinished ? 'Save Match Setup (Requires Confirmation)' : 'Save Match Setup'}
               </button>
             </div>
           </div>
@@ -240,8 +304,9 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
                   <div key={team} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 16 }}>
                     <h4 style={{ marginTop: 0 }}>{bundle.config[team === 'A' ? 'teamAId' : 'teamBId']} Lineup</h4>
                     <ul style={{ listStyle: 'none', padding: 0 }}>
-                      {bundle.config.lineups[team].map((playerId, idx) => {
-                        const ref = bundle.config.playerRefs[playerId]
+                      {bundle.config.lineups[team].map((playerId: string, idx: number) => {
+                        const playerRefs = bundle.config.playerRefs ?? {}
+                        const ref = playerRefs[playerId]
                         return (
                           <li key={playerId} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <span style={{ width: 24, textAlign: 'right', color: 'var(--text-tertiary)' }}>{idx + 1}.</span>
@@ -249,11 +314,12 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
                               type="text"
                               value={ref?.name || playerId}
                               onChange={e => {
-                                const newRefs = { ...bundle.config.playerRefs }
+                                const newRefs = { ...playerRefs }
                                 newRefs[playerId] = { ...newRefs[playerId], name: e.target.value }
                                 setConfig(prev => ({ ...prev, playerRefs: newRefs }))
                               }}
                               style={{ flex: 1, padding: '6px 10px', fontSize: 14 }}
+                              disabled={isFinished && !canEditFinished()}
                             />
                           </li>
                         )
@@ -264,8 +330,8 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
               </div>
             )}
             <div className="btn-row" style={{ marginTop: 16 }}>
-              <button className="btn accent" onClick={saveConfig} disabled={saving}>
-                {saving ? 'Saving…' : 'Save Lineups'}
+              <button className="btn accent" onClick={handleSaveConfig} disabled={saving || (isFinished && !canEditFinished())}>
+                {saving ? 'Saving…' : isFinished ? 'Save Lineups (Requires Confirmation)' : 'Save Lineups'}
               </button>
             </div>
           </div>
@@ -303,9 +369,69 @@ export function EditMatchScreen({ matchId, onBack, onSaved }: EditMatchScreenPro
                 </table>
               </div>
             )}
+            <div className="btn-row" style={{ marginTop: 16 }}>
+              <button className="btn accent" onClick={handleSaveEvents} disabled={saving || (isFinished && !canEditFinished())}>
+                {saving ? 'Saving…' : isFinished ? 'Save Events (Requires Confirmation)' : 'Save Events'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm dialog for finished match edits */}
+        {showConfirm && (
+          <div
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+            }}
+            onClick={() => setShowConfirm(false)}
+          >
+            <div
+              className="card"
+              style={{ maxWidth: 500, width: '90%', padding: 24 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 style={{ marginTop: 0 }}>Confirm Edit to Finished Match</h3>
+              <p className="muted" style={{ marginBottom: 16 }}>
+                This match is finished. Editing requires a reason and creates an audit trail.
+              </p>
+              <div className="form-field">
+                <label className="form-label">Reason for edit (required)</label>
+                <textarea
+                  value={confirmReason}
+                  onChange={e => setConfirmReason(e.target.value)}
+                  placeholder="e.g., Corrected a scoring error in over 15.2"
+                  style={{ minHeight: 80, width: '100%', padding: '8px 12px', fontSize: 14 }}
+                />
+              </div>
+              {confirmPayload && (
+                <div style={{ marginTop: 12, padding: 12, background: 'var(--surface)', borderRadius: 8, fontSize: 12, maxHeight: 200, overflow: 'auto' }}>
+                  <strong>Changes summary:</strong>
+                  <pre style={{ margin: '8px 0', whiteSpace: 'pre-wrap' }}>
+                    {JSON.stringify({
+                      configChanged: JSON.stringify(confirmPayload.config) !== JSON.stringify(bundle?.config),
+                      eventsCount: confirmPayload.events.length,
+                      reason: confirmReason || '(not provided)',
+                    }, null, 2)}
+                  </pre>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                <button className="btn ghost" onClick={() => setShowConfirm(false)}>Cancel</button>
+                <button className="btn accent" onClick={handleConfirmSave} disabled={!confirmReason.trim()}>
+                  Confirm & Save
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
     </div>
   )
+}
+
+function canEditFinished(): boolean {
+  // This will be checked server-side, but we can show the UI for signed-in users
+  // The actual authorization happens in the RPC function
+  return true
 }
